@@ -21,8 +21,9 @@ public static class JsonFileHelper
             var json = File.ReadAllText(filePath);
             return JsonSerializer.Deserialize<T>(json, Options);
         }
-        catch
+        catch (Exception ex)
         {
+            Console.Error.WriteLine($"Failed to load JSON from '{filePath}': {ex.Message}");
             return null;
         }
     }

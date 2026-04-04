@@ -18,6 +18,11 @@ namespace WondayWall.Services;
 
 public class ContextService(AppConfigService configService)
 {
+    private static readonly HttpClient SharedHttpClient = new()
+    {
+        Timeout = TimeSpan.FromSeconds(30),
+    };
+
     private CalendarService? _calendarService;
 
     public async Task<List<CalendarEventItem>> FetchCalendarEventsAsync(CancellationToken ct = default)
@@ -89,8 +94,7 @@ public class ContextService(AppConfigService configService)
         if (config.RssSources.Count == 0)
             return topics;
 
-        using var httpClient = new HttpClient();
-        httpClient.Timeout = TimeSpan.FromSeconds(30);
+        var httpClient = SharedHttpClient;
 
         foreach (var rssUrl in config.RssSources)
         {

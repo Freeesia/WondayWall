@@ -136,6 +136,8 @@
                         <TextBlock Text="Google AI 設定" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,4" />
                         <Label Content="Google AI APIキー" />
                         <TextBox Text="{Binding AppConfig.GoogleAiApiKey, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" />
+                        <Label Content="Google AI モデル名" />
+                        <TextBox Text="{Binding AppConfig.GoogleAiModelName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" />
 
                         <TextBlock Text="Googleカレンダー設定" FontSize="16" FontWeight="SemiBold" Margin="0,8,0,4" />
                         <Label Content="OAuth クライアント ID" />

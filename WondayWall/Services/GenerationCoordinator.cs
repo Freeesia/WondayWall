@@ -40,7 +40,6 @@ public class GenerationCoordinator(
         {
             historyItem.IsSuccess = false;
             historyItem.ErrorSummary = ex.Message;
-            throw;
         }
         finally
         {

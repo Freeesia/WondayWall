@@ -23,7 +23,10 @@ public class GoogleAiService(AppConfigService configService)
 
         var prompt = BuildPrompt(context);
 
-        var model = new GenerativeModel(config.GoogleAiApiKey, "gemini-2.0-flash-preview-image-generation");
+        var model = new GenerativeModel(config.GoogleAiApiKey, 
+            string.IsNullOrWhiteSpace(config.GoogleAiModelName) 
+                ? "gemini-2.0-flash-preview-image-generation"
+                : config.GoogleAiModelName);
         var response = await model.GenerateContentAsync(prompt, cancellationToken: ct);
 
         var imageBytes = ExtractImageBytes(response);
