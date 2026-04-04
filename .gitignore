@@ -1,2 +1,15 @@
-**/bin/
-**/obj/
+# Build outputs
+bin/
+obj/
+
+# Visual Studio
+.vs/
+*.user
+
+# NuGet
+*.nupkg
+**/packages/
+
+# OS
+.DS_Store
+Thumbs.db
