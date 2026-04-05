@@ -1,67 +1,37 @@
-using System;
-using System.Linq;
-using System.Threading.Tasks;
 using ConsoleAppFramework;
+using Kamishibai;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Wpf.Extensions.Hosting;
+using WondayWall;
 using WondayWall.Commands;
 using WondayWall.Services;
 using WondayWall.ViewModels;
 using WondayWall.Views;
+using Wpf.Extensions.Hosting;
 
-namespace WondayWall;
+// Thread.CurrentThread.SetApartmentState(ApartmentState.STA);
 
-internal static class Program
+var cafApp = ConsoleApp.Create()
+    .ConfigureServices(ConfigureCommonServices);
+
+cafApp.Add<CliCommands>();
+cafApp.Add("", () =>
 {
-    private static readonly string[] CliCommandNames =
-        ["run-once", "generate", "check-calendar", "check-news", "check-google-ai"];
+    var builder = WpfApplication<App, MainWindow>.CreateBuilder(args);
+    ConfigureCommonServices(builder.Services);
+    builder.Services.AddPresentation<MainWindow, MainWindowViewModel>();
+    var wpfApp = builder.Build();
+    return wpfApp.RunAsync();
+});
 
-    [STAThread]
-    public static async Task Main(string[] args)
-    {
-        bool isCli = args.Length > 0 &&
-            CliCommandNames.Contains(args[0], StringComparer.OrdinalIgnoreCase);
+await cafApp.RunAsync(args).ConfigureAwait(false);
 
-        if (isCli)
-        {
-            await RunCliAsync(args);
-        }
-        else
-        {
-            await RunGuiAsync(args);
-        }
-    }
-
-    private static async Task RunCliAsync(string[] args)
-    {
-        var app = ConsoleApp.Create()
-            .ConfigureServices(services =>
-            {
-                services.AddSingleton<AppConfigService>();
-                services.AddSingleton<ContextService>();
-                services.AddSingleton<GoogleAiService>();
-                services.AddSingleton<WallpaperService>();
-                services.AddSingleton<GenerationCoordinator>();
-            });
-
-        app.Add<CliCommands>();
-        await app.RunAsync(args);
-    }
-
-    private static async Task RunGuiAsync(string[] args)
-    {
-        var builder = WpfApplication<App, MainWindow>.CreateBuilder(args);
-
-        builder.Services.AddSingleton<AppConfigService>();
-        builder.Services.AddSingleton<ContextService>();
-        builder.Services.AddSingleton<GoogleAiService>();
-        builder.Services.AddSingleton<WallpaperService>();
-        builder.Services.AddSingleton<GenerationCoordinator>();
-        builder.Services.AddTransient<MainWindowViewModel>();
-        builder.Services.AddTransient<MainWindow>();
-
-        var wpfApp = builder.Build();
-        await wpfApp.RunAsync();
-    }
+static void ConfigureCommonServices(IServiceCollection services)
+{
+    services.AddSingleton<AppConfigService>();
+    services.AddSingleton<ContextService>();
+    services.AddSingleton<GoogleAiService>();
+    services.AddSingleton<WallpaperService>();
+    services.AddSingleton<GenerationCoordinator>();
+    services.AddSingleton<TaskSchedulerService>();
 }

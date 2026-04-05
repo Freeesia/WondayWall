@@ -11,6 +11,7 @@ public partial class MainWindowViewModel : ObservableObject
     private readonly AppConfigService _configService;
     private readonly ContextService _contextService;
     private readonly GenerationCoordinator _coordinator;
+    private readonly TaskSchedulerService _taskSchedulerService;
 
     [ObservableProperty]
     private AppConfig _appConfig = new();
@@ -25,6 +26,9 @@ public partial class MainWindowViewModel : ObservableObject
     private bool _isGenerating;
 
     [ObservableProperty]
+    private bool _isTaskSchedulerEnabled;
+
+    [ObservableProperty]
     private GeneratedImageInfo? _lastGeneratedImage;
 
     [ObservableProperty]
@@ -37,13 +41,16 @@ public partial class MainWindowViewModel : ObservableObject
     public MainWindowViewModel(
         AppConfigService configService,
         ContextService contextService,
-        GenerationCoordinator coordinator)
+        GenerationCoordinator coordinator,
+        TaskSchedulerService taskSchedulerService)
     {
         _configService = configService;
         _contextService = contextService;
         _coordinator = coordinator;
+        _taskSchedulerService = taskSchedulerService;
 
         AppConfig = configService.Load();
+        IsTaskSchedulerEnabled = _taskSchedulerService.IsEnabled();
         LoadHistory();
     }
 
@@ -83,7 +90,26 @@ public partial class MainWindowViewModel : ObservableObject
     private void Save()
     {
         _configService.Save(AppConfig);
+        if (IsTaskSchedulerEnabled)
+            _taskSchedulerService.Enable();
         LastResultMessage = "Settings saved.";
+    }
+
+    [RelayCommand]
+    private void ToggleTaskScheduler()
+    {
+        try
+        {
+            if (IsTaskSchedulerEnabled)
+                _taskSchedulerService.Enable();
+            else
+                _taskSchedulerService.Disable();
+        }
+        catch (Exception ex)
+        {
+            IsTaskSchedulerEnabled = !IsTaskSchedulerEnabled;
+            LastResultMessage = $"Task Scheduler error: {ex.Message}";
+        }
     }
 
     [RelayCommand]
