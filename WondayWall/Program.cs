@@ -9,19 +9,18 @@ using WondayWall.ViewModels;
 using WondayWall.Views;
 using Wpf.Extensions.Hosting;
 
-// Thread.CurrentThread.SetApartmentState(ApartmentState.STA);
-
 var cafApp = ConsoleApp.Create()
     .ConfigureServices(ConfigureCommonServices);
 
 cafApp.Add<CliCommands>();
-cafApp.Add("", () =>
+cafApp.Add("", async () =>
 {
-    var builder = WpfApplication<App, MainWindow>.CreateBuilder(args);
+    var builder = WpfApplication<App, MainWindow>.CreateBuilder();
     ConfigureCommonServices(builder.Services);
-    builder.Services.AddPresentation<MainWindow, MainWindowViewModel>();
+    builder.Services
+        .AddPresentation<MainWindow, MainWindowViewModel>();
     var wpfApp = builder.Build();
-    return wpfApp.RunAsync();
+    await wpfApp.RunAsync();
 });
 
 await cafApp.RunAsync(args).ConfigureAwait(false);

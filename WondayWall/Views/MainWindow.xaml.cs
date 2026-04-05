@@ -1,12 +1,13 @@
-using WondayWall.ViewModels;
+using Wpf.Ui.Appearance;
+using Wpf.Ui.Controls;
 
 namespace WondayWall.Views;
 
-public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
+public partial class MainWindow : FluentWindow
 {
-    public MainWindow(MainWindowViewModel viewModel)
+    public MainWindow()
     {
+        SystemThemeWatcher.Watch(this);
         InitializeComponent();
-        DataContext = viewModel;
     }
 }
