@@ -34,9 +34,17 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty]
     private string _lastImagePreviewPath = string.Empty;
 
+    [ObservableProperty]
+    private string _newRssSourceUrl = string.Empty;
+
+    [ObservableProperty]
+    private string? _selectedRssSource;
+
     public ObservableCollection<CalendarEventItem> RecentEvents { get; } = [];
     public ObservableCollection<NewsTopicItem> RecentNews { get; } = [];
     public ObservableCollection<HistoryItem> History { get; } = [];
+    public ObservableCollection<string> RssSources { get; } = [];
+    public ObservableCollection<AvailableCalendar> AvailableCalendars { get; } = [];
 
     public MainWindowViewModel(
         AppConfigService configService,
@@ -50,6 +58,8 @@ public partial class MainWindowViewModel : ObservableObject
         _taskSchedulerService = taskSchedulerService;
 
         AppConfig = configService.Load();
+        foreach (var src in AppConfig.RssSources)
+            RssSources.Add(src);
         IsTaskSchedulerEnabled = _taskSchedulerService.IsEnabled();
         LoadHistory();
     }
@@ -89,6 +99,14 @@ public partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private void Save()
     {
+        AppConfig.RssSources = [.. RssSources];
+        if (AvailableCalendars.Count > 0)
+        {
+            AppConfig.TargetCalendarIds = AvailableCalendars
+                .Where(c => c.IsSelected)
+                .Select(c => c.Id)
+                .ToList();
+        }
         _configService.Save(AppConfig);
         if (IsTaskSchedulerEnabled)
             _taskSchedulerService.Enable();
@@ -134,6 +152,29 @@ public partial class MainWindowViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private async Task FetchAvailableCalendarsAsync(CancellationToken ct = default)
+    {
+        CalendarStatus = "Fetching calendar list...";
+        try
+        {
+            var calendars = await _contextService.FetchAvailableCalendarsAsync(ct);
+            AvailableCalendars.Clear();
+            foreach (var cal in calendars)
+            {
+                cal.IsSelected = AppConfig.TargetCalendarIds.Contains(cal.Id);
+                AvailableCalendars.Add(cal);
+            }
+            CalendarStatus = calendars.Count > 0
+                ? $"Calendar list: {calendars.Count} item(s)"
+                : "No calendars found";
+        }
+        catch (Exception ex)
+        {
+            CalendarStatus = $"Error: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
     private async Task FetchNewsAsync(CancellationToken ct = default)
     {
         try
@@ -147,6 +188,24 @@ public partial class MainWindowViewModel : ObservableObject
         {
             LastResultMessage = $"News fetch error: {ex.Message}";
         }
+    }
+
+    [RelayCommand]
+    private void AddRssSource()
+    {
+        var url = NewRssSourceUrl.Trim();
+        if (!string.IsNullOrEmpty(url) && !RssSources.Contains(url))
+        {
+            RssSources.Add(url);
+            NewRssSourceUrl = string.Empty;
+        }
+    }
+
+    [RelayCommand]
+    private void RemoveRssSource(string? url)
+    {
+        if (!string.IsNullOrEmpty(url))
+            RssSources.Remove(url);
     }
 
     private void LoadHistory()

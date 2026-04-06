@@ -80,9 +80,17 @@
                                         DisplayMemberBinding="{Binding IsSuccess}"
                                         Header="成功" />
                                     <GridViewColumn
-                                        Width="300"
+                                        Width="60"
+                                        DisplayMemberBinding="{Binding UsedCalendarEvents.Count, FallbackValue=0}"
+                                        Header="予定" />
+                                    <GridViewColumn
+                                        Width="60"
+                                        DisplayMemberBinding="{Binding UsedNewsTopics.Count, FallbackValue=0}"
+                                        Header="ニュース" />
+                                    <GridViewColumn
+                                        Width="200"
                                         DisplayMemberBinding="{Binding ErrorSummary}"
-                                        Header="メモ / エラー" />
+                                        Header="エラー" />
                                 </GridView>
                             </ListView.View>
                         </ListView>
@@ -100,12 +108,39 @@
                             </ui:CardControl.Icon>
                             <StackPanel>
                                 <TextBlock Margin="0,0,0,8" Text="{Binding CalendarStatus}" />
-                                <ui:Button
-                                    Appearance="Secondary"
-                                    Command="{Binding CheckConnectionCommand}"
-                                    Content="接続確認" />
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:Button
+                                        Margin="0,0,8,0"
+                                        Appearance="Secondary"
+                                        Command="{Binding CheckConnectionCommand}"
+                                        Content="接続確認" />
+                                    <ui:Button
+                                        Appearance="Secondary"
+                                        Command="{Binding FetchAvailableCalendarsCommand}"
+                                        Content="カレンダー一覧を取得" />
+                                </StackPanel>
                             </StackPanel>
                         </ui:CardControl>
+
+                        <TextBlock
+                            Margin="0,8,0,4"
+                            FontSize="16"
+                            FontWeight="SemiBold"
+                            Text="参照するカレンダー" />
+                        <TextBlock
+                            Margin="0,0,0,4"
+                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                            Text="「カレンダー一覧を取得」後に選択し、設定を保存してください。" />
+                        <ListView
+                            MaxHeight="160"
+                            Margin="0,0,0,12"
+                            ItemsSource="{Binding AvailableCalendars}">
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <CheckBox Content="{Binding Summary}" IsChecked="{Binding IsSelected}" />
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
 
                         <TextBlock
                             Margin="0,8,0,4"
@@ -134,9 +169,51 @@
                             </ListView.View>
                         </ListView>
 
-                        <ui:CardControl Margin="0,0,0,12" Header="ニュース取得">
+                        <ui:CardControl Margin="0,0,0,12" Header="RSSソース管理">
                             <ui:CardControl.Icon>
                                 <ui:SymbolIcon Symbol="News24" />
+                            </ui:CardControl.Icon>
+                            <StackPanel>
+                                <ListView
+                                    MaxHeight="120"
+                                    Margin="0,0,0,8"
+                                    ItemsSource="{Binding RssSources}"
+                                    SelectedItem="{Binding SelectedRssSource}">
+                                    <ListView.View>
+                                        <GridView>
+                                            <GridViewColumn Width="380" DisplayMemberBinding="{Binding}" Header="URL" />
+                                        </GridView>
+                                    </ListView.View>
+                                </ListView>
+                                <Grid Margin="0,0,0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <ui:TextBox
+                                        Grid.Column="0"
+                                        Margin="0,0,8,0"
+                                        PlaceholderText="https://example.com/feed.xml"
+                                        Text="{Binding NewRssSourceUrl, UpdateSourceTrigger=PropertyChanged}" />
+                                    <ui:Button
+                                        Grid.Column="1"
+                                        Appearance="Primary"
+                                        Command="{Binding AddRssSourceCommand}"
+                                        Content="追加"
+                                        Icon="{ui:SymbolIcon Symbol=Add24}" />
+                                </Grid>
+                                <ui:Button
+                                    Appearance="Secondary"
+                                    Command="{Binding RemoveRssSourceCommand}"
+                                    CommandParameter="{Binding SelectedRssSource}"
+                                    Content="選択中を削除"
+                                    Icon="{ui:SymbolIcon Symbol=Delete24}" />
+                            </StackPanel>
+                        </ui:CardControl>
+
+                        <ui:CardControl Margin="0,0,0,12" Header="ニュース取得">
+                            <ui:CardControl.Icon>
+                                <ui:SymbolIcon Symbol="ArrowSync24" />
                             </ui:CardControl.Icon>
                             <StackPanel>
                                 <TextBlock Margin="0,0,0,8" Text="RSSフィードからニュースを取得します" />
@@ -188,21 +265,15 @@
                             Margin="0,8,0,4"
                             FontSize="16"
                             FontWeight="SemiBold"
-                            Text="Googleカレンダー設定" />
-                        <Label Content="OAuth クライアント ID" />
-                        <TextBox Margin="0,0,0,8" Text="{Binding AppConfig.GoogleCalendarClientId, UpdateSourceTrigger=PropertyChanged}" />
-                        <Label Content="OAuth クライアントシークレット" />
-                        <TextBox Margin="0,0,0,8" Text="{Binding AppConfig.GoogleCalendarClientSecret, UpdateSourceTrigger=PropertyChanged}" />
-
-                        <TextBlock
-                            Margin="0,8,0,4"
-                            FontSize="16"
-                            FontWeight="SemiBold"
-                            Text="画像設定" />
-                        <Label Content="画像サイズ (例: 1920x1080)" />
-                        <TextBox Margin="0,0,0,8" Text="{Binding AppConfig.ImageSize, UpdateSourceTrigger=PropertyChanged}" />
-                        <Label Content="画像保存パス" />
-                        <TextBox Margin="0,0,0,8" Text="{Binding AppConfig.ImageSavePath, UpdateSourceTrigger=PropertyChanged}" />
+                            Text="プロンプト設定" />
+                        <Label Content="ユーザープロンプト（追加の指示）" />
+                        <TextBox
+                            Height="80"
+                            Margin="0,0,0,8"
+                            AcceptsReturn="True"
+                            Text="{Binding AppConfig.UserPrompt, UpdateSourceTrigger=PropertyChanged}"
+                            TextWrapping="Wrap"
+                            VerticalScrollBarVisibility="Auto" />
 
                         <TextBlock
                             Margin="0,8,0,4"

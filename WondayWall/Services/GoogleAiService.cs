@@ -8,6 +8,10 @@ namespace WondayWall.Services;
 
 public class GoogleAiService(AppConfigService configService)
 {
+    private static readonly string FixedImageSavePath = Path.Combine(
+        System.Environment.GetFolderPath(System.Environment.SpecialFolder.ApplicationData),
+        "WondayWall", "wallpapers");
+
     public async Task<GeneratedImageInfo> GenerateWallpaperAsync(
         PromptContext context,
         CancellationToken ct = default)
@@ -19,8 +23,8 @@ public class GoogleAiService(AppConfigService configService)
 
         var prompt = BuildPrompt(context);
 
-        var model = new GenerativeModel(config.GoogleAiApiKey, 
-            string.IsNullOrWhiteSpace(config.GoogleAiModelName) 
+        var model = new GenerativeModel(config.GoogleAiApiKey,
+            string.IsNullOrWhiteSpace(config.GoogleAiModelName)
                 ? "gemini-2.0-flash-preview-image-generation"
                 : config.GoogleAiModelName);
         var response = await model.GenerateContentAsync(prompt, cancellationToken: ct);
@@ -30,11 +34,7 @@ public class GoogleAiService(AppConfigService configService)
         if (imageBytes == null || imageBytes.Length == 0)
             throw new InvalidOperationException("No image data returned from Google AI.");
 
-        var savePath = string.IsNullOrWhiteSpace(config.ImageSavePath)
-            ? Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.MyPictures), "WondayWall")
-            : config.ImageSavePath;
-
-        var filePath = FileNameHelper.GetImageFilePath(savePath);
+        var filePath = FileNameHelper.GetImageFilePath(FixedImageSavePath);
         await File.WriteAllBytesAsync(filePath, imageBytes, ct);
 
         return new GeneratedImageInfo

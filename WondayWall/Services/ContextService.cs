@@ -4,9 +4,11 @@ using System.ServiceModel.Syndication;
 using System.Xml;
 using Google.Apis.Auth.OAuth2;
 using Google.Apis.Calendar.v3;
+using Google.Apis.Calendar.v3.Data;
 using Google.Apis.Services;
 using Google.Apis.Util.Store;
 using WondayWall.Models;
+using WondayWall.Utils;
 
 namespace WondayWall.Services;
 
@@ -24,13 +26,13 @@ public class ContextService(AppConfigService configService)
         var config = configService.Current;
         var events = new List<CalendarEventItem>();
 
-        if (string.IsNullOrWhiteSpace(config.GoogleCalendarClientId) ||
-            string.IsNullOrWhiteSpace(config.GoogleCalendarClientSecret))
+        if (string.IsNullOrWhiteSpace(GoogleCredentialProvider.ClientId) ||
+            string.IsNullOrWhiteSpace(GoogleCredentialProvider.ClientSecret))
             return events;
 
         try
         {
-            var calSvc = await GetCalendarServiceAsync(config, ct);
+            var calSvc = await GetCalendarServiceAsync(ct);
             var now = DateTime.UtcNow;
             var end = now.AddDays(7);
 
@@ -78,6 +80,33 @@ public class ContextService(AppConfigService configService)
         }
 
         return events;
+    }
+
+    public async Task<List<AvailableCalendar>> FetchAvailableCalendarsAsync(CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(GoogleCredentialProvider.ClientId) ||
+            string.IsNullOrWhiteSpace(GoogleCredentialProvider.ClientSecret))
+            return [];
+
+        try
+        {
+            var calSvc = await GetCalendarServiceAsync(ct);
+            var request = calSvc.CalendarList.List();
+            var result = await request.ExecuteAsync(ct);
+
+            return result.Items?
+                .Select(c => new AvailableCalendar
+                {
+                    Id = c.Id ?? string.Empty,
+                    Summary = c.Summary ?? c.Id ?? string.Empty,
+                })
+                .ToList() ?? [];
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Calendar list fetch error: {ex.Message}");
+            return [];
+        }
     }
 
     public async Task<List<NewsTopicItem>> FetchNewsAsync(CancellationToken ct = default)
@@ -132,7 +161,7 @@ public class ContextService(AppConfigService configService)
         return topics;
     }
 
-    public async Task<PromptContext> BuildPromptContextAsync(CancellationToken ct = default)
+    public async Task<ContextBuildResult> BuildContextAsync(CancellationToken ct = default)
     {
         var config = configService.Current;
         var eventsTask = FetchCalendarEventsAsync(ct);
@@ -153,16 +182,26 @@ public class ContextService(AppConfigService configService)
             ? "No relevant news topics."
             : string.Join("\n", news.Take(5).Select(n => $"- {n.Title}"));
 
-        return new PromptContext
+        var context = new PromptContext
         {
             EventSummary = eventSummary,
             NewsSummary = newsSummary,
             AtmosphereKeywords = [.. config.InterestKeywords],
-            ImageSize = config.ImageSize,
+            ImageSize = DisplayHelper.GetPrimaryScreenSize(),
+            AdditionalConstraints = string.IsNullOrWhiteSpace(config.UserPrompt)
+                ? null
+                : config.UserPrompt,
+        };
+
+        return new ContextBuildResult
+        {
+            PromptContext = context,
+            CalendarEvents = events,
+            NewsTopics = news,
         };
     }
 
-    private async Task<CalendarService> GetCalendarServiceAsync(AppConfig config, CancellationToken ct)
+    private async Task<CalendarService> GetCalendarServiceAsync(CancellationToken ct = default)
     {
         if (_calendarService != null)
             return _calendarService;
@@ -173,8 +212,8 @@ public class ContextService(AppConfigService configService)
 
         var secrets = new ClientSecrets
         {
-            ClientId = config.GoogleCalendarClientId,
-            ClientSecret = config.GoogleCalendarClientSecret,
+            ClientId = GoogleCredentialProvider.ClientId,
+            ClientSecret = GoogleCredentialProvider.ClientSecret,
         };
 
         var credential = await GoogleWebAuthorizationBroker.AuthorizeAsync(

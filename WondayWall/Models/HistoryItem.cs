@@ -6,4 +6,6 @@ public class HistoryItem
     public bool IsSuccess { get; set; }
     public string? ErrorSummary { get; set; }
     public string? AppliedImagePath { get; set; }
+    public List<CalendarEventItem>? UsedCalendarEvents { get; set; }
+    public List<NewsTopicItem>? UsedNewsTopics { get; set; }
 }

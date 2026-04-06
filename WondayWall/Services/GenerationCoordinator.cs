@@ -24,12 +24,14 @@ public class GenerationCoordinator(
 
         try
         {
-            var context = await contextService.BuildPromptContextAsync(ct);
-            var imageInfo = await googleAiService.GenerateWallpaperAsync(context, ct);
+            var contextResult = await contextService.BuildContextAsync(ct);
+            var imageInfo = await googleAiService.GenerateWallpaperAsync(contextResult.PromptContext, ct);
             wallpaperService.SetWallpaper(imageInfo.FilePath);
 
             historyItem.IsSuccess = true;
             historyItem.AppliedImagePath = imageInfo.FilePath;
+            historyItem.UsedCalendarEvents = contextResult.CalendarEvents;
+            historyItem.UsedNewsTopics = contextResult.NewsTopics;
         }
         catch (Exception ex)
         {

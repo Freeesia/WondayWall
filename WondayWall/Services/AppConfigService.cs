@@ -32,16 +32,10 @@ public class AppConfigService
 
     private static AppConfig CreateDefault()
     {
-        var defaultImagePath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.MyPictures),
-            "WondayWall");
-
         return new AppConfig
         {
-            ImageSavePath = defaultImagePath,
             UpdateIntervalHours = 6,
             EnableLogging = true,
-            ImageSize = "1920x1080",
         };
     }
 }
