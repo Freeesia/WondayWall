@@ -187,7 +187,7 @@ public class ContextService(AppConfigService configService)
             EventSummary = eventSummary,
             NewsSummary = newsSummary,
             AtmosphereKeywords = [.. config.InterestKeywords],
-            ImageSize = DisplayHelper.GetPrimaryScreenSize(),
+            ImageSize = DisplayHelper.GetClosestSupportedSize(),
             AdditionalConstraints = string.IsNullOrWhiteSpace(config.UserPrompt)
                 ? null
                 : config.UserPrompt,

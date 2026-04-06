@@ -258,8 +258,6 @@
                             Text="Google AI 設定" />
                         <Label Content="Google AI APIキー" />
                         <TextBox Margin="0,0,0,8" Text="{Binding AppConfig.GoogleAiApiKey, UpdateSourceTrigger=PropertyChanged}" />
-                        <Label Content="Google AI モデル名" />
-                        <TextBox Margin="0,0,0,8" Text="{Binding AppConfig.GoogleAiModelName, UpdateSourceTrigger=PropertyChanged}" />
 
                         <TextBlock
                             Margin="0,8,0,4"

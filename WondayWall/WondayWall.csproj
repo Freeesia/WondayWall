@@ -13,9 +13,6 @@
     <EnableDefaultApplicationDefinition>false</EnableDefaultApplicationDefinition>
   </PropertyGroup>
 
-  <ItemGroup>
-    <EmbeddedResource Include="Resources\google_client_secret.json" />
-  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
