@@ -32,8 +32,9 @@ internal static class GoogleCredentialProvider
             var clientSecret = installed.GetProperty("client_secret").GetString() ?? string.Empty;
             return (clientId, clientSecret);
         }
-        catch
+        catch (Exception ex)
         {
+            Console.Error.WriteLine($"Failed to load Google credentials from embedded resource: {ex.Message}");
             return (string.Empty, string.Empty);
         }
     }

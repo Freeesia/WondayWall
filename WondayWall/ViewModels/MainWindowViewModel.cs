@@ -194,7 +194,9 @@ public partial class MainWindowViewModel : ObservableObject
     private void AddRssSource()
     {
         var url = NewRssSourceUrl.Trim();
-        if (!string.IsNullOrEmpty(url) && !RssSources.Contains(url))
+        if (!string.IsNullOrEmpty(url)
+            && Uri.TryCreate(url, UriKind.Absolute, out _)
+            && !RssSources.Contains(url))
         {
             RssSources.Add(url);
             NewRssSourceUrl = string.Empty;
