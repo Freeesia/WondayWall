@@ -61,9 +61,10 @@ public class GoogleAiService(AppConfigService configService)
                     }
                 });
             }
-            catch
+            catch (Exception ex)
             {
                 // OGP画像ダウンロード失敗は無視
+                Console.Error.WriteLine($"OGP image download failed [{imgUrl}]: {ex.Message}");
             }
         }
 

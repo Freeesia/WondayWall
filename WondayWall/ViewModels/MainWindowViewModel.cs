@@ -76,7 +76,10 @@ public partial class MainWindowViewModel : ObservableObject
                 ? $"Connected — {RecentEvents.Count} event(s)"
                 : "Connected — no upcoming events";
         }
-        catch { /* ログインしていない場合は無視 */ }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"InitializeDataAsync calendar error: {ex.Message}");
+        }
 
         // ニュース
         try
@@ -84,7 +87,10 @@ public partial class MainWindowViewModel : ObservableObject
             await foreach (var n in _contextService.FetchNewsAsync())
                 RecentNews.Add(n);
         }
-        catch { /* ignore */ }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"InitializeDataAsync news error: {ex.Message}");
+        }
     }
 
     [RelayCommand(CanExecute = nameof(CanGenerate))]
