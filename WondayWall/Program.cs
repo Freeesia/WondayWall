@@ -2,12 +2,12 @@ using ConsoleAppFramework;
 using Kamishibai;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Windows.Win32.UI.Shell;
 using WondayWall;
 using WondayWall.Commands;
 using WondayWall.Services;
 using WondayWall.ViewModels;
 using WondayWall.Views;
-using Wpf.Extensions.Hosting;
 
 var cafApp = ConsoleApp.Create()
     .ConfigureServices(ConfigureCommonServices);
@@ -15,7 +15,7 @@ var cafApp = ConsoleApp.Create()
 cafApp.Add<CliCommands>();
 cafApp.Add("", async () =>
 {
-    var builder = WpfApplication<App, MainWindow>.CreateBuilder();
+    var builder = KamishibaiApplication<App, MainWindow>.CreateBuilder();
     ConfigureCommonServices(builder.Services);
     builder.Services
         .AddPresentation<MainWindow, MainWindowViewModel>();
@@ -27,6 +27,7 @@ await cafApp.RunAsync(args).ConfigureAwait(false);
 
 static void ConfigureCommonServices(IServiceCollection services)
 {
+    services.AddSingleton(_ => (IDesktopWallpaper)new DesktopWallpaper());
     services.AddSingleton<AppConfigService>();
     services.AddSingleton<ContextService>();
     services.AddSingleton<GoogleAiService>();

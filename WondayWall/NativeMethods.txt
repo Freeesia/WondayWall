@@ -1,2 +1,4 @@
 SystemParametersInfoW
 GetSystemMetrics
+IDesktopWallpaper
+DesktopWallpaper

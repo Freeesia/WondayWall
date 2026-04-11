@@ -1,10 +1,10 @@
 using System.IO;
 using System.Net.Http;
+using System.Text;
 using System.ServiceModel.Syndication;
 using System.Xml;
 using Google.Apis.Auth.OAuth2;
 using Google.Apis.Calendar.v3;
-using Google.Apis.Calendar.v3.Data;
 using Google.Apis.Services;
 using Google.Apis.Util.Store;
 using WondayWall.Models;
@@ -14,6 +14,23 @@ namespace WondayWall.Services;
 
 public class ContextService(AppConfigService configService)
 {
+    private const string ClientId = "1032289774423-97qnlp8qkh7vca159jvq1ohggcn4qaqm.apps.googleusercontent.com";
+
+    private static readonly byte[] _scrambledClientSecret =
+        [16, 33, 39, 42, 7, 52, 122, 25, 21, 77, 7, 95, 38, 87, 23, 72, 49, 0, 13, 13, 5, 74, 31, 30, 54, 60, 23, 61, 27, 43, 4, 2, 35, 84, 52];
+
+    private static string ClientSecret
+    {
+        get
+        {
+            var key = "WndyWl"u8;
+            Span<byte> buf = stackalloc byte[_scrambledClientSecret.Length];
+            for (var i = 0; i < buf.Length; i++)
+                buf[i] = (byte)(_scrambledClientSecret[i] ^ key[i % key.Length]);
+            return Encoding.ASCII.GetString(buf);
+        }
+    }
+
     private static readonly HttpClient SharedHttpClient = new()
     {
         Timeout = TimeSpan.FromSeconds(30),
@@ -26,8 +43,8 @@ public class ContextService(AppConfigService configService)
         var config = configService.Current;
         var events = new List<CalendarEventItem>();
 
-        if (string.IsNullOrWhiteSpace(GoogleCredentialProvider.ClientId) ||
-            string.IsNullOrWhiteSpace(GoogleCredentialProvider.ClientSecret))
+        if (string.IsNullOrWhiteSpace(ClientId) ||
+            string.IsNullOrWhiteSpace(ClientSecret))
             return events;
 
         try
@@ -84,8 +101,8 @@ public class ContextService(AppConfigService configService)
 
     public async Task<List<AvailableCalendar>> FetchAvailableCalendarsAsync(CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(GoogleCredentialProvider.ClientId) ||
-            string.IsNullOrWhiteSpace(GoogleCredentialProvider.ClientSecret))
+        if (string.IsNullOrWhiteSpace(ClientId) ||
+            string.IsNullOrWhiteSpace(ClientSecret))
             return [];
 
         try
@@ -212,8 +229,8 @@ public class ContextService(AppConfigService configService)
 
         var secrets = new ClientSecrets
         {
-            ClientId = GoogleCredentialProvider.ClientId,
-            ClientSecret = GoogleCredentialProvider.ClientSecret,
+            ClientId = ClientId,
+            ClientSecret = ClientSecret,
         };
 
         var credential = await GoogleWebAuthorizationBroker.AuthorizeAsync(

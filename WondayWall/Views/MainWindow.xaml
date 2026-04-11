@@ -68,9 +68,9 @@
                             FontSize="16"
                             FontWeight="SemiBold"
                             Text="実行履歴" />
-                        <ListView MaxHeight="200" ItemsSource="{Binding History}">
-                            <ListView.View>
-                                <GridView>
+                        <ui:ListView MaxHeight="200" ItemsSource="{Binding History}">
+                            <ui:ListView.View>
+                                <ui:GridView>
                                     <GridViewColumn
                                         Width="160"
                                         DisplayMemberBinding="{Binding ExecutedAt, StringFormat='{}{0:yyyy/MM/dd HH:mm}'}"
@@ -91,9 +91,9 @@
                                         Width="200"
                                         DisplayMemberBinding="{Binding ErrorSummary}"
                                         Header="エラー" />
-                                </GridView>
-                            </ListView.View>
-                        </ListView>
+                                </ui:GridView>
+                            </ui:ListView.View>
+                        </ui:ListView>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
@@ -131,28 +131,28 @@
                             Margin="0,0,0,4"
                             Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                             Text="「カレンダー一覧を取得」後に選択し、設定を保存してください。" />
-                        <ListView
+                        <ui:ListView
                             MaxHeight="160"
                             Margin="0,0,0,12"
                             ItemsSource="{Binding AvailableCalendars}">
-                            <ListView.ItemTemplate>
+                            <ui:ListView.ItemTemplate>
                                 <DataTemplate>
                                     <CheckBox Content="{Binding Summary}" IsChecked="{Binding IsSelected}" />
                                 </DataTemplate>
-                            </ListView.ItemTemplate>
-                        </ListView>
+                            </ui:ListView.ItemTemplate>
+                        </ui:ListView>
 
                         <TextBlock
                             Margin="0,8,0,4"
                             FontSize="16"
                             FontWeight="SemiBold"
                             Text="直近のカレンダーイベント" />
-                        <ListView
+                        <ui:ListView
                             MaxHeight="160"
                             Margin="0,0,0,12"
                             ItemsSource="{Binding RecentEvents}">
-                            <ListView.View>
-                                <GridView>
+                            <ui:ListView.View>
+                                <ui:GridView>
                                     <GridViewColumn
                                         Width="250"
                                         DisplayMemberBinding="{Binding Title}"
@@ -165,9 +165,9 @@
                                         Width="150"
                                         DisplayMemberBinding="{Binding Location}"
                                         Header="場所" />
-                                </GridView>
-                            </ListView.View>
-                        </ListView>
+                                </ui:GridView>
+                            </ui:ListView.View>
+                        </ui:ListView>
 
                         <ui:CardControl Margin="0,0,0,12" Header="RSSソース管理">
                             <ui:CardControl.Icon>
@@ -181,7 +181,10 @@
                                     SelectedItem="{Binding SelectedRssSource}">
                                     <ListView.View>
                                         <GridView>
-                                            <GridViewColumn Width="380" DisplayMemberBinding="{Binding}" Header="URL" />
+                                            <GridViewColumn
+                                                Width="380"
+                                                DisplayMemberBinding="{Binding}"
+                                                Header="URL" />
                                         </GridView>
                                     </ListView.View>
                                 </ListView>
@@ -229,9 +232,9 @@
                             FontSize="16"
                             FontWeight="SemiBold"
                             Text="最新ニューストピック" />
-                        <ListView MaxHeight="160" ItemsSource="{Binding RecentNews}">
-                            <ListView.View>
-                                <GridView>
+                        <ui:ListView MaxHeight="160" ItemsSource="{Binding RecentNews}">
+                            <ui:ListView.View>
+                                <ui:GridView>
                                     <GridViewColumn
                                         Width="350"
                                         DisplayMemberBinding="{Binding Title}"
@@ -240,9 +243,9 @@
                                         Width="160"
                                         DisplayMemberBinding="{Binding FetchedAt, StringFormat='{}{0:yyyy/MM/dd HH:mm}'}"
                                         Header="取得日時" />
-                                </GridView>
-                            </ListView.View>
-                        </ListView>
+                                </ui:GridView>
+                            </ui:ListView.View>
+                        </ui:ListView>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
@@ -257,7 +260,7 @@
                             FontWeight="SemiBold"
                             Text="Google AI 設定" />
                         <Label Content="Google AI APIキー" />
-                        <TextBox Margin="0,0,0,8" Text="{Binding AppConfig.GoogleAiApiKey, UpdateSourceTrigger=PropertyChanged}" />
+                        <ui:PasswordBox Margin="0,0,0,8" Password="{Binding AppConfig.GoogleAiApiKey, UpdateSourceTrigger=PropertyChanged}" />
 
                         <TextBlock
                             Margin="0,8,0,4"

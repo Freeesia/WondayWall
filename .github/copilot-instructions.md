@@ -58,6 +58,8 @@ Program.cs
 
 ## 規約
 
+- コメントは日本語で記載する。
+
 ### MVVM
 
 - CommunityToolkit.MVVM を使用。`[ObservableProperty]`・`[RelayCommand]` 属性でボイラープレートを排除。

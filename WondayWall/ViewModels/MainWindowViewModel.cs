@@ -14,32 +14,31 @@ public partial class MainWindowViewModel : ObservableObject
     private readonly TaskSchedulerService _taskSchedulerService;
 
     [ObservableProperty]
-    private AppConfig _appConfig = new();
+    public partial AppConfig AppConfig { get; set; } = new();
 
     [ObservableProperty]
-    private string _calendarStatus = "Not connected";
+    public partial string CalendarStatus { get; set; } = "Not connected";
 
     [ObservableProperty]
-    private string _lastResultMessage = "No generation yet";
+    public partial string LastResultMessage { get; set; } = "No generation yet";
 
     [ObservableProperty]
-    private bool _isGenerating;
+    public partial bool IsGenerating { get; set; }
 
     [ObservableProperty]
-    private bool _isTaskSchedulerEnabled;
+    public partial bool IsTaskSchedulerEnabled { get; set; }
 
     [ObservableProperty]
-    private GeneratedImageInfo? _lastGeneratedImage;
+    public partial GeneratedImageInfo? LastGeneratedImage { get; set; }
 
     [ObservableProperty]
-    private string _lastImagePreviewPath = string.Empty;
+    public partial string LastImagePreviewPath { get; set; } = string.Empty;
 
     [ObservableProperty]
-    private string _newRssSourceUrl = string.Empty;
+    public partial string NewRssSourceUrl { get; set; } = string.Empty;
 
     [ObservableProperty]
-    private string? _selectedRssSource;
-
+    public partial string? SelectedRssSource { get; set; }
     public ObservableCollection<CalendarEventItem> RecentEvents { get; } = [];
     public ObservableCollection<NewsTopicItem> RecentNews { get; } = [];
     public ObservableCollection<HistoryItem> History { get; } = [];
