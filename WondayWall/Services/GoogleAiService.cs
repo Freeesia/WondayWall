@@ -1,4 +1,5 @@
 using System.IO;
+using System.Net.Http;
 using GenerativeAI;
 using GenerativeAI.Types;
 using WondayWall.Models;
@@ -12,6 +13,11 @@ public class GoogleAiService(AppConfigService configService)
         System.Environment.GetFolderPath(System.Environment.SpecialFolder.ApplicationData),
         "WondayWall", "wallpapers");
 
+    private static readonly HttpClient SharedHttpClient = new()
+    {
+        Timeout = TimeSpan.FromSeconds(30),
+    };
+
     public async Task<GeneratedImageInfo> GenerateWallpaperAsync(
         PromptContext context,
         CancellationToken ct = default)
@@ -21,10 +27,47 @@ public class GoogleAiService(AppConfigService configService)
         if (string.IsNullOrWhiteSpace(config.GoogleAiApiKey))
             throw new InvalidOperationException("Google AI API key is not configured.");
 
-        var prompt = BuildPrompt(context);
+        // ステップ1: テキストモデルで詳細な画像プロンプトを生成
+        var textModel = new GenerativeModel(config.GoogleAiApiKey, "gemini-3-flash-preview");
+        var contextPrompt = BuildContextPrompt(context);
+        var promptResponse = await textModel.GenerateContentAsync(contextPrompt, cancellationToken: ct);
+        var imagePrompt = promptResponse.Text() ?? contextPrompt;
 
-        var model = new GenerativeModel(config.GoogleAiApiKey, "gemini-3.1-flash-image-preview");
-        var response = await model.GenerateContentAsync(prompt, cancellationToken: ct);
+        // ステップ2: 画像モデルでアスペクト比・サイズを指定して壁紙を生成
+        var genConfig = new GenerationConfig
+        {
+            ResponseModalities = [Modality.IMAGE],
+            ImageConfig = new ImageConfig
+            {
+                AspectRatio = context.AspectRatio,
+                ImageSize = ImageConfigValues.ImageSizes.Size2K,
+            }
+        };
+        var imageModel = new GenerativeModel(config.GoogleAiApiKey, "gemini-3.1-flash-image-preview", genConfig);
+
+        // OGP画像がある場合はインラインデータとして添付
+        var parts = new List<Part> { new Part(imagePrompt) };
+        foreach (var imgUrl in context.OgpImageUrls.Take(3))
+        {
+            try
+            {
+                var imgBytes = await SharedHttpClient.GetByteArrayAsync(imgUrl, ct);
+                parts.Add(new Part
+                {
+                    InlineData = new Blob
+                    {
+                        MimeType = "image/jpeg",
+                        Data = Convert.ToBase64String(imgBytes),
+                    }
+                });
+            }
+            catch
+            {
+                // OGP画像ダウンロード失敗は無視
+            }
+        }
+
+        var response = await imageModel.GenerateContentAsync(parts, cancellationToken: ct);
 
         var imageBytes = ExtractImageBytes(response);
 
@@ -38,12 +81,12 @@ public class GoogleAiService(AppConfigService configService)
         {
             FilePath = filePath,
             GeneratedAt = DateTimeOffset.UtcNow,
-            UsedPrompt = prompt,
+            UsedPrompt = imagePrompt,
             SourceContext = context,
         };
     }
 
-    private static string BuildPrompt(PromptContext context)
+    private static string BuildContextPrompt(PromptContext context)
     {
         var parts = new List<string>
         {

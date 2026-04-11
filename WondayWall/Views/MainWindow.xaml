@@ -6,6 +6,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
     xmlns:vm="clr-namespace:WondayWall.ViewModels"
+    xmlns:utils="clr-namespace:WondayWall.Utils"
     Title="WondayWall"
     Width="900"
     Height="650"
@@ -18,6 +19,10 @@
     WindowStartupLocation="CenterScreen"
     mc:Ignorable="d">
 
+    <ui:FluentWindow.Resources>
+        <utils:UrlToFaviconConverter x:Key="UrlToFaviconConverter" />
+    </ui:FluentWindow.Resources>
+
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -27,7 +32,7 @@
         <ui:TitleBar Title="WondayWall" Grid.Row="0" />
 
         <TabControl Grid.Row="1" Margin="8">
-            <!--  Home Tab  -->
+            <!--  ホームタブ  -->
             <TabItem Header="ホーム">
                 <ScrollViewer>
                     <StackPanel Margin="16">
@@ -98,17 +103,19 @@
                 </ScrollViewer>
             </TabItem>
 
-            <!--  Data Tab  -->
+            <!--  データタブ  -->
             <TabItem Header="データ">
                 <ScrollViewer>
                     <StackPanel Margin="16">
-                        <ui:CardControl Margin="0,0,0,12" Header="Googleカレンダー接続状態">
+
+                        <!--  カレンダーグループ  -->
+                        <ui:CardControl Margin="0,0,0,12" Header="Googleカレンダー">
                             <ui:CardControl.Icon>
                                 <ui:SymbolIcon Symbol="Calendar24" />
                             </ui:CardControl.Icon>
                             <StackPanel>
                                 <TextBlock Margin="0,0,0,8" Text="{Binding CalendarStatus}" />
-                                <StackPanel Orientation="Horizontal">
+                                <StackPanel Margin="0,0,0,8" Orientation="Horizontal">
                                     <ui:Button
                                         Margin="0,0,8,0"
                                         Appearance="Secondary"
@@ -119,75 +126,77 @@
                                         Command="{Binding FetchAvailableCalendarsCommand}"
                                         Content="カレンダー一覧を取得" />
                                 </StackPanel>
+
+                                <TextBlock
+                                    Margin="0,0,0,4"
+                                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                    Text="参照するカレンダー（「カレンダー一覧を取得」後に選択してください）" />
+                                <ui:ListView
+                                    MaxHeight="120"
+                                    Margin="0,0,0,8"
+                                    ItemsSource="{Binding AvailableCalendars}">
+                                    <ui:ListView.ItemTemplate>
+                                        <DataTemplate>
+                                            <CheckBox Content="{Binding Summary}" IsChecked="{Binding IsSelected}" />
+                                        </DataTemplate>
+                                    </ui:ListView.ItemTemplate>
+                                </ui:ListView>
+
+                                <TextBlock
+                                    Margin="0,4,0,4"
+                                    FontWeight="SemiBold"
+                                    Text="直近のカレンダーイベント" />
+                                <ui:ListView
+                                    MaxHeight="160"
+                                    ItemsSource="{Binding RecentEvents}">
+                                    <ui:ListView.View>
+                                        <ui:GridView>
+                                            <GridViewColumn
+                                                Width="250"
+                                                DisplayMemberBinding="{Binding Title}"
+                                                Header="タイトル" />
+                                            <GridViewColumn
+                                                Width="160"
+                                                DisplayMemberBinding="{Binding StartTime, StringFormat='{}{0:yyyy/MM/dd HH:mm}'}"
+                                                Header="開始日時" />
+                                            <GridViewColumn
+                                                Width="150"
+                                                DisplayMemberBinding="{Binding Location}"
+                                                Header="場所" />
+                                        </ui:GridView>
+                                    </ui:ListView.View>
+                                </ui:ListView>
                             </StackPanel>
                         </ui:CardControl>
 
-                        <TextBlock
-                            Margin="0,8,0,4"
-                            FontSize="16"
-                            FontWeight="SemiBold"
-                            Text="参照するカレンダー" />
-                        <TextBlock
-                            Margin="0,0,0,4"
-                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                            Text="「カレンダー一覧を取得」後に選択し、設定を保存してください。" />
-                        <ui:ListView
-                            MaxHeight="160"
-                            Margin="0,0,0,12"
-                            ItemsSource="{Binding AvailableCalendars}">
-                            <ui:ListView.ItemTemplate>
-                                <DataTemplate>
-                                    <CheckBox Content="{Binding Summary}" IsChecked="{Binding IsSelected}" />
-                                </DataTemplate>
-                            </ui:ListView.ItemTemplate>
-                        </ui:ListView>
-
-                        <TextBlock
-                            Margin="0,8,0,4"
-                            FontSize="16"
-                            FontWeight="SemiBold"
-                            Text="直近のカレンダーイベント" />
-                        <ui:ListView
-                            MaxHeight="160"
-                            Margin="0,0,0,12"
-                            ItemsSource="{Binding RecentEvents}">
-                            <ui:ListView.View>
-                                <ui:GridView>
-                                    <GridViewColumn
-                                        Width="250"
-                                        DisplayMemberBinding="{Binding Title}"
-                                        Header="タイトル" />
-                                    <GridViewColumn
-                                        Width="160"
-                                        DisplayMemberBinding="{Binding StartTime, StringFormat='{}{0:yyyy/MM/dd HH:mm}'}"
-                                        Header="開始日時" />
-                                    <GridViewColumn
-                                        Width="150"
-                                        DisplayMemberBinding="{Binding Location}"
-                                        Header="場所" />
-                                </ui:GridView>
-                            </ui:ListView.View>
-                        </ui:ListView>
-
-                        <ui:CardControl Margin="0,0,0,12" Header="RSSソース管理">
+                        <!--  ニュースグループ  -->
+                        <ui:CardControl Margin="0,0,0,12" Header="ニュース">
                             <ui:CardControl.Icon>
                                 <ui:SymbolIcon Symbol="News24" />
                             </ui:CardControl.Icon>
                             <StackPanel>
-                                <ListView
+                                <TextBlock
+                                    Margin="0,0,0,4"
+                                    FontWeight="SemiBold"
+                                    Text="RSSソース" />
+                                <ListBox
                                     MaxHeight="120"
                                     Margin="0,0,0,8"
                                     ItemsSource="{Binding RssSources}"
                                     SelectedItem="{Binding SelectedRssSource}">
-                                    <ListView.View>
-                                        <GridView>
-                                            <GridViewColumn
-                                                Width="380"
-                                                DisplayMemberBinding="{Binding}"
-                                                Header="URL" />
-                                        </GridView>
-                                    </ListView.View>
-                                </ListView>
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Orientation="Horizontal">
+                                                <Image
+                                                    Width="16"
+                                                    Height="16"
+                                                    Margin="0,0,4,0"
+                                                    Source="{Binding Converter={StaticResource UrlToFaviconConverter}}" />
+                                                <TextBlock Text="{Binding}" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
                                 <Grid Margin="0,0,0,4">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
@@ -206,51 +215,60 @@
                                         Icon="{ui:SymbolIcon Symbol=Add24}" />
                                 </Grid>
                                 <ui:Button
+                                    Margin="0,0,0,12"
                                     Appearance="Secondary"
                                     Command="{Binding RemoveRssSourceCommand}"
                                     CommandParameter="{Binding SelectedRssSource}"
                                     Content="選択中を削除"
                                     Icon="{ui:SymbolIcon Symbol=Delete24}" />
-                            </StackPanel>
-                        </ui:CardControl>
 
-                        <ui:CardControl Margin="0,0,0,12" Header="ニュース取得">
-                            <ui:CardControl.Icon>
-                                <ui:SymbolIcon Symbol="ArrowSync24" />
-                            </ui:CardControl.Icon>
-                            <StackPanel>
-                                <TextBlock Margin="0,0,0,8" Text="RSSフィードからニュースを取得します" />
                                 <ui:Button
+                                    Margin="0,0,0,8"
                                     Appearance="Secondary"
                                     Command="{Binding FetchNewsCommand}"
                                     Content="ニュース取得" />
+
+                                <TextBlock
+                                    Margin="0,4,0,4"
+                                    FontWeight="SemiBold"
+                                    Text="最新ニューストピック" />
+                                <ui:ListView MaxHeight="160" ItemsSource="{Binding RecentNews}">
+                                    <ui:ListView.View>
+                                        <ui:GridView>
+                                            <GridViewColumn Header="アイコン" Width="40">
+                                                <GridViewColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <Image
+                                                            Width="16"
+                                                            Height="16"
+                                                            Source="{Binding FaviconUrl}" />
+                                                    </DataTemplate>
+                                                </GridViewColumn.CellTemplate>
+                                            </GridViewColumn>
+                                            <GridViewColumn
+                                                Width="350"
+                                                DisplayMemberBinding="{Binding Title}"
+                                                Header="タイトル" />
+                                            <GridViewColumn
+                                                Width="160"
+                                                DisplayMemberBinding="{Binding PublishedAt}"
+                                                Header="公開日時" />
+                                        </ui:GridView>
+                                    </ui:ListView.View>
+                                </ui:ListView>
                             </StackPanel>
                         </ui:CardControl>
 
-                        <TextBlock
-                            Margin="0,8,0,4"
-                            FontSize="16"
-                            FontWeight="SemiBold"
-                            Text="最新ニューストピック" />
-                        <ui:ListView MaxHeight="160" ItemsSource="{Binding RecentNews}">
-                            <ui:ListView.View>
-                                <ui:GridView>
-                                    <GridViewColumn
-                                        Width="350"
-                                        DisplayMemberBinding="{Binding Title}"
-                                        Header="タイトル" />
-                                    <GridViewColumn
-                                        Width="160"
-                                        DisplayMemberBinding="{Binding FetchedAt, StringFormat='{}{0:yyyy/MM/dd HH:mm}'}"
-                                        Header="取得日時" />
-                                </ui:GridView>
-                            </ui:ListView.View>
-                        </ui:ListView>
+                        <ui:Button
+                            HorizontalAlignment="Left"
+                            Appearance="Secondary"
+                            Command="{Binding SaveCommand}"
+                            Content="設定を保存" />
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
 
-            <!--  Settings Tab  -->
+            <!--  設定タブ  -->
             <TabItem Header="設定">
                 <ScrollViewer>
                     <StackPanel Margin="16">

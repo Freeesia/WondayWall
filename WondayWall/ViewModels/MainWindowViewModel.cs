@@ -61,6 +61,30 @@ public partial class MainWindowViewModel : ObservableObject
             RssSources.Add(src);
         IsTaskSchedulerEnabled = _taskSchedulerService.IsEnabled();
         LoadHistory();
+        _ = InitializeDataAsync();
+    }
+
+    /// <summary>起動時にカレンダーとニュースをバックグラウンドで取得する</summary>
+    private async Task InitializeDataAsync()
+    {
+        // カレンダー: ログイン済みの場合のみ（エラーは無視）
+        try
+        {
+            await foreach (var ev in _contextService.FetchCalendarEventsAsync())
+                RecentEvents.Add(ev);
+            CalendarStatus = RecentEvents.Count > 0
+                ? $"Connected — {RecentEvents.Count} event(s)"
+                : "Connected — no upcoming events";
+        }
+        catch { /* ログインしていない場合は無視 */ }
+
+        // ニュース
+        try
+        {
+            await foreach (var n in _contextService.FetchNewsAsync())
+                RecentNews.Add(n);
+        }
+        catch { /* ignore */ }
     }
 
     [RelayCommand(CanExecute = nameof(CanGenerate))]
@@ -135,13 +159,12 @@ public partial class MainWindowViewModel : ObservableObject
         CalendarStatus = "Checking...";
         try
         {
-            var events = await _contextService.FetchCalendarEventsAsync(ct);
             RecentEvents.Clear();
-            foreach (var ev in events)
+            await foreach (var ev in _contextService.FetchCalendarEventsAsync(ct))
                 RecentEvents.Add(ev);
 
-            CalendarStatus = events.Count > 0
-                ? $"Connected — {events.Count} event(s) found"
+            CalendarStatus = RecentEvents.Count > 0
+                ? $"Connected — {RecentEvents.Count} event(s) found"
                 : "Connected — no upcoming events";
         }
         catch (Exception ex)
@@ -156,15 +179,14 @@ public partial class MainWindowViewModel : ObservableObject
         CalendarStatus = "Fetching calendar list...";
         try
         {
-            var calendars = await _contextService.FetchAvailableCalendarsAsync(ct);
             AvailableCalendars.Clear();
-            foreach (var cal in calendars)
+            await foreach (var cal in _contextService.FetchAvailableCalendarsAsync(ct))
             {
                 cal.IsSelected = AppConfig.TargetCalendarIds.Contains(cal.Id);
                 AvailableCalendars.Add(cal);
             }
-            CalendarStatus = calendars.Count > 0
-                ? $"Calendar list: {calendars.Count} item(s)"
+            CalendarStatus = AvailableCalendars.Count > 0
+                ? $"Calendar list: {AvailableCalendars.Count} item(s)"
                 : "No calendars found";
         }
         catch (Exception ex)
@@ -178,9 +200,8 @@ public partial class MainWindowViewModel : ObservableObject
     {
         try
         {
-            var news = await _contextService.FetchNewsAsync(ct);
             RecentNews.Clear();
-            foreach (var n in news)
+            await foreach (var n in _contextService.FetchNewsAsync(ct))
                 RecentNews.Add(n);
         }
         catch (Exception ex)

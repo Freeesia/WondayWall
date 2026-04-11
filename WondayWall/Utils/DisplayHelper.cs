@@ -3,35 +3,39 @@ using Windows.Win32.UI.WindowsAndMessaging;
 
 namespace WondayWall.Utils;
 
+/// <summary>ディスプレイサイズとアスペクト比の情報</summary>
+public record DisplaySizeInfo(string Size, string AspectRatio);
+
 internal static class DisplayHelper
 {
-    // Supported image sizes for gemini-3.1-flash-image-preview at 2K resolution
-    // aspect ratio (W:H) => "WxH"
-    private static readonly (double Ratio, string Size)[] SupportedSizes =
+    // gemini-3.1-flash-image-preview が 2K 解像度でサポートするサイズ一覧
+    // (アスペクト比, "WxH", "W:H") の形式
+    private static readonly (double Ratio, string Size, string AspectRatioLabel)[] SupportedSizes =
     [
-        (1.0 / 8,  "768x6144"),
-        (1.0 / 4,  "1024x4096"),
-        (2.0 / 3,  "1696x2528"),
-        (3.0 / 4,  "1792x2400"),
-        (4.0 / 5,  "1856x2304"),
-        (9.0 / 16, "1536x2752"),
-        (1.0 / 1,  "2048x2048"),
-        (5.0 / 4,  "2304x1856"),
-        (4.0 / 3,  "2400x1792"),
-        (3.0 / 2,  "2528x1696"),
-        (16.0 / 9, "2752x1536"),
-        (21.0 / 9, "3168x1344"),
-        (4.0 / 1,  "4096x1024"),
-        (8.0 / 1,  "6144x768"),
+        (1.0 / 8,  "768x6144",  "1:8"),
+        (1.0 / 4,  "1024x4096", "1:4"),
+        (2.0 / 3,  "1696x2528", "2:3"),
+        (3.0 / 4,  "1792x2400", "3:4"),
+        (4.0 / 5,  "1856x2304", "4:5"),
+        (9.0 / 16, "1536x2752", "9:16"),
+        (1.0 / 1,  "2048x2048", "1:1"),
+        (5.0 / 4,  "2304x1856", "5:4"),
+        (4.0 / 3,  "2400x1792", "4:3"),
+        (3.0 / 2,  "2528x1696", "3:2"),
+        (16.0 / 9, "2752x1536", "16:9"),
+        (21.0 / 9, "3168x1344", "21:9"),
+        (4.0 / 1,  "4096x1024", "4:1"),
+        (8.0 / 1,  "6144x768",  "8:1"),
     ];
 
-    public static string GetClosestSupportedSize()
+    /// <summary>現在のディスプレイ解像度に最も近いサポートサイズとアスペクト比を返す</summary>
+    public static DisplaySizeInfo GetDisplayInfo()
     {
         var width = PInvoke.GetSystemMetrics(SYSTEM_METRICS_INDEX.SM_CXSCREEN);
         var height = PInvoke.GetSystemMetrics(SYSTEM_METRICS_INDEX.SM_CYSCREEN);
 
         if (width <= 0 || height <= 0)
-            return "2752x1536"; // fallback to 16:9
+            return new DisplaySizeInfo("2752x1536", "16:9"); // フォールバック: 16:9
 
         var ratio = (double)width / height;
 
@@ -46,6 +50,9 @@ internal static class DisplayHelper
                 bestDiff = diff;
             }
         }
-        return best.Size;
+        return new DisplaySizeInfo(best.Size, best.AspectRatioLabel);
     }
+
+    /// <summary>後方互換性のためサイズ文字列のみを返すラッパー</summary>
+    public static string GetClosestSupportedSize() => GetDisplayInfo().Size;
 }

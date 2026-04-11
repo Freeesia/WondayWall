@@ -7,4 +7,7 @@ public class NewsTopicItem
     public string? Url { get; set; }
     public DateTimeOffset FetchedAt { get; set; }
     public List<string> MatchedKeywords { get; set; } = [];
+    public DateTimeOffset? PublishedAt { get; set; }
+    public string? OgpImageUrl { get; set; }
+    public string? FaviconUrl { get; set; }
 }

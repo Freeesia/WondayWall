@@ -1,5 +1,6 @@
 using System.IO;
 using System.Net.Http;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.ServiceModel.Syndication;
 using System.Xml;
@@ -7,6 +8,7 @@ using Google.Apis.Auth.OAuth2;
 using Google.Apis.Calendar.v3;
 using Google.Apis.Services;
 using Google.Apis.Util.Store;
+using OpenGraphNet;
 using WondayWall.Models;
 using WondayWall.Utils;
 
@@ -38,156 +40,213 @@ public class ContextService(AppConfigService configService)
 
     private CalendarService? _calendarService;
 
-    public async Task<List<CalendarEventItem>> FetchCalendarEventsAsync(CancellationToken ct = default)
+    /// <summary>Googleカレンダーのイベントを非同期ストリームで返す</summary>
+    public async IAsyncEnumerable<CalendarEventItem> FetchCalendarEventsAsync(
+        [EnumeratorCancellation] CancellationToken ct = default)
     {
         var config = configService.Current;
-        var events = new List<CalendarEventItem>();
 
         if (string.IsNullOrWhiteSpace(ClientId) ||
             string.IsNullOrWhiteSpace(ClientSecret))
-            return events;
+            yield break;
 
+        CalendarService calSvc;
         try
         {
-            var calSvc = await GetCalendarServiceAsync(ct);
-            var now = DateTime.UtcNow;
-            var end = now.AddDays(7);
+            calSvc = await GetCalendarServiceAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Calendar auth error: {ex.Message}");
+            yield break;
+        }
 
-            var calendarIds = config.TargetCalendarIds.Count > 0
-                ? config.TargetCalendarIds
-                : ["primary"];
+        var now = DateTime.UtcNow;
+        var end = now.AddDays(7);
 
-            foreach (var calId in calendarIds)
+        var calendarIds = config.TargetCalendarIds.Count > 0
+            ? config.TargetCalendarIds
+            : ["primary"];
+
+        foreach (var calId in calendarIds)
+        {
+            ct.ThrowIfCancellationRequested();
+            Google.Apis.Calendar.v3.Data.Events result;
+            try
             {
                 var request = calSvc.Events.List(calId);
                 request.TimeMinDateTimeOffset = now;
                 request.TimeMaxDateTimeOffset = end;
                 request.SingleEvents = true;
                 request.OrderBy = EventsResource.ListRequest.OrderByEnum.StartTime;
+                result = await request.ExecuteAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Calendar fetch error [{calId}]: {ex.Message}");
+                continue;
+            }
 
-                var result = await request.ExecuteAsync(ct);
-                if (result.Items == null) continue;
+            if (result.Items == null) continue;
 
-                foreach (var ev in result.Items)
+            foreach (var ev in result.Items)
+            {
+                var start = ev.Start?.DateTimeDateTimeOffset
+                            ?? (ev.Start?.Date != null
+                                ? DateTimeOffset.Parse(ev.Start.Date)
+                                : DateTimeOffset.UtcNow);
+
+                var endTime = ev.End?.DateTimeDateTimeOffset
+                           ?? (ev.End?.Date != null
+                               ? DateTimeOffset.Parse(ev.End.Date)
+                               : (DateTimeOffset?)null);
+
+                yield return new CalendarEventItem
                 {
-                    var start = ev.Start?.DateTimeDateTimeOffset
-                                ?? (ev.Start?.Date != null
-                                    ? DateTimeOffset.Parse(ev.Start.Date)
-                                    : DateTimeOffset.UtcNow);
-
-                    var endTime = ev.End?.DateTimeDateTimeOffset
-                               ?? (ev.End?.Date != null
-                                   ? DateTimeOffset.Parse(ev.End.Date)
-                                   : (DateTimeOffset?)null);
-
-                    events.Add(new CalendarEventItem
-                    {
-                        Title = ev.Summary ?? "(no title)",
-                        StartTime = start,
-                        EndTime = endTime,
-                        Location = ev.Location,
-                        Description = ev.Description,
-                    });
-                }
+                    Title = ev.Summary ?? "(no title)",
+                    StartTime = start,
+                    EndTime = endTime,
+                    Location = ev.Location,
+                    Description = ev.Description,
+                };
             }
         }
-        catch (Exception ex)
-        {
-            Console.Error.WriteLine($"Calendar fetch error: {ex.Message}");
-        }
-
-        return events;
     }
 
-    public async Task<List<AvailableCalendar>> FetchAvailableCalendarsAsync(CancellationToken ct = default)
+    /// <summary>利用可能なGoogleカレンダー一覧を非同期ストリームで返す</summary>
+    public async IAsyncEnumerable<AvailableCalendar> FetchAvailableCalendarsAsync(
+        [EnumeratorCancellation] CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(ClientId) ||
             string.IsNullOrWhiteSpace(ClientSecret))
-            return [];
+            yield break;
 
+        CalendarService calSvc;
         try
         {
-            var calSvc = await GetCalendarServiceAsync(ct);
-            var request = calSvc.CalendarList.List();
-            var result = await request.ExecuteAsync(ct);
+            calSvc = await GetCalendarServiceAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Calendar auth error: {ex.Message}");
+            yield break;
+        }
 
-            return result.Items?
-                .Select(c => new AvailableCalendar
-                {
-                    Id = c.Id ?? string.Empty,
-                    Summary = c.Summary ?? c.Id ?? string.Empty,
-                })
-                .ToList() ?? [];
+        Google.Apis.Calendar.v3.Data.CalendarList calendarList;
+        try
+        {
+            var request = calSvc.CalendarList.List();
+            calendarList = await request.ExecuteAsync(ct);
         }
         catch (Exception ex)
         {
             Console.Error.WriteLine($"Calendar list fetch error: {ex.Message}");
-            return [];
+            yield break;
+        }
+
+        if (calendarList.Items == null) yield break;
+
+        foreach (var c in calendarList.Items)
+        {
+            yield return new AvailableCalendar
+            {
+                Id = c.Id ?? string.Empty,
+                Summary = c.Summary ?? c.Id ?? string.Empty,
+            };
         }
     }
 
-    public async Task<List<NewsTopicItem>> FetchNewsAsync(CancellationToken ct = default)
+    /// <summary>RSSフィードのニューストピックをOGP情報付きで非同期ストリームで返す</summary>
+    public async IAsyncEnumerable<NewsTopicItem> FetchNewsAsync(
+        [EnumeratorCancellation] CancellationToken ct = default)
     {
         var config = configService.Current;
-        var topics = new List<NewsTopicItem>();
 
         if (config.RssSources.Count == 0)
-            return topics;
-
-        var httpClient = SharedHttpClient;
+            yield break;
 
         foreach (var rssUrl in config.RssSources)
         {
             ct.ThrowIfCancellationRequested();
+
+            // ファビコンURLをRSSホストから生成
+            string? faviconUrl = null;
+            if (Uri.TryCreate(rssUrl, UriKind.Absolute, out var rssUri))
+                faviconUrl = $"https://www.google.com/s2/favicons?sz=32&domain={rssUri.Host}";
+
+            SyndicationFeed feed;
             try
             {
-                var xml = await httpClient.GetStringAsync(rssUrl, ct);
+                var xml = await SharedHttpClient.GetStringAsync(rssUrl, ct);
                 using var reader = XmlReader.Create(new StringReader(xml));
-                var feed = SyndicationFeed.Load(reader);
-
-                foreach (var item in feed.Items)
-                {
-                    var title = item.Title?.Text ?? string.Empty;
-                    var summary = item.Summary?.Text;
-                    var url = item.Links.FirstOrDefault()?.Uri.ToString();
-
-                    var matched = config.InterestKeywords
-                        .Where(k => title.Contains(k, StringComparison.OrdinalIgnoreCase)
-                                 || (summary?.Contains(k, StringComparison.OrdinalIgnoreCase) ?? false))
-                        .ToList();
-
-                    if (config.InterestKeywords.Count == 0 || matched.Count > 0)
-                    {
-                        topics.Add(new NewsTopicItem
-                        {
-                            Title = title,
-                            Summary = summary,
-                            Url = url,
-                            FetchedAt = DateTimeOffset.UtcNow,
-                            MatchedKeywords = matched,
-                        });
-                    }
-                }
+                feed = SyndicationFeed.Load(reader);
             }
             catch (Exception ex)
             {
                 Console.Error.WriteLine($"RSS fetch error [{rssUrl}]: {ex.Message}");
+                continue;
+            }
+
+            foreach (var item in feed.Items)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                var title = item.Title?.Text ?? string.Empty;
+                var summary = item.Summary?.Text;
+                var url = item.Links.FirstOrDefault()?.Uri.ToString();
+
+                var matched = config.InterestKeywords
+                    .Where(k => title.Contains(k, StringComparison.OrdinalIgnoreCase)
+                             || (summary?.Contains(k, StringComparison.OrdinalIgnoreCase) ?? false))
+                    .ToList();
+
+                if (config.InterestKeywords.Count > 0 && matched.Count == 0)
+                    continue;
+
+                // OGP画像URLを取得
+                string? ogpImageUrl = null;
+                if (!string.IsNullOrEmpty(url))
+                {
+                    try
+                    {
+                        var ogp = await OpenGraph.ParseUrlAsync(url, cancellationToken: ct);
+                        if (ogp.Image != null)
+                            ogpImageUrl = ogp.Image.OriginalString;
+                    }
+                    catch
+                    {
+                        // OGP取得失敗は無視
+                    }
+                }
+
+                yield return new NewsTopicItem
+                {
+                    Title = title,
+                    Summary = summary,
+                    Url = url,
+                    FetchedAt = DateTimeOffset.UtcNow,
+                    MatchedKeywords = matched,
+                    PublishedAt = item.PublishDate == DateTimeOffset.MinValue ? null : item.PublishDate,
+                    OgpImageUrl = ogpImageUrl,
+                    FaviconUrl = faviconUrl,
+                };
             }
         }
-
-        return topics;
     }
 
     public async Task<ContextBuildResult> BuildContextAsync(CancellationToken ct = default)
     {
         var config = configService.Current;
-        var eventsTask = FetchCalendarEventsAsync(ct);
-        var newsTask = FetchNewsAsync(ct);
 
-        await Task.WhenAll(eventsTask, newsTask);
+        // カレンダーイベントを収集
+        var events = new List<CalendarEventItem>();
+        await foreach (var ev in FetchCalendarEventsAsync(ct))
+            events.Add(ev);
 
-        var events = await eventsTask;
-        var news = await newsTask;
+        // ニューストピックを収集
+        var news = new List<NewsTopicItem>();
+        await foreach (var n in FetchNewsAsync(ct))
+            news.Add(n);
 
         var eventSummary = events.Count == 0
             ? "No upcoming calendar events."
@@ -199,15 +258,21 @@ public class ContextService(AppConfigService configService)
             ? "No relevant news topics."
             : string.Join("\n", news.Take(5).Select(n => $"- {n.Title}"));
 
+        var displayInfo = DisplayHelper.GetDisplayInfo();
         var context = new PromptContext
         {
             EventSummary = eventSummary,
             NewsSummary = newsSummary,
             AtmosphereKeywords = [.. config.InterestKeywords],
-            ImageSize = DisplayHelper.GetClosestSupportedSize(),
+            ImageSize = displayInfo.Size,
+            AspectRatio = displayInfo.AspectRatio,
             AdditionalConstraints = string.IsNullOrWhiteSpace(config.UserPrompt)
                 ? null
                 : config.UserPrompt,
+            OgpImageUrls = news.Where(n => n.OgpImageUrl != null)
+                               .Select(n => n.OgpImageUrl!)
+                               .Take(3)
+                               .ToList(),
         };
 
         return new ContextBuildResult
