@@ -15,11 +15,15 @@ public class WallpaperService
             throw new FileNotFoundException("Wallpaper image not found.", imagePath);
 
         var fullPath = Path.GetFullPath(imagePath);
+        // Windows 8.0 以降でサポートされる IDesktopWallpaper を使用
+        // このアプリは Windows 専用のため警告を抑制
+#pragma warning disable CA1416
         var wallpaper = (IDesktopWallpaper)new DesktopWallpaper();
         // monitorID に null (既定モニター) を指定すると全モニターに適用
         fixed (char* pathPtr = fullPath)
         {
             wallpaper.SetWallpaper(default, pathPtr);
         }
+#pragma warning restore CA1416
     }
 }

@@ -51,12 +51,16 @@ public class GoogleAiService(AppConfigService configService)
         {
             try
             {
-                var imgBytes = await SharedHttpClient.GetByteArrayAsync(imgUrl, ct);
+                // HTTPレスポンスからMIMEタイプを取得してインラインデータとして添付
+                using var imgResponse = await SharedHttpClient.GetAsync(imgUrl, ct);
+                imgResponse.EnsureSuccessStatusCode();
+                var mimeType = imgResponse.Content.Headers.ContentType?.MediaType ?? "image/jpeg";
+                var imgBytes = await imgResponse.Content.ReadAsByteArrayAsync(ct);
                 parts.Add(new Part
                 {
                     InlineData = new Blob
                     {
-                        MimeType = "image/jpeg",
+                        MimeType = mimeType,
                         Data = Convert.ToBase64String(imgBytes),
                     }
                 });

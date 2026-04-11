@@ -2,7 +2,6 @@ using ConsoleAppFramework;
 using Kamishibai;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Windows.Win32.UI.Shell;
 using WondayWall;
 using WondayWall.Commands;
 using WondayWall.Services;
@@ -27,7 +26,6 @@ await cafApp.RunAsync(args).ConfigureAwait(false);
 
 static void ConfigureCommonServices(IServiceCollection services)
 {
-    services.AddSingleton(_ => (IDesktopWallpaper)new DesktopWallpaper());
     services.AddSingleton<AppConfigService>();
     services.AddSingleton<ContextService>();
     services.AddSingleton<GoogleAiService>();

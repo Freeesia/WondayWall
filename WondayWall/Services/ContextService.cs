@@ -226,7 +226,7 @@ public class ContextService(AppConfigService configService)
                     Url = url,
                     FetchedAt = DateTimeOffset.UtcNow,
                     MatchedKeywords = matched,
-                    PublishedAt = item.PublishDate == DateTimeOffset.MinValue ? null : item.PublishDate,
+                    PublishedAt = item.PublishDate.Year > 1990 ? item.PublishDate : null,
                     OgpImageUrl = ogpImageUrl,
                     FaviconUrl = faviconUrl,
                 };
