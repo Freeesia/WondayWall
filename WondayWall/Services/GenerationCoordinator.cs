@@ -36,7 +36,7 @@ public class GenerationCoordinator(
             // スキップ条件チェック：直近の予定がなく、ニュースに変化がない場合はスキップ
             if (skipIfNoChanges
                 && contextResult.CalendarEvents.Count == 0
-                && !HasNewsChanged(contextResult.NewsTopics))
+                && !HasNewsChanged(contextResult.NewsTopics, LoadHistory()))
             {
                 logger.LogInformation("変化がないため画像生成をスキップします");
                 isSuccess = true;
@@ -58,6 +58,7 @@ public class GenerationCoordinator(
             errorSummary = ex.Message;
         }
 
+        var historyItems = LoadHistory();
         var historyItem = new HistoryItem(
             ExecutedAt: DateTimeOffset.UtcNow,
             IsSuccess: isSuccess,
@@ -69,7 +70,7 @@ public class GenerationCoordinator(
 
         try
         {
-            await AppendHistoryAsync(historyItem);
+            await AppendHistoryAsync(historyItem, historyItems);
         }
         catch (Exception ex)
         {
@@ -89,9 +90,8 @@ public class GenerationCoordinator(
         return JsonFileHelper.Load<List<HistoryItem>>(HistoryFilePath) ?? [];
     }
 
-    private async Task AppendHistoryAsync(HistoryItem item)
+    private async Task AppendHistoryAsync(HistoryItem item, List<HistoryItem> history)
     {
-        var history = LoadHistory();
         history.Insert(0, item);
 
         if (history.Count > 100)
@@ -104,22 +104,24 @@ public class GenerationCoordinator(
     /// 直前の成功した生成履歴と比較し、ニューストピックに変化があるかを返す。
     /// 前回の履歴がない場合は変化ありとみなす。
     /// </summary>
-    private bool HasNewsChanged(List<NewsTopicItem> currentNews)
+    private static bool HasNewsChanged(List<NewsTopicItem> currentNews, List<HistoryItem> history)
     {
         // スキップ判定に使う直前の成功・非スキップ履歴を取得
-        var lastHistory = LoadHistory()
+        var lastHistory = history
             .FirstOrDefault(h => h.IsSuccess && !h.IsSkipped);
 
         if (lastHistory?.UsedNewsTopics == null || lastHistory.UsedNewsTopics.Count == 0)
             return true;
 
-        // URL があればURLで、なければタイトルで比較
+        // URLがあればURLで、なければタイトルで比較（どちらもnullの場合は除外）
         var previousKeys = lastHistory.UsedNewsTopics
             .Select(n => n.Url ?? n.Title)
+            .Where(k => k != null)
             .ToHashSet();
 
         var currentKeys = currentNews
             .Select(n => n.Url ?? n.Title)
+            .Where(k => k != null)
             .ToHashSet();
 
         return !previousKeys.SetEquals(currentKeys);
