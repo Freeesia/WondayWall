@@ -279,13 +279,11 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
             AspectRatio: displayInfo.AspectRatio,
             AdditionalConstraints: string.IsNullOrWhiteSpace(config.UserPrompt)
                 ? null
-                : config.UserPrompt)
-        {
-            OgpImageUrls = news.Where(n => n.OgpImageUrl != null)
-                               .Select(n => n.OgpImageUrl!)
-                               .Take(3)
-                               .ToList(),
-        };
+                : config.UserPrompt,
+            OgpImageUrls: news.Where(n => n.OgpImageUrl != null)
+                              .Select(n => n.OgpImageUrl!)
+                              .Take(3)
+                              .ToList());
 
         return new ContextBuildResult(context, events, news);
     }

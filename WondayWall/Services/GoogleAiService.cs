@@ -45,7 +45,7 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
 
         // OGP画像がある場合はインラインデータとして添付
         var parts = new List<Part> { new Part(imagePrompt) };
-        foreach (var imgUrl in context.OgpImageUrls.Take(3))
+        foreach (var imgUrl in (context.OgpImageUrls ?? []).Take(3))
         {
             try
             {
