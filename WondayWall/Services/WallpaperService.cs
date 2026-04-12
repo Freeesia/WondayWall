@@ -5,9 +5,27 @@ using WindowsDesktop;
 
 namespace WondayWall.Services;
 
-public class WallpaperService(ILogger<WallpaperService> logger)
+public class WallpaperService
 {
     private readonly IDesktopWallpaper _wallpaper = (IDesktopWallpaper)new DesktopWallpaper();
+    private readonly ILogger<WallpaperService> logger;
+
+    public WallpaperService(ILogger<WallpaperService> logger)
+    {
+        this.logger = logger;
+        VirtualDesktop.Configure(new()
+        {
+            CompiledAssemblySaveDirectory = new(Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "StudioFreesia",
+#if DEBUG
+                "WondayWall-debug",
+#else
+                "WondayWall",
+#endif
+                "assemblies")),
+        });
+    }
 
     /// <summary>すべての仮想デスクトップに壁紙を適用する</summary>
     public unsafe void SetWallpaper(string imagePath)
