@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0-windows</TargetFramework>
+    <TargetFramework>net10.0-windows10.0.22621.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
@@ -12,6 +12,7 @@
     <Company>StudioFreesia</Company>
     <EnableDefaultApplicationDefinition>false</EnableDefaultApplicationDefinition>
   </PropertyGroup>
+
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
@@ -24,9 +25,11 @@
     <PackageReference Include="Kamishibai" Version="3.1.0" />
     <PackageReference Include="Kamishibai.Hosting" Version="3.1.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.5" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.5" />
     <PackageReference Include="System.ServiceModel.Syndication" Version="10.0.5" />
     <PackageReference Include="WPF-UI" Version="4.2.0" />
     <PackageReference Include="TaskScheduler" Version="2.*" />
     <PackageReference Include="Microsoft.Windows.CsWin32" Version="0.3.*" PrivateAssets="all" />
+    <PackageReference Include="OpenGraph-Net" Version="4.0.1" />
   </ItemGroup>
 </Project>

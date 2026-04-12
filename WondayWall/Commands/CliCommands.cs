@@ -42,7 +42,10 @@ public class CliCommands(
         Console.WriteLine("Fetching calendar events...");
         try
         {
-            var events = await contextService.FetchCalendarEventsAsync(cancellationToken);
+            var events = new List<CalendarEventItem>();
+            await foreach (var ev in contextService.FetchCalendarEventsAsync(cancellationToken))
+                events.Add(ev);
+
             if (events.Count == 0)
             {
                 Console.WriteLine("No events found (or calendar not configured).");
@@ -67,7 +70,10 @@ public class CliCommands(
         Console.WriteLine("Fetching news topics...");
         try
         {
-            var news = await contextService.FetchNewsAsync(cancellationToken);
+            var news = new List<NewsTopicItem>();
+            await foreach (var n in contextService.FetchNewsAsync(cancellationToken))
+                news.Add(n);
+
             if (news.Count == 0)
             {
                 Console.WriteLine("No news topics found (or RSS sources not configured).");
@@ -92,13 +98,10 @@ public class CliCommands(
         Console.WriteLine("Testing Google AI connection...");
         try
         {
-            var context = new PromptContext
-            {
-                EventSummary = "Test event",
-                NewsSummary = "Test news",
-                AtmosphereKeywords = ["nature", "calm"],
-                ImageSize = "1920x1080",
-            };
+            var context = new PromptContext(
+                EventSummary: "Test event",
+                NewsSummary: "Test news",
+                ImageSize: "1920x1080");
 
             var info = await googleAiService.GenerateWallpaperAsync(context, cancellationToken);
             Console.WriteLine($"Success! Image saved to: {info.FilePath}");

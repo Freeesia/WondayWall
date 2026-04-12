@@ -1,9 +1,9 @@
 namespace WondayWall.Models;
 
-public class HistoryItem
-{
-    public DateTimeOffset ExecutedAt { get; set; }
-    public bool IsSuccess { get; set; }
-    public string? ErrorSummary { get; set; }
-    public string? AppliedImagePath { get; set; }
-}
+public record HistoryItem(
+    DateTimeOffset ExecutedAt,
+    bool IsSuccess,
+    string? ErrorSummary = null,
+    string? AppliedImagePath = null,
+    List<CalendarEventItem>? UsedCalendarEvents = null,
+    List<NewsTopicItem>? UsedNewsTopics = null);

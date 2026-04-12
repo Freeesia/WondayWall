@@ -18,7 +18,7 @@ public class AppConfigService
 
     public AppConfig Load()
     {
-        _current = JsonFileHelper.Load<AppConfig>(ConfigFilePath) ?? CreateDefault();
+        _current = JsonFileHelper.Load<AppConfig>(ConfigFilePath) ?? new();
         return _current;
     }
 
@@ -29,19 +29,4 @@ public class AppConfigService
     }
 
     public void Save() => Save(_current);
-
-    private static AppConfig CreateDefault()
-    {
-        var defaultImagePath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.MyPictures),
-            "WondayWall");
-
-        return new AppConfig
-        {
-            ImageSavePath = defaultImagePath,
-            UpdateIntervalHours = 6,
-            EnableLogging = true,
-            ImageSize = "1920x1080",
-        };
-    }
 }
