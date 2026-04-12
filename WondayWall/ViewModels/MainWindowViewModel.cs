@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.Logging;
 using WondayWall.Models;
 using WondayWall.Services;
 
@@ -12,6 +13,7 @@ public partial class MainWindowViewModel : ObservableObject
     private readonly ContextService _contextService;
     private readonly GenerationCoordinator _coordinator;
     private readonly TaskSchedulerService _taskSchedulerService;
+    private readonly ILogger<MainWindowViewModel> _logger;
 
     [ObservableProperty]
     public partial AppConfig AppConfig { get; set; } = new();
@@ -49,12 +51,14 @@ public partial class MainWindowViewModel : ObservableObject
         AppConfigService configService,
         ContextService contextService,
         GenerationCoordinator coordinator,
-        TaskSchedulerService taskSchedulerService)
+        TaskSchedulerService taskSchedulerService,
+        ILogger<MainWindowViewModel> logger)
     {
         _configService = configService;
         _contextService = contextService;
         _coordinator = coordinator;
         _taskSchedulerService = taskSchedulerService;
+        _logger = logger;
 
         AppConfig = configService.Load();
         foreach (var src in AppConfig.RssSources)
@@ -64,10 +68,24 @@ public partial class MainWindowViewModel : ObservableObject
         _ = InitializeDataAsync();
     }
 
-    /// <summary>起動時にカレンダーとニュースをバックグラウンドで取得する</summary>
+    /// <summary>起動時にカレンダー一覧・カレンダーイベント・ニュースをバックグラウンドで取得する</summary>
     private async Task InitializeDataAsync()
     {
-        // カレンダー: ログイン済みの場合のみ（エラーは無視）
+        // カレンダー一覧: ログイン済みの場合のみ（エラーは無視）
+        try
+        {
+            await foreach (var cal in _contextService.FetchAvailableCalendarsAsync())
+            {
+                cal.IsSelected = AppConfig.TargetCalendarIds.Contains(cal.Id);
+                AvailableCalendars.Add(cal);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "起動時のカレンダー一覧取得をスキップしました");
+        }
+
+        // カレンダーイベント: ログイン済みの場合のみ（エラーは無視）
         try
         {
             await foreach (var ev in _contextService.FetchCalendarEventsAsync())
@@ -78,7 +96,7 @@ public partial class MainWindowViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"InitializeDataAsync calendar error: {ex.Message}");
+            _logger.LogWarning(ex, "起動時のカレンダーイベント取得をスキップしました");
         }
 
         // ニュース
@@ -89,7 +107,7 @@ public partial class MainWindowViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"InitializeDataAsync news error: {ex.Message}");
+            _logger.LogWarning(ex, "起動時のニュース取得でエラーが発生しました");
         }
     }
 

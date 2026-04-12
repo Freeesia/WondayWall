@@ -1,13 +1,11 @@
 namespace WondayWall.Models;
 
-public class NewsTopicItem
+public record NewsTopicItem
 {
-    public string Title { get; set; } = string.Empty;
-    public string? Summary { get; set; }
-    public string? Url { get; set; }
-    public DateTimeOffset FetchedAt { get; set; }
-    public List<string> MatchedKeywords { get; set; } = [];
-    public DateTimeOffset? PublishedAt { get; set; }
-    public string? OgpImageUrl { get; set; }
-    public string? FaviconUrl { get; set; }
+    public string Title { get; init; } = string.Empty;
+    public string? Summary { get; init; }
+    public string? Url { get; init; }
+    public List<string> MatchedKeywords { get; init; } = [];
+    public DateTimeOffset? PublishedAt { get; init; }
+    public string? OgpImageUrl { get; init; }
 }

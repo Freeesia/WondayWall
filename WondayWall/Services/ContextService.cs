@@ -8,13 +8,14 @@ using Google.Apis.Auth.OAuth2;
 using Google.Apis.Calendar.v3;
 using Google.Apis.Services;
 using Google.Apis.Util.Store;
+using Microsoft.Extensions.Logging;
 using OpenGraphNet;
 using WondayWall.Models;
 using WondayWall.Utils;
 
 namespace WondayWall.Services;
 
-public class ContextService(AppConfigService configService)
+public class ContextService(AppConfigService configService, HttpClient httpClient, ILogger<ContextService> logger)
 {
     private const string ClientId = "1032289774423-97qnlp8qkh7vca159jvq1ohggcn4qaqm.apps.googleusercontent.com";
 
@@ -33,14 +34,9 @@ public class ContextService(AppConfigService configService)
         }
     }
 
-    private static readonly HttpClient SharedHttpClient = new()
-    {
-        Timeout = TimeSpan.FromSeconds(30),
-    };
-
     private CalendarService? _calendarService;
 
-    /// <summary>Googleカレンダーのイベントを非同期ストリームで返す</summary>
+    /// <summary>Googleカレンダーのイベントを非同期ストリームで返す（直近1週間先まで）</summary>
     public async IAsyncEnumerable<CalendarEventItem> FetchCalendarEventsAsync(
         [EnumeratorCancellation] CancellationToken ct = default)
     {
@@ -57,7 +53,7 @@ public class ContextService(AppConfigService configService)
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Calendar auth error: {ex.Message}");
+            logger.LogError(ex, "カレンダー認証に失敗しました");
             yield break;
         }
 
@@ -83,7 +79,7 @@ public class ContextService(AppConfigService configService)
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine($"Calendar fetch error [{calId}]: {ex.Message}");
+                logger.LogError(ex, "カレンダーイベントの取得に失敗しました [{CalId}]", calId);
                 continue;
             }
 
@@ -128,7 +124,7 @@ public class ContextService(AppConfigService configService)
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Calendar auth error: {ex.Message}");
+            logger.LogError(ex, "カレンダー認証に失敗しました");
             yield break;
         }
 
@@ -140,7 +136,7 @@ public class ContextService(AppConfigService configService)
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Calendar list fetch error: {ex.Message}");
+            logger.LogError(ex, "カレンダー一覧の取得に失敗しました");
             yield break;
         }
 
@@ -156,7 +152,10 @@ public class ContextService(AppConfigService configService)
         }
     }
 
-    /// <summary>RSSフィードのニューストピックをOGP情報付きで非同期ストリームで返す</summary>
+    /// <summary>
+    /// RSSフィードのニューストピックをOGP情報付きで非同期ストリームで返す。
+    /// 全ソースを並列でフェッチし、公開日時の新しい順（直近1週間以内）に返す。
+    /// </summary>
     public async IAsyncEnumerable<NewsTopicItem> FetchNewsAsync(
         [EnumeratorCancellation] CancellationToken ct = default)
     {
@@ -165,73 +164,92 @@ public class ContextService(AppConfigService configService)
         if (config.RssSources.Count == 0)
             yield break;
 
-        foreach (var rssUrl in config.RssSources)
+        // 全RSSソースを並列でフェッチ
+        var fetchTasks = config.RssSources
+            .Select(rssUrl => FetchFromRssSourceAsync(rssUrl, ct))
+            .ToList();
+        var allResults = await Task.WhenAll(fetchTasks);
+
+        var weekAgo = DateTimeOffset.UtcNow.AddDays(-7);
+
+        // 公開日時の新しい順にソートし、1週間以内のもののみ返す
+        var sortedItems = allResults
+            .SelectMany(items => items)
+            .Where(item => item.PublishedAt == null || item.PublishedAt >= weekAgo)
+            .OrderByDescending(item => item.PublishedAt ?? DateTimeOffset.MinValue);
+
+        foreach (var item in sortedItems)
+        {
+            ct.ThrowIfCancellationRequested();
+            yield return item;
+        }
+    }
+
+    /// <summary>1つのRSSソースからアイテムを取得してOGP情報を付加して返す</summary>
+    private async Task<IReadOnlyList<NewsTopicItem>> FetchFromRssSourceAsync(string rssUrl, CancellationToken ct)
+    {
+        var config = configService.Current;
+        var items = new List<NewsTopicItem>();
+
+        SyndicationFeed feed;
+        try
+        {
+            var xml = await httpClient.GetStringAsync(rssUrl, ct);
+            using var reader = XmlReader.Create(new StringReader(xml));
+            feed = SyndicationFeed.Load(reader);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "RSSフェッチに失敗しました [{RssUrl}]", rssUrl);
+            return items;
+        }
+
+        foreach (var item in feed.Items)
         {
             ct.ThrowIfCancellationRequested();
 
-            // ファビコンURLをRSSホストから生成
-            string? faviconUrl = null;
-            if (Uri.TryCreate(rssUrl, UriKind.Absolute, out var rssUri))
-                faviconUrl = $"https://www.google.com/s2/favicons?sz=32&domain={rssUri.Host}";
+            var title = item.Title?.Text ?? string.Empty;
+            var rssSummary = item.Summary?.Text;
+            var url = item.Links.FirstOrDefault()?.Uri.ToString();
 
-            SyndicationFeed feed;
-            try
+            var matched = config.InterestKeywords
+                .Where(k => title.Contains(k, StringComparison.OrdinalIgnoreCase)
+                         || (rssSummary?.Contains(k, StringComparison.OrdinalIgnoreCase) ?? false))
+                .ToList();
+
+            // OGP画像URLと説明を取得
+            string? ogpImageUrl = null;
+            string? ogpDescription = null;
+            if (!string.IsNullOrEmpty(url))
             {
-                var xml = await SharedHttpClient.GetStringAsync(rssUrl, ct);
-                using var reader = XmlReader.Create(new StringReader(xml));
-                feed = SyndicationFeed.Load(reader);
-            }
-            catch (Exception ex)
-            {
-                Console.Error.WriteLine($"RSS fetch error [{rssUrl}]: {ex.Message}");
-                continue;
-            }
-
-            foreach (var item in feed.Items)
-            {
-                ct.ThrowIfCancellationRequested();
-
-                var title = item.Title?.Text ?? string.Empty;
-                var summary = item.Summary?.Text;
-                var url = item.Links.FirstOrDefault()?.Uri.ToString();
-
-                var matched = config.InterestKeywords
-                    .Where(k => title.Contains(k, StringComparison.OrdinalIgnoreCase)
-                             || (summary?.Contains(k, StringComparison.OrdinalIgnoreCase) ?? false))
-                    .ToList();
-
-                if (config.InterestKeywords.Count > 0 && matched.Count == 0)
-                    continue;
-
-                // OGP画像URLを取得
-                string? ogpImageUrl = null;
-                if (!string.IsNullOrEmpty(url))
+                try
                 {
-                    try
-                    {
-                        var ogp = await OpenGraph.ParseUrlAsync(url, cancellationToken: ct);
-                        if (ogp.Image != null)
-                            ogpImageUrl = ogp.Image.OriginalString;
-                    }
-                    catch
-                    {
-                        // OGP取得失敗は無視
-                    }
+                    var ogp = await OpenGraph.ParseUrlAsync(url, cancellationToken: ct);
+                    if (ogp.Image != null)
+                        ogpImageUrl = ogp.Image.OriginalString;
+
+                    // RSSにサマリーがなければOGPの説明をフォールバックとして使用
+                    if (ogp.Metadata.TryGetValue("og:description", out var descMeta))
+                        ogpDescription = descMeta.FirstOrDefault()?.Value;
                 }
-
-                yield return new NewsTopicItem
+                catch
                 {
-                    Title = title,
-                    Summary = summary,
-                    Url = url,
-                    FetchedAt = DateTimeOffset.UtcNow,
-                    MatchedKeywords = matched,
-                    PublishedAt = item.PublishDate.Year > 1990 ? item.PublishDate : null,
-                    OgpImageUrl = ogpImageUrl,
-                    FaviconUrl = faviconUrl,
-                };
+                    // OGP取得失敗は無視
+                }
             }
+
+            items.Add(new NewsTopicItem
+            {
+                Title = title,
+                Summary = !string.IsNullOrEmpty(rssSummary) ? rssSummary : ogpDescription,
+                Url = url,
+                MatchedKeywords = matched,
+                PublishedAt = item.PublishDate.Year > 1990 ? item.PublishDate : null,
+                OgpImageUrl = ogpImageUrl,
+            });
         }
+
+        return items;
     }
 
     public async Task<ContextBuildResult> BuildContextAsync(CancellationToken ct = default)
@@ -275,12 +293,7 @@ public class ContextService(AppConfigService configService)
                                .ToList(),
         };
 
-        return new ContextBuildResult
-        {
-            PromptContext = context,
-            CalendarEvents = events,
-            NewsTopics = news,
-        };
+        return new ContextBuildResult(context, events, news);
     }
 
     private async Task<CalendarService> GetCalendarServiceAsync(CancellationToken ct = default)

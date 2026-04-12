@@ -5,6 +5,14 @@ namespace WondayWall.Services;
 
 public class WallpaperService
 {
+    private readonly IDesktopWallpaper _wallpaper;
+
+    /// <summary>DI登録でのみ呼び出される内部コンストラクター</summary>
+    internal WallpaperService(IDesktopWallpaper wallpaper)
+    {
+        _wallpaper = wallpaper;
+    }
+
     /// <summary>IDesktopWallpaper を使って全モニターに壁紙を適用する</summary>
     public unsafe void SetWallpaper(string imagePath)
     {
@@ -15,14 +23,11 @@ public class WallpaperService
             throw new FileNotFoundException("Wallpaper image not found.", imagePath);
 
         var fullPath = Path.GetFullPath(imagePath);
-        // Windows 8.0 以降でサポートされる IDesktopWallpaper を使用
-        // このアプリは Windows 専用のため警告を抑制
-#pragma warning disable CA1416
-        var wallpaper = (IDesktopWallpaper)new DesktopWallpaper();
         // monitorID に null (既定モニター) を指定すると全モニターに適用
+#pragma warning disable CA1416
         fixed (char* pathPtr = fullPath)
         {
-            wallpaper.SetWallpaper(default, pathPtr);
+            _wallpaper.SetWallpaper(default, pathPtr);
         }
 #pragma warning restore CA1416
     }

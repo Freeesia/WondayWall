@@ -1,4 +1,5 @@
 using System.IO;
+using Microsoft.Extensions.Logging;
 using WondayWall.Models;
 using WondayWall.Utils;
 
@@ -7,7 +8,8 @@ namespace WondayWall.Services;
 public class GenerationCoordinator(
     ContextService contextService,
     GoogleAiService googleAiService,
-    WallpaperService wallpaperService)
+    WallpaperService wallpaperService,
+    ILogger<GenerationCoordinator> logger)
 {
     private static readonly SemaphoreSlim Lock = new(1, 1);
 
@@ -20,7 +22,11 @@ public class GenerationCoordinator(
         if (!await Lock.WaitAsync(0, ct))
             throw new InvalidOperationException("Generation is already in progress.");
 
-        var historyItem = new HistoryItem { ExecutedAt = DateTimeOffset.UtcNow };
+        bool isSuccess = false;
+        string? errorSummary = null;
+        string? appliedImagePath = null;
+        List<CalendarEventItem>? usedEvents = null;
+        List<NewsTopicItem>? usedTopics = null;
 
         try
         {
@@ -28,19 +34,37 @@ public class GenerationCoordinator(
             var imageInfo = await googleAiService.GenerateWallpaperAsync(contextResult.PromptContext, ct);
             wallpaperService.SetWallpaper(imageInfo.FilePath);
 
-            historyItem.IsSuccess = true;
-            historyItem.AppliedImagePath = imageInfo.FilePath;
-            historyItem.UsedCalendarEvents = contextResult.CalendarEvents;
-            historyItem.UsedNewsTopics = contextResult.NewsTopics;
+            isSuccess = true;
+            appliedImagePath = imageInfo.FilePath;
+            usedEvents = contextResult.CalendarEvents;
+            usedTopics = contextResult.NewsTopics;
         }
         catch (Exception ex)
         {
-            historyItem.IsSuccess = false;
-            historyItem.ErrorSummary = ex.Message;
+            errorSummary = ex.Message;
+        }
+
+        var historyItem = new HistoryItem
+        {
+            ExecutedAt = DateTimeOffset.UtcNow,
+            IsSuccess = isSuccess,
+            AppliedImagePath = appliedImagePath,
+            ErrorSummary = errorSummary,
+            UsedCalendarEvents = usedEvents,
+            UsedNewsTopics = usedTopics,
+        };
+
+        try
+        {
+            await AppendHistoryAsync(historyItem);
+        }
+        catch (Exception ex)
+        {
+            // 履歴の保存失敗は生成フロー全体を止めない
+            logger.LogError(ex, "履歴の保存に失敗しました");
         }
         finally
         {
-            await AppendHistoryAsync(historyItem);
             Lock.Release();
         }
 
