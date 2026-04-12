@@ -47,7 +47,7 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
         var ogpUrls = (context.OgpImageUrls ?? []).Take(3).ToList();
         var finalPrompt = ogpUrls.Count > 0
             ? $"{imagePrompt}\n\nReference images from the related news articles are attached. " +
-              "Incorporate their visual themes, colour palette, and subject matter into the wallpaper design."
+              "Incorporate their visual themes, color palette, and subject matter into the wallpaper design."
             : imagePrompt;
 
         var parts = new List<Part> { new Part(finalPrompt) };
@@ -107,8 +107,8 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
             ({context.ImageSize} resolution, {context.AspectRatio} aspect ratio) that creates a beautiful desktop wallpaper.
 
             The wallpaper should visually reflect the themes, mood, and atmosphere of the provided events and news.
-            If reference images are supplied, incorporate their colour palette, visual motifs, and subject matter.
-            Describe visual elements, style, mood, colour palette, lighting, and composition in detail.
+            If reference images are supplied, incorporate their color palette, visual motifs, and subject matter.
+            Describe visual elements, style, mood, color palette, lighting, and composition in detail.
             No text, logos, or UI overlays. Wide landscape orientation unless aspect ratio specifies otherwise.
             Output only the English image generation prompt — no explanation or preamble.
             """,
