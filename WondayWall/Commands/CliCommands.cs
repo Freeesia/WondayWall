@@ -98,12 +98,10 @@ public class CliCommands(
         Console.WriteLine("Testing Google AI connection...");
         try
         {
-            var context = new PromptContext
-            {
-                EventSummary = "Test event",
-                NewsSummary = "Test news",
-                ImageSize = "1920x1080",
-            };
+            var context = new PromptContext(
+                EventSummary: "Test event",
+                NewsSummary: "Test news",
+                ImageSize: "1920x1080");
 
             var info = await googleAiService.GenerateWallpaperAsync(context, cancellationToken);
             Console.WriteLine($"Success! Image saved to: {info.FilePath}");

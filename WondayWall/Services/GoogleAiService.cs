@@ -8,8 +8,9 @@ using WondayWall.Utils;
 
 namespace WondayWall.Services;
 
-public class GoogleAiService(AppConfigService configService, HttpClient httpClient, ILogger<GoogleAiService> logger)
+public class GoogleAiService(AppConfigService configService, IHttpClientFactory httpClientFactory, ILogger<GoogleAiService> logger)
 {
+    private readonly HttpClient httpClient = httpClientFactory.CreateClient("WondayWall");
     private static readonly string FixedImageSavePath = Path.Combine(
         System.Environment.GetFolderPath(System.Environment.SpecialFolder.ApplicationData),
         "WondayWall", "wallpapers");
@@ -78,47 +79,42 @@ public class GoogleAiService(AppConfigService configService, HttpClient httpClie
         var filePath = FileNameHelper.GetImageFilePath(FixedImageSavePath);
         await File.WriteAllBytesAsync(filePath, imageBytes, ct);
 
-        return new GeneratedImageInfo
-        {
-            FilePath = filePath,
-            GeneratedAt = DateTimeOffset.UtcNow,
-            UsedPrompt = imagePrompt,
-            SourceContext = context,
-        };
+        return new GeneratedImageInfo(
+            FilePath: filePath,
+            GeneratedAt: DateTimeOffset.UtcNow,
+            UsedPrompt: imagePrompt,
+            SourceContext: context);
     }
 
     /// <summary>
     /// テキストモデルへ送るプロンプトを構築する。
-    /// テキストモデルはこのプロンプトを受け取り、画像生成モデル向けの詳細なプロンプトを返す。
+    /// テキストモデルはこのプロンプトを受け取り、画像生成モデル向けの詳細な英語プロンプトを返す。
     /// </summary>
     private static string BuildTextModelPrompt(PromptContext context)
     {
         var parts = new List<string>
         {
-            $"あなたはデスクトップ壁紙の画像生成プロンプト専門家です。" +
-            $"以下のコンテキスト情報をもとに、画像生成モデル（{context.ImageSize}解像度、{context.AspectRatio}アスペクト比）向けの" +
-            $"詳細で創造的な英語プロンプトを作成してください。" +
-            "プロンプトには視覚的要素・スタイル・雰囲気・構図を具体的に記述し、テキストオーバーレイなし・横向きワイドスクリーンを考慮してください。",
+            $"You are an expert desktop wallpaper image-generation prompt writer. " +
+            $"Based on the context below, write a detailed, creative English prompt " +
+            $"for an image generation model ({context.ImageSize} resolution, {context.AspectRatio} aspect ratio). " +
+            "The prompt must describe visual elements, style, mood, and composition in detail. " +
+            "No text overlays. Wide landscape orientation. Output only the English image generation prompt — no explanation or preamble.",
         };
 
-        if (!string.IsNullOrWhiteSpace(context.EventSummary) &&
-            context.EventSummary != "No upcoming calendar events.")
+        if (!string.IsNullOrWhiteSpace(context.EventSummary))
         {
-            parts.Add($"直近の予定:\n{context.EventSummary}");
+            parts.Add($"Upcoming calendar events:\n{context.EventSummary}");
         }
 
-        if (!string.IsNullOrWhiteSpace(context.NewsSummary) &&
-            context.NewsSummary != "No relevant news topics.")
+        if (!string.IsNullOrWhiteSpace(context.NewsSummary))
         {
-            parts.Add($"現在のニューストピック:\n{context.NewsSummary}");
+            parts.Add($"Current news topics:\n{context.NewsSummary}");
         }
 
         if (!string.IsNullOrWhiteSpace(context.AdditionalConstraints))
         {
-            parts.Add($"追加の指示: {context.AdditionalConstraints}");
+            parts.Add($"Additional instructions: {context.AdditionalConstraints}");
         }
-
-        parts.Add("画像生成プロンプトのみを出力してください。説明や前置きは不要です。");
 
         return string.Join("\n\n", parts);
     }

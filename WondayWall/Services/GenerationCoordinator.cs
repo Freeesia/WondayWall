@@ -44,15 +44,13 @@ public class GenerationCoordinator(
             errorSummary = ex.Message;
         }
 
-        var historyItem = new HistoryItem
-        {
-            ExecutedAt = DateTimeOffset.UtcNow,
-            IsSuccess = isSuccess,
-            AppliedImagePath = appliedImagePath,
-            ErrorSummary = errorSummary,
-            UsedCalendarEvents = usedEvents,
-            UsedNewsTopics = usedTopics,
-        };
+        var historyItem = new HistoryItem(
+            ExecutedAt: DateTimeOffset.UtcNow,
+            IsSuccess: isSuccess,
+            ErrorSummary: errorSummary,
+            AppliedImagePath: appliedImagePath,
+            UsedCalendarEvents: usedEvents,
+            UsedNewsTopics: usedTopics);
 
         try
         {

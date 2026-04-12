@@ -15,8 +15,9 @@ using WondayWall.Utils;
 
 namespace WondayWall.Services;
 
-public class ContextService(AppConfigService configService, HttpClient httpClient, ILogger<ContextService> logger)
+public class ContextService(AppConfigService configService, IHttpClientFactory httpClientFactory, ILogger<ContextService> logger)
 {
+    private readonly HttpClient httpClient = httpClientFactory.CreateClient("WondayWall");
     private const string ClientId = "1032289774423-97qnlp8qkh7vca159jvq1ohggcn4qaqm.apps.googleusercontent.com";
 
     private static readonly byte[] _scrambledClientSecret =
@@ -97,14 +98,12 @@ public class ContextService(AppConfigService configService, HttpClient httpClien
                                ? DateTimeOffset.Parse(ev.End.Date)
                                : (DateTimeOffset?)null);
 
-                yield return new CalendarEventItem
-                {
-                    Title = ev.Summary ?? "(no title)",
-                    StartTime = start,
-                    EndTime = endTime,
-                    Location = ev.Location,
-                    Description = ev.Description,
-                };
+                yield return new CalendarEventItem(
+                    Title: ev.Summary ?? "(no title)",
+                    StartTime: start,
+                    EndTime: endTime,
+                    Location: ev.Location,
+                    Description: ev.Description);
             }
         }
     }
@@ -164,18 +163,15 @@ public class ContextService(AppConfigService configService, HttpClient httpClien
         if (config.RssSources.Count == 0)
             yield break;
 
-        // 全RSSソースを並列でフェッチ
+        // 全RSSソースを並列でフェッチ（7日フィルターとOGP取得は各ソース内で処理済み）
         var fetchTasks = config.RssSources
             .Select(rssUrl => FetchFromRssSourceAsync(rssUrl, ct))
             .ToList();
         var allResults = await Task.WhenAll(fetchTasks);
 
-        var weekAgo = DateTimeOffset.UtcNow.AddDays(-7);
-
-        // 公開日時の新しい順にソートし、1週間以内のもののみ返す
+        // 公開日時の新しい順にソートして返す
         var sortedItems = allResults
             .SelectMany(items => items)
-            .Where(item => item.PublishedAt == null || item.PublishedAt >= weekAgo)
             .OrderByDescending(item => item.PublishedAt ?? DateTimeOffset.MinValue);
 
         foreach (var item in sortedItems)
@@ -188,7 +184,6 @@ public class ContextService(AppConfigService configService, HttpClient httpClien
     /// <summary>1つのRSSソースからアイテムを取得してOGP情報を付加して返す</summary>
     private async Task<IReadOnlyList<NewsTopicItem>> FetchFromRssSourceAsync(string rssUrl, CancellationToken ct)
     {
-        var config = configService.Current;
         var items = new List<NewsTopicItem>();
 
         SyndicationFeed feed;
@@ -204,15 +199,23 @@ public class ContextService(AppConfigService configService, HttpClient httpClien
             return items;
         }
 
-        foreach (var item in feed.Items)
+        var weekAgo = DateTimeOffset.UtcNow.AddDays(-7);
+
+        // 7日フィルターを先に適用してからOGPをフェッチ（無駄なOGP取得を防ぐ）
+        var candidates = feed.Items
+            .Select(item => (
+                Title: item.Title?.Text ?? string.Empty,
+                RssSummary: item.Summary?.Text,
+                Url: item.Links.FirstOrDefault()?.Uri.ToString(),
+                PublishedAt: item.PublishDate.Year > 1990 ? item.PublishDate : (DateTimeOffset?)null))
+            .Where(i => i.PublishedAt == null || i.PublishedAt >= weekAgo)
+            .ToList();
+
+        foreach (var (title, rssSummary, url, publishedAt) in candidates)
         {
             ct.ThrowIfCancellationRequested();
 
-            var title = item.Title?.Text ?? string.Empty;
-            var rssSummary = item.Summary?.Text;
-            var url = item.Links.FirstOrDefault()?.Uri.ToString();
-
-            // OGP画像URLと説明を取得
+            // OGP画像URLと説明を順次取得
             string? ogpImageUrl = null;
             string? ogpDescription = null;
             if (!string.IsNullOrEmpty(url))
@@ -233,14 +236,12 @@ public class ContextService(AppConfigService configService, HttpClient httpClien
                 }
             }
 
-            items.Add(new NewsTopicItem
-            {
-                Title = title,
-                Summary = !string.IsNullOrEmpty(rssSummary) ? rssSummary : ogpDescription,
-                Url = url,
-                PublishedAt = item.PublishDate.Year > 1990 ? item.PublishDate : null,
-                OgpImageUrl = ogpImageUrl,
-            });
+            items.Add(new NewsTopicItem(
+                Title: title,
+                Summary: !string.IsNullOrEmpty(rssSummary) ? rssSummary : ogpDescription,
+                Url: url,
+                PublishedAt: publishedAt,
+                OgpImageUrl: ogpImageUrl));
         }
 
         return items;
@@ -261,25 +262,25 @@ public class ContextService(AppConfigService configService, HttpClient httpClien
             news.Add(n);
 
         var eventSummary = events.Count == 0
-            ? "No upcoming calendar events."
+            ? string.Empty
             : string.Join("\n", events.Take(5).Select(e =>
                 $"- {e.Title} ({e.StartTime:yyyy/MM/dd HH:mm})" +
                 (string.IsNullOrEmpty(e.Location) ? "" : $" @ {e.Location}")));
 
         var newsSummary = news.Count == 0
-            ? "No relevant news topics."
+            ? string.Empty
             : string.Join("\n", news.Take(5).Select(n => $"- {n.Title}"));
 
         var displayInfo = DisplayHelper.GetDisplayInfo();
-        var context = new PromptContext
-        {
-            EventSummary = eventSummary,
-            NewsSummary = newsSummary,
-            ImageSize = displayInfo.Size,
-            AspectRatio = displayInfo.AspectRatio,
-            AdditionalConstraints = string.IsNullOrWhiteSpace(config.UserPrompt)
+        var context = new PromptContext(
+            EventSummary: eventSummary,
+            NewsSummary: newsSummary,
+            ImageSize: displayInfo.Size,
+            AspectRatio: displayInfo.AspectRatio,
+            AdditionalConstraints: string.IsNullOrWhiteSpace(config.UserPrompt)
                 ? null
-                : config.UserPrompt,
+                : config.UserPrompt)
+        {
             OgpImageUrls = news.Where(n => n.OgpImageUrl != null)
                                .Select(n => n.OgpImageUrl!)
                                .Take(3)

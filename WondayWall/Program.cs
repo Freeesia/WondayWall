@@ -1,4 +1,3 @@
-using System.Net.Http;
 using ConsoleAppFramework;
 using Kamishibai;
 using Microsoft.Extensions.DependencyInjection;
@@ -29,7 +28,7 @@ await cafApp.RunAsync(args).ConfigureAwait(false);
 static void ConfigureCommonServices(IServiceCollection services)
 {
     services.AddLogging(b => b.AddConsole());
-    services.AddSingleton<HttpClient>(_ => new HttpClient { Timeout = TimeSpan.FromSeconds(30) });
+    services.AddHttpClient("WondayWall", c => c.Timeout = TimeSpan.FromSeconds(30));
     services.AddSingleton<WallpaperService>();
     services.AddSingleton<AppConfigService>();
     services.AddSingleton<ContextService>();

@@ -22,6 +22,9 @@ public partial class MainWindowViewModel : ObservableObject
     public partial string CalendarStatus { get; set; } = "Not connected";
 
     [ObservableProperty]
+    public partial bool IsCalendarConnected { get; set; }
+
+    [ObservableProperty]
     public partial string LastResultMessage { get; set; } = "No generation yet";
 
     [ObservableProperty]
@@ -90,6 +93,7 @@ public partial class MainWindowViewModel : ObservableObject
         {
             await foreach (var ev in _contextService.FetchCalendarEventsAsync())
                 RecentEvents.Add(ev);
+            IsCalendarConnected = true;
             CalendarStatus = RecentEvents.Count > 0
                 ? $"Connected — {RecentEvents.Count} event(s)"
                 : "Connected — no upcoming events";
@@ -178,29 +182,9 @@ public partial class MainWindowViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task CheckConnectionAsync(CancellationToken ct = default)
+    private async Task ConnectCalendarAsync(CancellationToken ct = default)
     {
-        CalendarStatus = "Checking...";
-        try
-        {
-            RecentEvents.Clear();
-            await foreach (var ev in _contextService.FetchCalendarEventsAsync(ct))
-                RecentEvents.Add(ev);
-
-            CalendarStatus = RecentEvents.Count > 0
-                ? $"Connected — {RecentEvents.Count} event(s) found"
-                : "Connected — no upcoming events";
-        }
-        catch (Exception ex)
-        {
-            CalendarStatus = $"Error: {ex.Message}";
-        }
-    }
-
-    [RelayCommand]
-    private async Task FetchAvailableCalendarsAsync(CancellationToken ct = default)
-    {
-        CalendarStatus = "Fetching calendar list...";
+        CalendarStatus = IsCalendarConnected ? "再取得中..." : "接続中...";
         try
         {
             AvailableCalendars.Clear();
@@ -209,9 +193,15 @@ public partial class MainWindowViewModel : ObservableObject
                 cal.IsSelected = AppConfig.TargetCalendarIds.Contains(cal.Id);
                 AvailableCalendars.Add(cal);
             }
-            CalendarStatus = AvailableCalendars.Count > 0
-                ? $"Calendar list: {AvailableCalendars.Count} item(s)"
-                : "No calendars found";
+
+            RecentEvents.Clear();
+            await foreach (var ev in _contextService.FetchCalendarEventsAsync(ct))
+                RecentEvents.Add(ev);
+
+            IsCalendarConnected = true;
+            CalendarStatus = RecentEvents.Count > 0
+                ? $"Connected — {RecentEvents.Count} event(s) found"
+                : "Connected — no upcoming events";
         }
         catch (Exception ex)
         {

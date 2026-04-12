@@ -142,18 +142,31 @@
                                 <StackPanel Margin="4">
                                     <ui:CardControl Header="{Binding CalendarStatus}">
                                         <ui:CardControl.Icon>
-                                            <ui:SymbolIcon Symbol="PlugConnectedCheckmark20" />
+                                            <ui:SymbolIcon>
+                                                <ui:SymbolIcon.Style>
+                                                    <Style TargetType="ui:SymbolIcon">
+                                                        <Setter Property="Symbol" Value="PlugDisconnected20" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsCalendarConnected}" Value="True">
+                                                                <Setter Property="Symbol" Value="PlugConnectedCheckmark20" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </ui:SymbolIcon.Style>
+                                            </ui:SymbolIcon>
                                         </ui:CardControl.Icon>
-                                        <StackPanel Orientation="Horizontal">
-                                            <ui:Button
-                                                Appearance="Secondary"
-                                                Command="{Binding CheckConnectionCommand}"
-                                                Content="接続確認" />
-                                            <ui:Button
-                                                Appearance="Secondary"
-                                                Command="{Binding FetchAvailableCalendarsCommand}"
-                                                Content="カレンダー一覧を取得" />
-                                        </StackPanel>
+                                        <ui:Button Appearance="Secondary" Command="{Binding ConnectCalendarCommand}">
+                                            <ui:Button.Style>
+                                                <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+                                                    <Setter Property="Content" Value="接続する" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsCalendarConnected}" Value="True">
+                                                            <Setter Property="Content" Value="再取得する" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </ui:Button.Style>
+                                        </ui:Button>
                                     </ui:CardControl>
 
                                     <TextBlock

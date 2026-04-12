@@ -66,7 +66,4 @@ internal static class DisplayHelper
 
         return new DisplaySizeInfo(sizeStr, best.Label, sizeValue);
     }
-
-    /// <summary>後方互換性のためサイズ文字列のみを返すラッパー</summary>
-    public static string GetClosestSupportedSize() => GetDisplayInfo().Size;
 }
