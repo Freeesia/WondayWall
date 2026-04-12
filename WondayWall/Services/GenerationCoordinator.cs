@@ -17,12 +17,13 @@ public class GenerationCoordinator(
         System.Environment.GetFolderPath(System.Environment.SpecialFolder.ApplicationData),
         "WondayWall", "history.json");
 
-    public async Task<HistoryItem> RunAsync(CancellationToken ct = default)
+    public async Task<HistoryItem> RunAsync(bool skipIfNoChanges = false, CancellationToken ct = default)
     {
         if (!await Lock.WaitAsync(0, ct))
             throw new InvalidOperationException("Generation is already in progress.");
 
         bool isSuccess = false;
+        bool isSkipped = false;
         string? errorSummary = null;
         string? appliedImagePath = null;
         List<CalendarEventItem>? usedEvents = null;
@@ -31,13 +32,26 @@ public class GenerationCoordinator(
         try
         {
             var contextResult = await contextService.BuildContextAsync(ct);
-            var imageInfo = await googleAiService.GenerateWallpaperAsync(contextResult.PromptContext, ct);
-            wallpaperService.SetWallpaper(imageInfo.FilePath);
 
-            isSuccess = true;
-            appliedImagePath = imageInfo.FilePath;
-            usedEvents = contextResult.CalendarEvents;
-            usedTopics = contextResult.NewsTopics;
+            // スキップ条件チェック：直近の予定がなく、ニュースに変化がない場合はスキップ
+            if (skipIfNoChanges
+                && contextResult.CalendarEvents.Count == 0
+                && !HasNewsChanged(contextResult.NewsTopics))
+            {
+                logger.LogInformation("変化がないため画像生成をスキップします");
+                isSuccess = true;
+                isSkipped = true;
+            }
+            else
+            {
+                var imageInfo = await googleAiService.GenerateWallpaperAsync(contextResult.PromptContext, ct);
+                wallpaperService.SetWallpaper(imageInfo.FilePath);
+
+                isSuccess = true;
+                appliedImagePath = imageInfo.FilePath;
+                usedEvents = contextResult.CalendarEvents;
+                usedTopics = contextResult.NewsTopics;
+            }
         }
         catch (Exception ex)
         {
@@ -50,7 +64,8 @@ public class GenerationCoordinator(
             ErrorSummary: errorSummary,
             AppliedImagePath: appliedImagePath,
             UsedCalendarEvents: usedEvents,
-            UsedNewsTopics: usedTopics);
+            UsedNewsTopics: usedTopics,
+            IsSkipped: isSkipped);
 
         try
         {
@@ -83,5 +98,30 @@ public class GenerationCoordinator(
             history = history.Take(100).ToList();
 
         await Task.Run(() => JsonFileHelper.Save(HistoryFilePath, history));
+    }
+
+    /// <summary>
+    /// 直前の成功した生成履歴と比較し、ニューストピックに変化があるかを返す。
+    /// 前回の履歴がない場合は変化ありとみなす。
+    /// </summary>
+    private bool HasNewsChanged(List<NewsTopicItem> currentNews)
+    {
+        // スキップ判定に使う直前の成功・非スキップ履歴を取得
+        var lastHistory = LoadHistory()
+            .FirstOrDefault(h => h.IsSuccess && !h.IsSkipped);
+
+        if (lastHistory?.UsedNewsTopics == null || lastHistory.UsedNewsTopics.Count == 0)
+            return true;
+
+        // URL があればURLで、なければタイトルで比較
+        var previousKeys = lastHistory.UsedNewsTopics
+            .Select(n => n.Url ?? n.Title)
+            .ToHashSet();
+
+        var currentKeys = currentNews
+            .Select(n => n.Url ?? n.Title)
+            .ToHashSet();
+
+        return !previousKeys.SetEquals(currentKeys);
     }
 }

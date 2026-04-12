@@ -6,4 +6,5 @@ public record HistoryItem(
     string? ErrorSummary = null,
     string? AppliedImagePath = null,
     List<CalendarEventItem>? UsedCalendarEvents = null,
-    List<NewsTopicItem>? UsedNewsTopics = null);
+    List<NewsTopicItem>? UsedNewsTopics = null,
+    bool IsSkipped = false);

@@ -7,7 +7,8 @@ namespace WondayWall.Commands;
 public class CliCommands(
     GenerationCoordinator coordinator,
     ContextService contextService,
-    GoogleAiService googleAiService)
+    GoogleAiService googleAiService,
+    AppConfigService configService)
 {
     /// <summary>Run the full wallpaper generation and apply it.</summary>
     [Command("run-once")]
@@ -16,10 +17,14 @@ public class CliCommands(
         Console.WriteLine("Starting wallpaper generation...");
         try
         {
-            var result = await coordinator.RunAsync(cancellationToken);
-            Console.WriteLine(result.IsSuccess
-                ? $"Done. Wallpaper set: {result.AppliedImagePath}"
-                : $"Failed: {result.ErrorSummary}");
+            var skipIfNoChanges = configService.Current.SkipGenerationWhenNoChanges;
+            var result = await coordinator.RunAsync(skipIfNoChanges, cancellationToken);
+            if (result.IsSkipped)
+                Console.WriteLine("Skipped: no changes detected.");
+            else
+                Console.WriteLine(result.IsSuccess
+                    ? $"Done. Wallpaper set: {result.AppliedImagePath}"
+                    : $"Failed: {result.ErrorSummary}");
         }
         catch (Exception ex)
         {

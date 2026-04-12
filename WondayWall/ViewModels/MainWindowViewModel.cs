@@ -124,7 +124,7 @@ public partial class MainWindowViewModel : ObservableObject
 
         try
         {
-            var result = await _coordinator.RunAsync(ct);
+            var result = await _coordinator.RunAsync(ct: ct);
             LastResultMessage = result.IsSuccess
                 ? $"Done! Image: {result.AppliedImagePath}"
                 : $"Failed: {result.ErrorSummary}";
