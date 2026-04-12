@@ -5,8 +5,8 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
-    xmlns:vm="clr-namespace:WondayWall.ViewModels"
     xmlns:utils="clr-namespace:WondayWall.Utils"
+    xmlns:vm="clr-namespace:WondayWall.ViewModels"
     Title="WondayWall"
     Width="900"
     Height="650"
@@ -14,12 +14,22 @@
     ui:Design.Background="{DynamicResource ApplicationBackgroundBrush}"
     ui:Design.Foreground="{DynamicResource TextFillColorPrimaryBrush}"
     ExtendsContentIntoTitleBar="True"
+    Language="ja"
     WindowBackdropType="Mica"
     WindowCornerPreference="Default"
     WindowStartupLocation="CenterScreen"
     mc:Ignorable="d">
 
     <ui:FluentWindow.Resources>
+        <Style BasedOn="{StaticResource {x:Type Label}}" TargetType="{x:Type Label}">
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="8" />
+        </Style>
+        <Style BasedOn="{StaticResource {x:Type ui:Button}}" TargetType="{x:Type ui:Button}">
+            <Setter Property="Margin" Value="4" />
+            <Setter Property="MinWidth" Value="80" />
+        </Style>
         <utils:UrlToFaviconConverter x:Key="UrlToFaviconConverter" />
     </ui:FluentWindow.Resources>
 
@@ -33,9 +43,15 @@
 
         <TabControl Grid.Row="1" Margin="8">
             <!--  ホームタブ  -->
-            <TabItem Header="ホーム">
-                <ScrollViewer>
-                    <StackPanel Margin="16">
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <ui:SymbolIcon Margin="0,0,8,0" Symbol="Home24" />
+                        <TextBlock Text="ホーム" />
+                    </StackPanel>
+                </TabItem.Header>
+                <ScrollViewer Margin="0,0,0,8">
+                    <StackPanel>
                         <ui:CardControl Margin="0,0,0,12" Header="現在の壁紙">
                             <ui:CardControl.Icon>
                                 <ui:SymbolIcon Symbol="Image24" />
@@ -104,227 +120,251 @@
             </TabItem>
 
             <!--  データタブ  -->
-            <TabItem Header="データ">
-                <ScrollViewer>
-                    <StackPanel Margin="16">
-
-                        <!--  カレンダーグループ  -->
-                        <GroupBox Margin="0,0,0,12" Header="Googleカレンダー">
-                            <StackPanel Margin="4">
-                                <TextBlock Margin="0,0,0,8" Text="{Binding CalendarStatus}" />
-                                <StackPanel Margin="0,0,0,8" Orientation="Horizontal">
-                                    <ui:Button
-                                        Margin="0,0,8,0"
-                                        Appearance="Secondary"
-                                        Command="{Binding CheckConnectionCommand}"
-                                        Content="接続確認" />
-                                    <ui:Button
-                                        Appearance="Secondary"
-                                        Command="{Binding FetchAvailableCalendarsCommand}"
-                                        Content="カレンダー一覧を取得" />
-                                </StackPanel>
-
-                                <TextBlock
-                                    Margin="0,0,0,4"
-                                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                    Text="参照するカレンダー（「カレンダー一覧を取得」後に選択してください）" />
-                                <ui:ListView
-                                    MaxHeight="120"
-                                    Margin="0,0,0,8"
-                                    ItemsSource="{Binding AvailableCalendars}">
-                                    <ui:ListView.ItemTemplate>
-                                        <DataTemplate>
-                                            <CheckBox Content="{Binding Summary}" IsChecked="{Binding IsSelected}" />
-                                        </DataTemplate>
-                                    </ui:ListView.ItemTemplate>
-                                </ui:ListView>
-
-                                <TextBlock
-                                    Margin="0,4,0,4"
-                                    FontWeight="SemiBold"
-                                    Text="直近のカレンダーイベント" />
-                                <ui:ListView
-                                    MaxHeight="160"
-                                    ItemsSource="{Binding RecentEvents}">
-                                    <ui:ListView.View>
-                                        <ui:GridView>
-                                            <GridViewColumn
-                                                Width="250"
-                                                DisplayMemberBinding="{Binding Title}"
-                                                Header="タイトル" />
-                                            <GridViewColumn
-                                                Width="160"
-                                                DisplayMemberBinding="{Binding StartTime, StringFormat='{}{0:yyyy/MM/dd HH:mm}'}"
-                                                Header="開始日時" />
-                                            <GridViewColumn
-                                                Width="150"
-                                                DisplayMemberBinding="{Binding Location}"
-                                                Header="場所" />
-                                        </ui:GridView>
-                                    </ui:ListView.View>
-                                </ui:ListView>
-                            </StackPanel>
-                        </GroupBox>
-
-                        <!--  ニュースグループ  -->
-                        <GroupBox Margin="0,0,0,12" Header="ニュース">
-                            <StackPanel Margin="4">
-                                <TextBlock
-                                    Margin="0,0,0,4"
-                                    FontWeight="SemiBold"
-                                    Text="RSSソース" />
-                                <ListBox
-                                    MaxHeight="120"
-                                    Margin="0,0,0,8"
-                                    ItemsSource="{Binding RssSources}"
-                                    SelectedItem="{Binding SelectedRssSource}">
-                                    <ListBox.ItemTemplate>
-                                        <DataTemplate>
-                                            <StackPanel Orientation="Horizontal">
-                                                <Image
-                                                    Width="16"
-                                                    Height="16"
-                                                    Margin="0,0,4,0"
-                                                    Source="{Binding Converter={StaticResource UrlToFaviconConverter}}" />
-                                                <TextBlock Text="{Binding}" VerticalAlignment="Center" />
-                                            </StackPanel>
-                                        </DataTemplate>
-                                    </ListBox.ItemTemplate>
-                                </ListBox>
-                                <Grid Margin="0,0,0,4">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <ui:TextBox
-                                        Grid.Column="0"
-                                        Margin="0,0,8,0"
-                                        PlaceholderText="https://example.com/feed.xml"
-                                        Text="{Binding NewRssSourceUrl, UpdateSourceTrigger=PropertyChanged}" />
-                                    <ui:Button
-                                        Grid.Column="1"
-                                        Appearance="Primary"
-                                        Command="{Binding AddRssSourceCommand}"
-                                        Content="追加"
-                                        Icon="{ui:SymbolIcon Symbol=Add24}" />
-                                </Grid>
-                                <ui:Button
-                                    Margin="0,0,0,12"
-                                    Appearance="Secondary"
-                                    Command="{Binding RemoveRssSourceCommand}"
-                                    CommandParameter="{Binding SelectedRssSource}"
-                                    Content="選択中を削除"
-                                    Icon="{ui:SymbolIcon Symbol=Delete24}" />
-
-                                <ui:Button
-                                    Margin="0,0,0,8"
-                                    Appearance="Secondary"
-                                    Command="{Binding FetchNewsCommand}"
-                                    Content="ニュース取得" />
-
-                                <TextBlock
-                                    Margin="0,4,0,4"
-                                    FontWeight="SemiBold"
-                                    Text="最新ニューストピック" />
-                                <ui:ListView MaxHeight="160" ItemsSource="{Binding RecentNews}">
-                                    <ui:ListView.View>
-                                        <ui:GridView>
-                                            <GridViewColumn Header="アイコン" Width="40">
-                                                <GridViewColumn.CellTemplate>
-                                                    <DataTemplate>
-                                                        <Image
-                                                            Width="16"
-                                                            Height="16"
-                                                            Source="{Binding FaviconUrl}" />
-                                                    </DataTemplate>
-                                                </GridViewColumn.CellTemplate>
-                                            </GridViewColumn>
-                                            <GridViewColumn
-                                                Width="350"
-                                                DisplayMemberBinding="{Binding Title}"
-                                                Header="タイトル" />
-                                            <GridViewColumn
-                                                Width="160"
-                                                DisplayMemberBinding="{Binding PublishedAt}"
-                                                Header="公開日時" />
-                                        </ui:GridView>
-                                    </ui:ListView.View>
-                                </ui:ListView>
-                            </StackPanel>
-                        </GroupBox>
-
-                        <ui:Button
-                            HorizontalAlignment="Left"
-                            Appearance="Primary"
-                            Command="{Binding SaveCommand}"
-                            Content="設定を保存" />
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <ui:SymbolIcon Margin="0,0,8,0" Symbol="DatabasePerson24" />
+                        <TextBlock Text="データ" />
                     </StackPanel>
-                </ScrollViewer>
+                </TabItem.Header>
+                <DockPanel>
+                    <ui:Button
+                        HorizontalAlignment="Right"
+                        Appearance="Primary"
+                        Command="{Binding SaveCommand}"
+                        Content="設定を保存"
+                        DockPanel.Dock="Bottom" />
+
+                    <ScrollViewer Margin="0,0,0,8">
+                        <StackPanel>
+                            <!--  カレンダーグループ  -->
+                            <GroupBox Header="Googleカレンダー">
+                                <StackPanel Margin="4">
+                                    <ui:CardControl Header="{Binding CalendarStatus}">
+                                        <ui:CardControl.Icon>
+                                            <ui:SymbolIcon Symbol="PlugConnectedCheckmark20" />
+                                        </ui:CardControl.Icon>
+                                        <StackPanel Orientation="Horizontal">
+                                            <ui:Button
+                                                Appearance="Secondary"
+                                                Command="{Binding CheckConnectionCommand}"
+                                                Content="接続確認" />
+                                            <ui:Button
+                                                Appearance="Secondary"
+                                                Command="{Binding FetchAvailableCalendarsCommand}"
+                                                Content="カレンダー一覧を取得" />
+                                        </StackPanel>
+                                    </ui:CardControl>
+
+                                    <TextBlock
+                                        Margin="0,0,0,4"
+                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                        Text="参照するカレンダー" />
+                                    <ui:ListView
+                                        MaxHeight="120"
+                                        ItemsSource="{Binding AvailableCalendars}"
+                                        VirtualizingPanel.ScrollUnit="Pixel">
+                                        <ui:ListView.ItemContainerStyle>
+                                            <Style BasedOn="{StaticResource {x:Type ui:ListViewItem}}" TargetType="ui:ListViewItem">
+                                                <Setter Property="Padding" Value="0" />
+                                            </Style>
+                                        </ui:ListView.ItemContainerStyle>
+                                        <ui:ListView.ItemTemplate>
+                                            <DataTemplate>
+                                                <CheckBox Content="{Binding Summary}" IsChecked="{Binding IsSelected}" />
+                                            </DataTemplate>
+                                        </ui:ListView.ItemTemplate>
+                                    </ui:ListView>
+
+                                    <TextBlock
+                                        Margin="0,4,0,4"
+                                        FontWeight="SemiBold"
+                                        Text="直近のカレンダーイベント" />
+                                    <ui:ListView
+                                        MaxHeight="160"
+                                        ItemsSource="{Binding RecentEvents}"
+                                        VirtualizingPanel.ScrollUnit="Pixel">
+                                        <ui:ListView.View>
+                                            <ui:GridView>
+                                                <GridViewColumn
+                                                    Width="250"
+                                                    DisplayMemberBinding="{Binding Title}"
+                                                    Header="タイトル" />
+                                                <GridViewColumn
+                                                    Width="160"
+                                                    DisplayMemberBinding="{Binding StartTime, StringFormat='{}{0:yyyy/MM/dd HH:mm}'}"
+                                                    Header="開始日時" />
+                                                <GridViewColumn
+                                                    Width="150"
+                                                    DisplayMemberBinding="{Binding Location}"
+                                                    Header="場所" />
+                                            </ui:GridView>
+                                        </ui:ListView.View>
+                                    </ui:ListView>
+                                </StackPanel>
+                            </GroupBox>
+                            <!--  ニュースグループ  -->
+                            <GroupBox Header="ニュース">
+                                <StackPanel Margin="4">
+                                    <TextBlock
+                                        Margin="0,0,0,4"
+                                        FontWeight="SemiBold"
+                                        Text="RSSソース" />
+                                    <ui:ListView
+                                        MaxHeight="120"
+                                        Margin="0,0,0,8"
+                                        ItemsSource="{Binding RssSources}"
+                                        SelectedItem="{Binding SelectedRssSource}"
+                                        VirtualizingPanel.ScrollUnit="Pixel">
+                                        <ui:ListView.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Image
+                                                        Width="16"
+                                                        Height="16"
+                                                        Margin="4,0,8,0"
+                                                        Source="{Binding Converter={StaticResource UrlToFaviconConverter}}" />
+                                                    <TextBlock VerticalAlignment="Center" Text="{Binding}" />
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ui:ListView.ItemTemplate>
+                                    </ui:ListView>
+                                    <Grid Margin="0,0,0,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <ui:TextBox
+                                            Grid.Column="0"
+                                            PlaceholderText="https://example.com/feed.xml"
+                                            Text="{Binding NewRssSourceUrl, UpdateSourceTrigger=PropertyChanged}" />
+                                        <ui:Button
+                                            Grid.Column="1"
+                                            Appearance="Primary"
+                                            Command="{Binding AddRssSourceCommand}"
+                                            Content="追加"
+                                            Icon="{ui:SymbolIcon Symbol=Add24}" />
+                                        <ui:Button
+                                            Grid.Column="2"
+                                            Appearance="Secondary"
+                                            Command="{Binding RemoveRssSourceCommand}"
+                                            CommandParameter="{Binding SelectedRssSource}"
+                                            Content="選択中を削除"
+                                            Icon="{ui:SymbolIcon Symbol=Delete24}" />
+                                    </Grid>
+
+                                    <DockPanel>
+                                        <ui:Button
+                                            MinWidth="40"
+                                            Appearance="Secondary"
+                                            Command="{Binding FetchNewsCommand}"
+                                            DockPanel.Dock="Right"
+                                            Icon="{ui:SymbolIcon ArrowSync24}"
+                                            ToolTip="ニュース取得" />
+                                        <TextBlock
+                                            Margin="0,4"
+                                            VerticalAlignment="Bottom"
+                                            FontWeight="SemiBold"
+                                            Text="最新ニューストピック" />
+                                    </DockPanel>
+                                    <ui:ListView
+                                        MaxHeight="160"
+                                        ItemsSource="{Binding RecentNews}"
+                                        VirtualizingPanel.ScrollUnit="Pixel">
+                                        <ui:ListView.View>
+                                            <ui:GridView>
+                                                <GridViewColumn Width="32">
+                                                    <GridViewColumn.CellTemplate>
+                                                        <DataTemplate>
+                                                            <Image
+                                                                Width="16"
+                                                                Height="16"
+                                                                Source="{Binding FaviconUrl}" />
+                                                        </DataTemplate>
+                                                    </GridViewColumn.CellTemplate>
+                                                </GridViewColumn>
+                                                <GridViewColumn DisplayMemberBinding="{Binding Title}" Header="タイトル" />
+                                                <GridViewColumn
+                                                    Width="180"
+                                                    DisplayMemberBinding="{Binding PublishedAt}"
+                                                    Header="公開日時" />
+                                            </ui:GridView>
+                                        </ui:ListView.View>
+                                    </ui:ListView>
+                                </StackPanel>
+                            </GroupBox>
+                        </StackPanel>
+                    </ScrollViewer>
+                </DockPanel>
             </TabItem>
 
             <!--  設定タブ  -->
-            <TabItem Header="設定">
-                <ScrollViewer>
-                    <StackPanel Margin="16">
-                        <TextBlock
-                            Margin="0,0,0,4"
-                            FontSize="16"
-                            FontWeight="SemiBold"
-                            Text="Google AI 設定" />
-                        <Label Content="Google AI APIキー" />
-                        <ui:PasswordBox Margin="0,0,0,8" Password="{Binding AppConfig.GoogleAiApiKey, UpdateSourceTrigger=PropertyChanged}" />
-
-                        <TextBlock
-                            Margin="0,8,0,4"
-                            FontSize="16"
-                            FontWeight="SemiBold"
-                            Text="プロンプト設定" />
-                        <Label Content="ユーザープロンプト（追加の指示）" />
-                        <TextBox
-                            Height="80"
-                            Margin="0,0,0,8"
-                            AcceptsReturn="True"
-                            Text="{Binding AppConfig.UserPrompt, UpdateSourceTrigger=PropertyChanged}"
-                            TextWrapping="Wrap"
-                            VerticalScrollBarVisibility="Auto" />
-
-                        <TextBlock
-                            Margin="0,8,0,4"
-                            FontSize="16"
-                            FontWeight="SemiBold"
-                            Text="スケジュール設定" />
-                        <Label Content="更新間隔 (時間)" />
-                        <TextBox Margin="0,0,0,8" Text="{Binding AppConfig.UpdateIntervalHours, UpdateSourceTrigger=PropertyChanged}" />
-
-                        <CheckBox
-                            Margin="0,0,0,12"
-                            Content="ログを有効にする"
-                            IsChecked="{Binding AppConfig.EnableLogging}" />
-
-                        <ui:CardControl Margin="0,0,0,12" Header="タスクスケジューラ">
-                            <ui:CardControl.Icon>
-                                <ui:SymbolIcon Symbol="Clock24" />
-                            </ui:CardControl.Icon>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock
-                                    Margin="0,0,16,0"
-                                    VerticalAlignment="Center"
-                                    Text="自動実行（更新間隔は上の設定を保存時に適用）" />
-                                <CheckBox
-                                    VerticalAlignment="Center"
-                                    Command="{Binding ToggleTaskSchedulerCommand}"
-                                    Content="有効"
-                                    IsChecked="{Binding IsTaskSchedulerEnabled}" />
-                            </StackPanel>
-                        </ui:CardControl>
-
-                        <ui:Button
-                            HorizontalAlignment="Left"
-                            Appearance="Primary"
-                            Command="{Binding SaveCommand}"
-                            Content="設定を保存" />
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <ui:SymbolIcon Margin="0,0,8,0" Symbol="Settings24" />
+                        <TextBlock Text="設定" />
                     </StackPanel>
-                </ScrollViewer>
+                </TabItem.Header>
+                <DockPanel>
+                    <ui:Button
+                        HorizontalAlignment="Right"
+                        Appearance="Primary"
+                        Command="{Binding SaveCommand}"
+                        Content="設定を保存"
+                        DockPanel.Dock="Bottom" />
+
+                    <ScrollViewer Margin="0,0,0,8">
+                        <StackPanel>
+                            <GroupBox Header="Google AI 設定">
+                                <StackPanel>
+                                    <ui:CardControl Header="Google AI APIキー">
+                                        <ui:CardControl.Icon>
+                                            <ui:SymbolIcon Symbol="Password24" />
+                                        </ui:CardControl.Icon>
+                                        <ui:PasswordBox Width="320" Password="{Binding AppConfig.GoogleAiApiKey, UpdateSourceTrigger=PropertyChanged}" />
+                                    </ui:CardControl>
+                                    <ui:CardControl Header="ユーザープロンプト（追加の指示）">
+                                        <ui:CardControl.Icon>
+                                            <ui:SymbolIcon Symbol="NoteEdit24" />
+                                        </ui:CardControl.Icon>
+                                        <TextBox
+                                            Width="320"
+                                            Height="80"
+                                            AcceptsReturn="True"
+                                            Text="{Binding AppConfig.UserPrompt, UpdateSourceTrigger=PropertyChanged}"
+                                            TextWrapping="Wrap"
+                                            VerticalScrollBarVisibility="Auto" />
+                                    </ui:CardControl>
+
+                                </StackPanel>
+                            </GroupBox>
+
+                            <GroupBox Header="スケジュール設定">
+                                <StackPanel>
+                                    <ui:CardControl Header="更新間隔 (時間)">
+                                        <ui:CardControl.Icon>
+                                            <ui:SymbolIcon Symbol="Timer24" />
+                                        </ui:CardControl.Icon>
+                                        <ui:NumberBox Width="320" Value="{Binding AppConfig.UpdateIntervalHours, UpdateSourceTrigger=PropertyChanged}" />
+                                    </ui:CardControl>
+
+                                    <ui:CardControl Header="タスクスケジューラ">
+                                        <ui:CardControl.Icon>
+                                            <ui:SymbolIcon Symbol="Clock24" />
+                                        </ui:CardControl.Icon>
+                                        <ui:ToggleSwitch
+                                            VerticalAlignment="Center"
+                                            Command="{Binding ToggleTaskSchedulerCommand}"
+                                            Content="自動実行（更新間隔は上の設定を保存時に適用）"
+                                            IsChecked="{Binding IsTaskSchedulerEnabled}" />
+                                    </ui:CardControl>
+                                </StackPanel>
+                            </GroupBox>
+                        </StackPanel>
+                    </ScrollViewer>
+                </DockPanel>
             </TabItem>
         </TabControl>
     </Grid>

@@ -18,7 +18,7 @@ public class AppConfigService
 
     public AppConfig Load()
     {
-        _current = JsonFileHelper.Load<AppConfig>(ConfigFilePath) ?? CreateDefault();
+        _current = JsonFileHelper.Load<AppConfig>(ConfigFilePath) ?? new();
         return _current;
     }
 
@@ -29,13 +29,4 @@ public class AppConfigService
     }
 
     public void Save() => Save(_current);
-
-    private static AppConfig CreateDefault()
-    {
-        return new AppConfig
-        {
-            UpdateIntervalHours = 6,
-            EnableLogging = true,
-        };
-    }
 }
