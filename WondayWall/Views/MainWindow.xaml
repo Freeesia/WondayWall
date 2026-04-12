@@ -109,11 +109,8 @@
                     <StackPanel Margin="16">
 
                         <!--  カレンダーグループ  -->
-                        <ui:CardControl Margin="0,0,0,12" Header="Googleカレンダー">
-                            <ui:CardControl.Icon>
-                                <ui:SymbolIcon Symbol="Calendar24" />
-                            </ui:CardControl.Icon>
-                            <StackPanel>
+                        <GroupBox Margin="0,0,0,12" Header="Googleカレンダー">
+                            <StackPanel Margin="4">
                                 <TextBlock Margin="0,0,0,8" Text="{Binding CalendarStatus}" />
                                 <StackPanel Margin="0,0,0,8" Orientation="Horizontal">
                                     <ui:Button
@@ -167,14 +164,11 @@
                                     </ui:ListView.View>
                                 </ui:ListView>
                             </StackPanel>
-                        </ui:CardControl>
+                        </GroupBox>
 
                         <!--  ニュースグループ  -->
-                        <ui:CardControl Margin="0,0,0,12" Header="ニュース">
-                            <ui:CardControl.Icon>
-                                <ui:SymbolIcon Symbol="News24" />
-                            </ui:CardControl.Icon>
-                            <StackPanel>
+                        <GroupBox Margin="0,0,0,12" Header="ニュース">
+                            <StackPanel Margin="4">
                                 <TextBlock
                                     Margin="0,0,0,4"
                                     FontWeight="SemiBold"
@@ -257,11 +251,11 @@
                                     </ui:ListView.View>
                                 </ui:ListView>
                             </StackPanel>
-                        </ui:CardControl>
+                        </GroupBox>
 
                         <ui:Button
                             HorizontalAlignment="Left"
-                            Appearance="Secondary"
+                            Appearance="Primary"
                             Command="{Binding SaveCommand}"
                             Content="設定を保存" />
                     </StackPanel>
