@@ -170,29 +170,32 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
             .ToList();
         var allResults = await Task.WhenAll(fetchTasks);
 
+        var weekAgo = DateTimeOffset.UtcNow.AddDays(-7);
+
         // 公開日時の新しい順にソート
         var sortedRawItems = allResults
             .SelectMany(items => items)
-            .OrderByDescending(item => item.PublishedAt ?? DateTimeOffset.MinValue);
+            .Where(i => i.PublishedAt >= weekAgo)
+            .OrderByDescending(item => item.PublishedAt);
 
         // 各アイテムをyieldする直前にOGPを順次フェッチ
-        foreach (var (title, rssSummary, url, publishedAt) in sortedRawItems)
+        foreach (var (title, summary, url, publishedAt) in sortedRawItems)
         {
             ct.ThrowIfCancellationRequested();
 
-            string? ogpImageUrl = null;
-            string? ogpDescription = null;
+            string? imageUrl = null;
+            string? description = null;
             if (!string.IsNullOrEmpty(url))
             {
                 try
                 {
                     var ogp = await OpenGraph.ParseUrlAsync(url, cancellationToken: ct);
                     if (ogp.Image != null)
-                        ogpImageUrl = ogp.Image.OriginalString;
+                        imageUrl = ogp.Image.OriginalString;
 
                     // RSSにサマリーがなければOGPの説明をフォールバックとして使用
                     if (ogp.Metadata.TryGetValue("og:description", out var descMeta))
-                        ogpDescription = descMeta.FirstOrDefault()?.Value;
+                        description = descMeta.FirstOrDefault()?.Value;
                 }
                 catch
                 {
@@ -202,15 +205,17 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
 
             yield return new NewsTopicItem(
                 Title: title,
-                Summary: !string.IsNullOrEmpty(rssSummary) ? rssSummary : ogpDescription,
+                Summary: !string.IsNullOrEmpty(summary) ? summary : description,
                 Url: url,
                 PublishedAt: publishedAt,
-                OgpImageUrl: ogpImageUrl);
+                OgpImageUrl: imageUrl);
         }
     }
 
+    private record RssItem(string Title, string? Summary, string? Url, DateTimeOffset PublishedAt);
+
     /// <summary>1つのRSSソースから7日フィルター済みの生アイテムを返す（OGPなし）</summary>
-    private async Task<IReadOnlyList<(string Title, string? RssSummary, string? Url, DateTimeOffset? PublishedAt)>> FetchFromRssSourceAsync(string rssUrl, CancellationToken ct)
+    private async Task<IReadOnlyList<RssItem>> FetchFromRssSourceAsync(string rssUrl, CancellationToken ct)
     {
         SyndicationFeed feed;
         try
@@ -225,15 +230,12 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
             return [];
         }
 
-        var weekAgo = DateTimeOffset.UtcNow.AddDays(-7);
-
         return feed.Items
-            .Select(item => (
-                Title: item.Title?.Text ?? string.Empty,
-                RssSummary: item.Summary?.Text,
-                Url: item.Links.FirstOrDefault()?.Uri.ToString(),
-                PublishedAt: item.PublishDate.Year > 1990 ? item.PublishDate : (DateTimeOffset?)null))
-            .Where(i => i.PublishedAt == null || i.PublishedAt >= weekAgo)
+            .Select(item => new RssItem(
+                item.Title?.Text ?? string.Empty,
+                item.Summary?.Text == "None" ? null : item.Summary?.Text,
+                item.Links.FirstOrDefault()?.Uri.ToString(),
+                item.PublishDate))
             .ToList();
     }
 
@@ -242,37 +244,28 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
         var config = configService.Current;
 
         // カレンダーイベントを収集
-        var events = new List<CalendarEventItem>();
-        await foreach (var ev in FetchCalendarEventsAsync(ct))
-            events.Add(ev);
+        var events = await FetchCalendarEventsAsync(ct)
+            .Take(5)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
 
         // ニューストピックを収集
-        var news = new List<NewsTopicItem>();
-        await foreach (var n in FetchNewsAsync(ct))
-            news.Add(n);
+        var news = await FetchNewsAsync(ct)
+            .Take(5)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
 
-        var eventSummary = events.Count == 0
-            ? string.Empty
-            : string.Join("\n", events.Take(5).Select(e =>
+        var displayInfo = DisplayHelper.GetDisplayInfo();
+        var context = new PromptContext(
+            EventSummary: string.Join("\n", events.Select(e =>
             {
                 var line = $"- {e.Title} ({e.StartTime:yyyy/MM/dd HH:mm})" +
                            (string.IsNullOrEmpty(e.Location) ? "" : $" @ {e.Location}");
                 return string.IsNullOrEmpty(e.Description)
                     ? line
                     : $"{line}\n  {e.Description}";
-            }));
-
-        var newsSummary = news.Count == 0
-            ? string.Empty
-            : string.Join("\n", news.Take(5).Select(n =>
-                string.IsNullOrEmpty(n.Summary)
-                    ? $"- {n.Title}"
-                    : $"- {n.Title}\n  {n.Summary}"));
-
-        var displayInfo = DisplayHelper.GetDisplayInfo();
-        var context = new PromptContext(
-            EventSummary: eventSummary,
-            NewsSummary: newsSummary,
+            })),
+            NewsSummary: string.Join("\n", news.Select(n => string.IsNullOrEmpty(n.Summary) ? $"- {n.Title}" : $"- {n.Title}\n  {n.Summary}")),
             ImageSize: displayInfo.Size,
             AspectRatio: displayInfo.AspectRatio,
             AdditionalConstraints: string.IsNullOrWhiteSpace(config.UserPrompt)
