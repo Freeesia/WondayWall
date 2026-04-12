@@ -43,9 +43,15 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
         };
         var imageModel = new GenerativeModel(config.GoogleAiApiKey, "gemini-3.1-flash-image-preview", genConfig);
 
-        // OGP画像がある場合はインラインデータとして添付
-        var parts = new List<Part> { new Part(imagePrompt) };
-        foreach (var imgUrl in (context.OgpImageUrls ?? []).Take(3))
+        // OGP画像がある場合はインラインデータとして添付し、プロンプトにもその旨を付記
+        var ogpUrls = (context.OgpImageUrls ?? []).Take(3).ToList();
+        var finalPrompt = ogpUrls.Count > 0
+            ? $"{imagePrompt}\n\nReference images from the related news articles are attached. " +
+              "Incorporate their visual themes, colour palette, and subject matter into the wallpaper design."
+            : imagePrompt;
+
+        var parts = new List<Part> { new Part(finalPrompt) };
+        foreach (var imgUrl in ogpUrls)
         {
             try
             {
@@ -96,10 +102,14 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
         {
             $"""
             You are an expert desktop wallpaper image-generation prompt writer.
-            Based on the context below, write a detailed, creative English prompt
-            for an image generation model ({context.ImageSize} resolution, {context.AspectRatio} aspect ratio).
-            The prompt must describe visual elements, style, mood, and composition in detail. No text overlays.
-            Wide landscape orientation.
+            You will be given calendar events, news topics, and optionally reference images from those news articles.
+            Your task: write a single detailed, creative English prompt for an image generation model
+            ({context.ImageSize} resolution, {context.AspectRatio} aspect ratio) that creates a beautiful desktop wallpaper.
+
+            The wallpaper should visually reflect the themes, mood, and atmosphere of the provided events and news.
+            If reference images are supplied, incorporate their colour palette, visual motifs, and subject matter.
+            Describe visual elements, style, mood, colour palette, lighting, and composition in detail.
+            No text, logos, or UI overlays. Wide landscape orientation unless aspect ratio specifies otherwise.
             Output only the English image generation prompt — no explanation or preamble.
             """,
         };

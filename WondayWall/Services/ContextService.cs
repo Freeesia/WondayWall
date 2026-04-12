@@ -154,6 +154,7 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
     /// <summary>
     /// RSSフィードのニューストピックをOGP情報付きで非同期ストリームで返す。
     /// 全ソースを並列でフェッチし、公開日時の新しい順（直近1週間以内）に返す。
+    /// OGPは各アイテムをyieldする直前に順次取得する（不要な取得を防ぐため）。
     /// </summary>
     public async IAsyncEnumerable<NewsTopicItem> FetchNewsAsync(
         [EnumeratorCancellation] CancellationToken ct = default)
@@ -163,59 +164,22 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
         if (config.RssSources.Count == 0)
             yield break;
 
-        // 全RSSソースを並列でフェッチ（7日フィルターとOGP取得は各ソース内で処理済み）
+        // 全RSSソースを並列でフェッチ（OGPなし）
         var fetchTasks = config.RssSources
             .Select(rssUrl => FetchFromRssSourceAsync(rssUrl, ct))
             .ToList();
         var allResults = await Task.WhenAll(fetchTasks);
 
-        // 公開日時の新しい順にソートして返す
-        var sortedItems = allResults
+        // 公開日時の新しい順にソート
+        var sortedRawItems = allResults
             .SelectMany(items => items)
             .OrderByDescending(item => item.PublishedAt ?? DateTimeOffset.MinValue);
 
-        foreach (var item in sortedItems)
-        {
-            ct.ThrowIfCancellationRequested();
-            yield return item;
-        }
-    }
-
-    /// <summary>1つのRSSソースからアイテムを取得してOGP情報を付加して返す</summary>
-    private async Task<IReadOnlyList<NewsTopicItem>> FetchFromRssSourceAsync(string rssUrl, CancellationToken ct)
-    {
-        var items = new List<NewsTopicItem>();
-
-        SyndicationFeed feed;
-        try
-        {
-            var xml = await httpClient.GetStringAsync(rssUrl, ct);
-            using var reader = XmlReader.Create(new StringReader(xml));
-            feed = SyndicationFeed.Load(reader);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "RSSフェッチに失敗しました [{RssUrl}]", rssUrl);
-            return items;
-        }
-
-        var weekAgo = DateTimeOffset.UtcNow.AddDays(-7);
-
-        // 7日フィルターを先に適用してからOGPをフェッチ（無駄なOGP取得を防ぐ）
-        var candidates = feed.Items
-            .Select(item => (
-                Title: item.Title?.Text ?? string.Empty,
-                RssSummary: item.Summary?.Text,
-                Url: item.Links.FirstOrDefault()?.Uri.ToString(),
-                PublishedAt: item.PublishDate.Year > 1990 ? item.PublishDate : (DateTimeOffset?)null))
-            .Where(i => i.PublishedAt == null || i.PublishedAt >= weekAgo)
-            .ToList();
-
-        foreach (var (title, rssSummary, url, publishedAt) in candidates)
+        // 各アイテムをyieldする直前にOGPを順次フェッチ
+        foreach (var (title, rssSummary, url, publishedAt) in sortedRawItems)
         {
             ct.ThrowIfCancellationRequested();
 
-            // OGP画像URLと説明を順次取得
             string? ogpImageUrl = null;
             string? ogpDescription = null;
             if (!string.IsNullOrEmpty(url))
@@ -236,15 +200,41 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
                 }
             }
 
-            items.Add(new NewsTopicItem(
+            yield return new NewsTopicItem(
                 Title: title,
                 Summary: !string.IsNullOrEmpty(rssSummary) ? rssSummary : ogpDescription,
                 Url: url,
                 PublishedAt: publishedAt,
-                OgpImageUrl: ogpImageUrl));
+                OgpImageUrl: ogpImageUrl);
+        }
+    }
+
+    /// <summary>1つのRSSソースから7日フィルター済みの生アイテムを返す（OGPなし）</summary>
+    private async Task<IReadOnlyList<(string Title, string? RssSummary, string? Url, DateTimeOffset? PublishedAt)>> FetchFromRssSourceAsync(string rssUrl, CancellationToken ct)
+    {
+        SyndicationFeed feed;
+        try
+        {
+            var xml = await httpClient.GetStringAsync(rssUrl, ct);
+            using var reader = XmlReader.Create(new StringReader(xml));
+            feed = SyndicationFeed.Load(reader);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "RSSフェッチに失敗しました [{RssUrl}]", rssUrl);
+            return [];
         }
 
-        return items;
+        var weekAgo = DateTimeOffset.UtcNow.AddDays(-7);
+
+        return feed.Items
+            .Select(item => (
+                Title: item.Title?.Text ?? string.Empty,
+                RssSummary: item.Summary?.Text,
+                Url: item.Links.FirstOrDefault()?.Uri.ToString(),
+                PublishedAt: item.PublishDate.Year > 1990 ? item.PublishDate : (DateTimeOffset?)null))
+            .Where(i => i.PublishedAt == null || i.PublishedAt >= weekAgo)
+            .ToList();
     }
 
     public async Task<ContextBuildResult> BuildContextAsync(CancellationToken ct = default)
@@ -264,12 +254,20 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
         var eventSummary = events.Count == 0
             ? string.Empty
             : string.Join("\n", events.Take(5).Select(e =>
-                $"- {e.Title} ({e.StartTime:yyyy/MM/dd HH:mm})" +
-                (string.IsNullOrEmpty(e.Location) ? "" : $" @ {e.Location}")));
+            {
+                var line = $"- {e.Title} ({e.StartTime:yyyy/MM/dd HH:mm})" +
+                           (string.IsNullOrEmpty(e.Location) ? "" : $" @ {e.Location}");
+                return string.IsNullOrEmpty(e.Description)
+                    ? line
+                    : $"{line}\n  {e.Description}";
+            }));
 
         var newsSummary = news.Count == 0
             ? string.Empty
-            : string.Join("\n", news.Take(5).Select(n => $"- {n.Title}"));
+            : string.Join("\n", news.Take(5).Select(n =>
+                string.IsNullOrEmpty(n.Summary)
+                    ? $"- {n.Title}"
+                    : $"- {n.Title}\n  {n.Summary}"));
 
         var displayInfo = DisplayHelper.GetDisplayInfo();
         var context = new PromptContext(
