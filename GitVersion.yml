@@ -1,0 +1,10 @@
+mode: Mainline
+branches:
+  main:
+    regex: ^main$
+    increment: Patch
+  feature:
+    regex: ^features?[/-]
+    increment: Minor
+ignore:
+  sha: []
