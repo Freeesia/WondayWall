@@ -102,7 +102,6 @@ public class CliCommands(
             {
                 EventSummary = "Test event",
                 NewsSummary = "Test news",
-                AtmosphereKeywords = ["nature", "calm"],
                 ImageSize = "1920x1080",
             };
 

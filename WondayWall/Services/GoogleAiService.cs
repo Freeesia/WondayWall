@@ -113,11 +113,6 @@ public class GoogleAiService(AppConfigService configService, HttpClient httpClie
             parts.Add($"現在のニューストピック:\n{context.NewsSummary}");
         }
 
-        if (context.AtmosphereKeywords.Count > 0)
-        {
-            parts.Add($"興味・雰囲気のキーワード: {string.Join(", ", context.AtmosphereKeywords)}");
-        }
-
         if (!string.IsNullOrWhiteSpace(context.AdditionalConstraints))
         {
             parts.Add($"追加の指示: {context.AdditionalConstraints}");

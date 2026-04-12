@@ -212,11 +212,6 @@ public class ContextService(AppConfigService configService, HttpClient httpClien
             var rssSummary = item.Summary?.Text;
             var url = item.Links.FirstOrDefault()?.Uri.ToString();
 
-            var matched = config.InterestKeywords
-                .Where(k => title.Contains(k, StringComparison.OrdinalIgnoreCase)
-                         || (rssSummary?.Contains(k, StringComparison.OrdinalIgnoreCase) ?? false))
-                .ToList();
-
             // OGP画像URLと説明を取得
             string? ogpImageUrl = null;
             string? ogpDescription = null;
@@ -243,7 +238,6 @@ public class ContextService(AppConfigService configService, HttpClient httpClien
                 Title = title,
                 Summary = !string.IsNullOrEmpty(rssSummary) ? rssSummary : ogpDescription,
                 Url = url,
-                MatchedKeywords = matched,
                 PublishedAt = item.PublishDate.Year > 1990 ? item.PublishDate : null,
                 OgpImageUrl = ogpImageUrl,
             });
@@ -281,7 +275,6 @@ public class ContextService(AppConfigService configService, HttpClient httpClien
         {
             EventSummary = eventSummary,
             NewsSummary = newsSummary,
-            AtmosphereKeywords = [.. config.InterestKeywords],
             ImageSize = displayInfo.Size,
             AspectRatio = displayInfo.AspectRatio,
             AdditionalConstraints = string.IsNullOrWhiteSpace(config.UserPrompt)
