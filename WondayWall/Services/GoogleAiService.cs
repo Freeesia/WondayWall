@@ -94,11 +94,14 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
     {
         var parts = new List<string>
         {
-            $"You are an expert desktop wallpaper image-generation prompt writer. " +
-            $"Based on the context below, write a detailed, creative English prompt " +
-            $"for an image generation model ({context.ImageSize} resolution, {context.AspectRatio} aspect ratio). " +
-            "The prompt must describe visual elements, style, mood, and composition in detail. " +
-            "No text overlays. Wide landscape orientation. Output only the English image generation prompt — no explanation or preamble.",
+            $"""
+            You are an expert desktop wallpaper image-generation prompt writer.
+            Based on the context below, write a detailed, creative English prompt
+            for an image generation model ({context.ImageSize} resolution, {context.AspectRatio} aspect ratio).
+            The prompt must describe visual elements, style, mood, and composition in detail. No text overlays.
+            Wide landscape orientation.
+            Output only the English image generation prompt — no explanation or preamble.
+            """,
         };
 
         if (!string.IsNullOrWhiteSpace(context.EventSummary))
