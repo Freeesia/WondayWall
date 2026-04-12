@@ -15,6 +15,13 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
         System.Environment.GetFolderPath(System.Environment.SpecialFolder.ApplicationData),
         "WondayWall", "wallpapers");
 
+    /// <summary>
+    /// ベース画像使用時のスタイル維持指示（テキストモデル・画像モデル共通）
+    /// </summary>
+    private const string BaseImageStyleInstruction =
+        "Preserve the overall composition, color palette, and artistic style of the base wallpaper. " +
+        "Incorporate the new themes and events subtly — avoid drastic visual changes.";
+
     public async Task<GeneratedImageInfo> GenerateWallpaperAsync(
         PromptContext context,
         CancellationToken ct = default)
@@ -51,6 +58,27 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
             : imagePrompt;
 
         var parts = new List<Part> { new Part(finalPrompt) };
+
+        // ベース壁紙がある場合はインラインデータとして先頭に付加し、プロンプトにも指示を追加
+        if (!string.IsNullOrEmpty(context.BaseImagePath) && File.Exists(context.BaseImagePath))
+        {
+            var baseImageBytes = await File.ReadAllBytesAsync(context.BaseImagePath, ct);
+            var baseMimeType = GetMimeTypeFromPath(context.BaseImagePath);
+            parts.Insert(0, new Part
+            {
+                InlineData = new Blob
+                {
+                    MimeType = baseMimeType,
+                    Data = Convert.ToBase64String(baseImageBytes),
+                }
+            });
+            // ベース画像への参照と「大きく変えすぎない」指示をプロンプトに追加
+            parts[1] = new Part(
+                "The current wallpaper is provided as the base image. " +
+                "Create a new wallpaper that evolves gradually from this base. " +
+                BaseImageStyleInstruction + "\n\n" +
+                finalPrompt);
+        }
         foreach (var imgUrl in ogpUrls)
         {
             try
@@ -114,6 +142,13 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
             """,
         };
 
+        if (!string.IsNullOrEmpty(context.BaseImagePath) && File.Exists(context.BaseImagePath))
+        {
+            parts.Add(
+                "A base wallpaper image will be supplied to the image model. " +
+                BaseImageStyleInstruction);
+        }
+
         if (!string.IsNullOrWhiteSpace(context.EventSummary))
         {
             parts.Add($"Upcoming calendar events:\n{context.EventSummary}");
@@ -146,5 +181,17 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
             }
         }
         return null;
+    }
+
+    /// <summary>ファイルパスの拡張子からMIMEタイプを返す</summary>
+    private static string GetMimeTypeFromPath(string filePath)
+    {
+        return Path.GetExtension(filePath).ToLowerInvariant() switch
+        {
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".png" => "image/png",
+            ".webp" => "image/webp",
+            _ => "image/jpeg",
+        };
     }
 }

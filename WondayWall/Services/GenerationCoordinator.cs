@@ -6,6 +6,7 @@ using WondayWall.Utils;
 namespace WondayWall.Services;
 
 public class GenerationCoordinator(
+    AppConfigService configService,
     ContextService contextService,
     GoogleAiService googleAiService,
     WallpaperService wallpaperService,
@@ -31,7 +32,22 @@ public class GenerationCoordinator(
         try
         {
             var contextResult = await contextService.BuildContextAsync(ct);
-            var imageInfo = await googleAiService.GenerateWallpaperAsync(contextResult.PromptContext, ct);
+            var promptContext = contextResult.PromptContext;
+
+            // UseCurrentWallpaperAsBase が有効なら直前の成功生成画像をベースとして設定
+            if (configService.Current.UseCurrentWallpaperAsBase)
+            {
+                var baseImagePath = LoadHistory()
+                    .OrderByDescending(h => h.ExecutedAt)
+                    .FirstOrDefault(h => h.IsSuccess
+                                        && h.AppliedImagePath != null
+                                        && File.Exists(h.AppliedImagePath))
+                    ?.AppliedImagePath;
+                if (baseImagePath != null)
+                    promptContext = promptContext with { BaseImagePath = baseImagePath };
+            }
+
+            var imageInfo = await googleAiService.GenerateWallpaperAsync(promptContext, ct);
             wallpaperService.SetWallpaper(imageInfo.FilePath);
 
             isSuccess = true;
