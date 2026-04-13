@@ -27,6 +27,4 @@ public class AppConfigService
         _current = config;
         JsonFileHelper.Save(ConfigFilePath, config);
     }
-
-    public void Save() => Save(_current);
 }
