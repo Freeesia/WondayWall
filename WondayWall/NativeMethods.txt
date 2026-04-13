@@ -2,3 +2,6 @@ SystemParametersInfoW
 GetSystemMetrics
 IDesktopWallpaper
 DesktopWallpaper
+AttachConsole
+AllocConsole
+ATTACH_PARENT_PROCESS

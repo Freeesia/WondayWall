@@ -3,6 +3,7 @@ using Kamishibai;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Windows.Win32;
 using WondayWall;
 using WondayWall.Commands;
 using WondayWall.Services;
@@ -13,11 +14,8 @@ using WondayWall.Views;
 Thread.CurrentThread.SetApartmentState(ApartmentState.Unknown);
 Thread.CurrentThread.SetApartmentState(ApartmentState.STA);
 
-var cafApp = ConsoleApp.Create()
-    .ConfigureServices(ConfigureCommonServices);
 
-cafApp.Add<CliCommands>();
-cafApp.Add("", async () =>
+if (args is [])
 {
     var builder = KamishibaiApplication<App, MainWindow>.CreateBuilder();
     ConfigureCommonServices(builder.Services);
@@ -25,9 +23,21 @@ cafApp.Add("", async () =>
         .AddPresentation<MainWindow, MainWindowViewModel>();
     var wpfApp = builder.Build();
     await wpfApp.RunAsync();
-});
+}
+else
+{
+    if (!PInvoke.AttachConsole(PInvoke.ATTACH_PARENT_PROCESS))
+    {
+        PInvoke.AllocConsole();
+    }
 
-await cafApp.RunAsync(args).ConfigureAwait(false);
+    var cafApp = ConsoleApp.Create()
+        .ConfigureServices(ConfigureCommonServices);
+
+    cafApp.Add<CliCommands>();
+
+    await cafApp.RunAsync(args).ConfigureAwait(false);
+}
 
 static void ConfigureCommonServices(IServiceCollection services)
 {
