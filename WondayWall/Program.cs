@@ -9,6 +9,10 @@ using WondayWall.Services;
 using WondayWall.ViewModels;
 using WondayWall.Views;
 
+// Set STAThread 
+Thread.CurrentThread.SetApartmentState(ApartmentState.Unknown);
+Thread.CurrentThread.SetApartmentState(ApartmentState.STA);
+
 var cafApp = ConsoleApp.Create()
     .ConfigureServices(ConfigureCommonServices);
 

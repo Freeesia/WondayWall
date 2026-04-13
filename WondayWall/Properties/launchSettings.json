@@ -8,10 +8,6 @@
       "commandName": "Project",
       "commandLineArgs": "run-once"
     },
-    "generate": {
-      "commandName": "Project",
-      "commandLineArgs": "generate"
-    },
     "check-calendar": {
       "commandName": "Project",
       "commandLineArgs": "check-calendar"

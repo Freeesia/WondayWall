@@ -12,9 +12,9 @@ public class AppConfigService
     private static readonly string ConfigFilePath =
         Path.Combine(ConfigDirectory, "config.json");
 
-    private AppConfig _current = new();
+    private AppConfig? _current;
 
-    public AppConfig Current => _current;
+    public AppConfig Current => _current ??= Load();
 
     public AppConfig Load()
     {
