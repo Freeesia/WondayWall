@@ -3,7 +3,7 @@ name: .NET Desktop
 on:
   push:
     branches: [main]
-    tags: ["*.*.*"]
+    tags: ["*.*.*", "v*.*.*"]
   pull_request:
     branches: [main]
 
