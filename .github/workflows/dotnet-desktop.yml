@@ -30,11 +30,11 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
-      - uses: gittools/actions/gitversion/setup@v3.2.1
+      - uses: gittools/actions/gitversion/setup@v4.4.2
         with:
           versionSpec: "6.x"
       - id: gitversion
-        uses: gittools/actions/gitversion/execute@v3.2.1
+        uses: gittools/actions/gitversion/execute@v4.4.2
       - run: |
           dotnet publish WondayWall -c Release -o publish --sc ${{ matrix.self }} `
             -p:PublishSingleFile=${{ matrix.self }} `

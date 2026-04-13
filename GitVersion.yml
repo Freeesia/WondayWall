@@ -1,10 +1,5 @@
-mode: Mainline
-branches:
-  main:
-    regex: ^main$
-    increment: Patch
-  feature:
-    regex: ^features?[/-]
-    increment: Minor
+assembly-versioning-scheme: MajorMinorPatchTag
+tag-prefix: '[vV]'
 ignore:
   sha: []
+merge-message-formats: {}
