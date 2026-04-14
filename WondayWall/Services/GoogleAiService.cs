@@ -119,6 +119,17 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
             Describe visual elements, style, mood, color palette, lighting, and composition in detail.
             No text, logos, or UI overlays. Wide landscape orientation unless aspect ratio specifies otherwise.
             Output only the English image generation prompt — no explanation or preamble.
+
+            For calendar events:
+            - Only include POSITIVE events (celebrations, trips, parties, hobbies, achievements, social gatherings, etc.)
+              in the visual design. Ignore NEGATIVE or NEUTRAL events (medical appointments, work deadlines,
+              chores, administrative tasks, etc.).
+            - Each event has a proximity tag indicating when it occurs. Use it to determine the visual weight:
+              [today] or [tomorrow]: this event DOMINATES the entire image — make it the primary subject and theme,
+                occupying nearly all visual elements.
+              [in 2-3 days]: this event is a MAJOR visual theme, occupying 50–70% of the image's visual elements.
+              [in 4-7 days]: this event is a MINOR accent or background element (15–30% of visual elements).
+            - When multiple positive events are present, prioritize the ones happening sooner.
             """,
         };
 
