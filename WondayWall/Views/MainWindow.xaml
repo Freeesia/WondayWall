@@ -69,13 +69,32 @@
                             <TextBlock Text="{Binding LastResultMessage}" TextWrapping="Wrap" />
                         </ui:CardControl>
 
-                        <ui:Button
+                        <StackPanel
                             Margin="0,0,0,8"
                             HorizontalAlignment="Left"
-                            Appearance="Primary"
-                            Command="{Binding GenerateCommand}"
-                            Content="壁紙を今すぐ生成"
-                            Icon="{ui:SymbolIcon Symbol=Wand24}" />
+                            Orientation="Horizontal">
+                            <ui:Button
+                                Appearance="Primary"
+                                Command="{Binding GenerateCommand}"
+                                Content="壁紙を今すぐ生成"
+                                Icon="{ui:SymbolIcon Symbol=Wand24}" />
+                            <ui:ProgressRing
+                                Width="24"
+                                Height="24"
+                                Margin="8,0,0,0"
+                                VerticalAlignment="Center">
+                                <ui:ProgressRing.Style>
+                                    <Style TargetType="ui:ProgressRing">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsGenerating}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ui:ProgressRing.Style>
+                            </ui:ProgressRing>
+                        </StackPanel>
 
                         <ui:InfoBar
                             Margin="0,0,0,12"
