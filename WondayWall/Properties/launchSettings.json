@@ -1,0 +1,24 @@
+{
+  "profiles": {
+    "WondayWall (GUI)": {
+      "commandName": "Project",
+      "commandLineArgs": ""
+    },
+    "run-once": {
+      "commandName": "Project",
+      "commandLineArgs": "run-once"
+    },
+    "check-calendar": {
+      "commandName": "Project",
+      "commandLineArgs": "check-calendar"
+    },
+    "check-news": {
+      "commandName": "Project",
+      "commandLineArgs": "check-news"
+    },
+    "check-google-ai": {
+      "commandName": "Project",
+      "commandLineArgs": "check-google-ai"
+    }
+  }
+}
