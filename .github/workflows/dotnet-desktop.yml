@@ -36,8 +36,11 @@ jobs:
       - id: gitversion
         uses: gittools/actions/gitversion/execute@v4.4.2
       - run: |
-          dotnet publish WondayWall -c Release -o publish --sc ${{ matrix.self }} `
-            -p:PublishSingleFile=${{ matrix.self }} `
+          dotnet publish WondayWall -c Release -o publish `
+            -p:DebugType=None `
+            -p:RuntimeIdentifier=win-x64 `
+            -p:PublishSingleFile=true `
+            -p:PublishSelfContained=${{ matrix.self }} `
             -p:Version=${{ steps.gitversion.outputs.fullSemVer }} `
             -p:AssemblyVersion=${{ steps.gitversion.outputs.assemblySemVer }} `
             -p:FileVersion=${{ steps.gitversion.outputs.assemblySemFileVer }} `

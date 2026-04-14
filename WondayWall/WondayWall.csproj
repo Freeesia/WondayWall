@@ -11,6 +11,7 @@
     <Version Condition="'$(Version)' == ''">0.0.0-local</Version>
     <Company>StudioFreesia</Company>
     <EnableDefaultApplicationDefinition>false</EnableDefaultApplicationDefinition>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
   </PropertyGroup>
 
 
