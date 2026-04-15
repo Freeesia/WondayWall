@@ -8,6 +8,7 @@ public class CliCommands(
     GenerationCoordinator coordinator,
     ContextService contextService,
     GoogleAiService googleAiService,
+    AppConfigService configService,
     ILogger<CliCommands> logger)
 {
     /// <summary>Run the full wallpaper generation and apply it.</summary>
@@ -15,8 +16,11 @@ public class CliCommands(
     public async Task RunOnceAsync(CancellationToken cancellationToken = default)
     {
         logger.LogInformation("Starting wallpaper generation...");
-        var result = await coordinator.RunAsync(cancellationToken);
-        if (result.IsSuccess)
+        var skipIfNoChanges = configService.Current.SkipGenerationWhenNoChanges;
+        var result = await coordinator.RunAsync(skipIfNoChanges, cancellationToken);
+        if (result.IsSkipped)
+            logger.LogInformation("Skipped: no changes detected.");
+        else if (result.IsSuccess)
             logger.LogInformation("Done. Wallpaper set: {Path}", result.AppliedImagePath);
         else
             logger.LogError("Failed: {Error}", result.ErrorSummary);
