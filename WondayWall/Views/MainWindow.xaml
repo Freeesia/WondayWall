@@ -157,7 +157,7 @@
                                         </ui:CardControl.Icon>
                                         <ui:Button Appearance="Secondary" Command="{Binding ConnectCalendarCommand}">
                                             <ui:Button.Style>
-                                                <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+                                                <Style BasedOn="{StaticResource {x:Type ui:Button}}" TargetType="ui:Button">
                                                     <Setter Property="Content" Value="接続する" />
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding IsCalendarConnected}" Value="True">
@@ -376,7 +376,7 @@
 
                                     <ui:CardControl Header="変化なし時のスキップ">
                                         <ui:CardControl.Icon>
-                                            <ui:SymbolIcon Symbol="SkipForward24" />
+                                            <ui:SymbolIcon Symbol="SkipForwardTab24" />
                                         </ui:CardControl.Icon>
                                         <ui:ToggleSwitch
                                             VerticalAlignment="Center"
