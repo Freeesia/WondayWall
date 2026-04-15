@@ -13,3 +13,10 @@ obj/
 # OS
 .DS_Store
 Thumbs.db
+
+# WixSharp 生成物
+WondayWall.Wix/generated/
+
+# パッケージ出力
+publish/
+artifacts/

@@ -255,28 +255,38 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
             .ToListAsync(ct)
             .ConfigureAwait(false);
 
+        var today = DateTimeOffset.Now.Date;
+        var tomorrow = today.AddDays(1);
+
+        // 前日イベント判定: 明日開始するイベントがあれば、そのイベントのみ対象にしてニュースを除外する
+        var tomorrowEvents = events.Where(e => e.StartTime.LocalDateTime.Date == tomorrow).ToList();
+        var filteredEvents = tomorrowEvents.Count > 0 ? tomorrowEvents : events;
+        var filteredNews = tomorrowEvents.Count > 0 ? [] : news;
+
         var displayInfo = DisplayHelper.GetDisplayInfo();
         var context = new PromptContext(
-            EventSummary: string.Join("\n", events.Select(e =>
+            EventSummary: string.Join("\n", filteredEvents.Select(e =>
             {
-                var line = $"- {e.Title} ({e.StartTime:yyyy/MM/dd HH:mm})" +
+                var daysUntil = (e.StartTime.LocalDateTime.Date - today).Days;
+                var proximityTag = daysUntil <= 0 ? "today" : daysUntil == 1 ? "tomorrow" : $"in {daysUntil} days";
+                var line = $"- {e.Title} [{proximityTag}] ({e.StartTime:yyyy/MM/dd HH:mm})" +
                            (string.IsNullOrEmpty(e.Location) ? "" : $" @ {e.Location}");
                 return string.IsNullOrEmpty(e.Description)
                     ? line
                     : $"{line}\n  {e.Description}";
             })),
-            NewsSummary: string.Join("\n", news.Select(n => string.IsNullOrEmpty(n.Summary) ? $"- {n.Title}" : $"- {n.Title}\n  {n.Summary}")),
+            NewsSummary: string.Join("\n", filteredNews.Select(n => string.IsNullOrEmpty(n.Summary) ? $"- {n.Title}" : $"- {n.Title}\n  {n.Summary}")),
             ImageSize: displayInfo.Size,
             AspectRatio: displayInfo.AspectRatio,
             AdditionalConstraints: string.IsNullOrWhiteSpace(config.UserPrompt)
                 ? null
                 : config.UserPrompt,
-            OgpImageUrls: news.Where(n => n.OgpImageUrl != null)
+            OgpImageUrls: filteredNews.Where(n => n.OgpImageUrl != null)
                               .Select(n => n.OgpImageUrl!)
                               .Take(3)
                               .ToList());
 
-        return new ContextBuildResult(context, events, news);
+        return new ContextBuildResult(context, filteredEvents, filteredNews);
     }
 
     private async Task<CalendarService> GetCalendarServiceAsync(CancellationToken ct = default)
