@@ -31,6 +31,7 @@
             <Setter Property="MinWidth" Value="80" />
         </Style>
         <utils:UrlToFaviconConverter x:Key="UrlToFaviconConverter" />
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
     </ui:FluentWindow.Resources>
 
     <Grid>
@@ -51,8 +52,11 @@
                     </StackPanel>
                 </TabItem.Header>
                 <ScrollViewer Margin="0,0,0,8">
-                    <StackPanel>
-                        <ui:CardControl Margin="0,0,0,12" Header="現在の壁紙">
+                    <DockPanel>
+                        <ui:CardControl
+                            Margin="0,0,0,12"
+                            DockPanel.Dock="Top"
+                            Header="現在の壁紙">
                             <ui:CardControl.Icon>
                                 <ui:SymbolIcon Symbol="Image24" />
                             </ui:CardControl.Icon>
@@ -62,53 +66,43 @@
                                 Stretch="Uniform" />
                         </ui:CardControl>
 
-                        <ui:CardControl Margin="0,0,0,12" Header="最終実行結果">
+                        <ui:CardControl
+                            Margin="0,0,0,12"
+                            DockPanel.Dock="Top"
+                            Header="最終実行結果">
                             <ui:CardControl.Icon>
                                 <ui:SymbolIcon Symbol="Info24" />
                             </ui:CardControl.Icon>
                             <TextBlock Text="{Binding LastResultMessage}" TextWrapping="Wrap" />
                         </ui:CardControl>
 
-                        <StackPanel
-                            Margin="0,0,0,8"
-                            HorizontalAlignment="Left"
-                            Orientation="Horizontal">
-                            <ui:Button
-                                Appearance="Primary"
-                                Command="{Binding GenerateCommand}"
-                                Content="壁紙を今すぐ生成"
-                                Icon="{ui:SymbolIcon Symbol=Wand24}" />
-                            <ui:ProgressRing
-                                Width="24"
-                                Height="24"
-                                Margin="8,0,0,0"
-                                VerticalAlignment="Center">
-                                <ui:ProgressRing.Style>
-                                    <Style TargetType="ui:ProgressRing">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsGenerating}" Value="True">
-                                                <Setter Property="Visibility" Value="Visible" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </ui:ProgressRing.Style>
-                            </ui:ProgressRing>
-                        </StackPanel>
-
-                        <ui:InfoBar
-                            Margin="0,0,0,12"
-                            IsClosable="False"
-                            IsOpen="{Binding IsGenerating}"
-                            Message="壁紙を生成中..."
-                            Severity="Informational" />
+                        <ui:Button
+                            Height="40"
+                            Margin="8,0"
+                            HorizontalAlignment="Right"
+                            Appearance="Primary"
+                            Command="{Binding GenerateCommand}"
+                            DockPanel.Dock="Top"
+                            Icon="{ui:SymbolIcon Symbol=Wand24}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock VerticalAlignment="Center" Text="壁紙を今すぐ生成" />
+                                <ui:ProgressRing
+                                    Width="24"
+                                    Height="24"
+                                    Margin="8,0,0,0"
+                                    VerticalAlignment="Center"
+                                    IsIndeterminate="True"
+                                    Visibility="{Binding IsGenerating, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            </StackPanel>
+                        </ui:Button>
 
                         <TextBlock
                             Margin="0,8,0,4"
+                            DockPanel.Dock="Top"
                             FontSize="16"
                             FontWeight="SemiBold"
                             Text="実行履歴" />
-                        <ui:ListView MaxHeight="200" ItemsSource="{Binding History}">
+                        <ui:ListView MinHeight="200" ItemsSource="{Binding History}">
                             <ui:ListView.View>
                                 <ui:GridView>
                                     <GridViewColumn
@@ -134,7 +128,7 @@
                                 </ui:GridView>
                             </ui:ListView.View>
                         </ui:ListView>
-                    </StackPanel>
+                    </DockPanel>
                 </ScrollViewer>
             </TabItem>
 
@@ -176,7 +170,7 @@
                                         </ui:CardControl.Icon>
                                         <ui:Button Appearance="Secondary" Command="{Binding ConnectCalendarCommand}">
                                             <ui:Button.Style>
-                                                <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+                                                <Style BasedOn="{StaticResource {x:Type ui:Button}}" TargetType="ui:Button">
                                                     <Setter Property="Content" Value="接続する" />
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding IsCalendarConnected}" Value="True">
