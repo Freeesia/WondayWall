@@ -31,8 +31,11 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
         if (string.IsNullOrWhiteSpace(config.GoogleAiApiKey))
             throw new InvalidOperationException("Google AI API key is not configured.");
 
-        // ステップ1: テキストモデルで詳細な画像プロンプトを生成
-        var textModel = new GenerativeModel(config.GoogleAiApiKey, "gemini-3-flash-preview");
+        // ステップ1: テキストモデルで詳細な画像プロンプトを生成（Google検索グラウンディングを有効化）
+        var textModel = new GenerativeModel(config.GoogleAiApiKey, "gemini-3-flash-preview")
+        {
+            UseGoogleSearch = true,
+        };
         var contextPrompt = BuildTextModelPrompt(context);
         var promptResponse = await textModel.GenerateContentAsync(contextPrompt, cancellationToken: ct);
         var imagePrompt = promptResponse.Text() ?? contextPrompt;
@@ -48,7 +51,10 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
                 ImageSize = displayInfo.ImageSize,
             }
         };
-        var imageModel = new GenerativeModel(config.GoogleAiApiKey, "gemini-3.1-flash-image-preview", genConfig);
+        var imageModel = new GenerativeModel(config.GoogleAiApiKey, "gemini-3.1-flash-image-preview", genConfig)
+        {
+            UseGoogleSearch = true,
+        };
 
         // OGP画像がある場合はインラインデータとして添付し、プロンプトにもその旨を付記
         var ogpUrls = (context.OgpImageUrls ?? []).Take(3).ToList();
@@ -131,6 +137,8 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
             $"""
             You are an expert desktop wallpaper image-generation prompt writer.
             You will be given calendar events, news topics, and optionally reference images from those news articles.
+            Use Google Search to look up current details, visuals, and context for the provided events and news topics,
+            then use those findings to craft a richer and more accurate prompt.
             Your task: write a single detailed, creative English prompt for an image generation model
             ({context.ImageSize} resolution, {context.AspectRatio} aspect ratio) that creates a beautiful desktop wallpaper.
 
@@ -139,6 +147,17 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
             Describe visual elements, style, mood, color palette, lighting, and composition in detail.
             No text, logos, or UI overlays. Wide landscape orientation unless aspect ratio specifies otherwise.
             Output only the English image generation prompt — no explanation or preamble.
+
+            For calendar events:
+            - Only include POSITIVE events (celebrations, trips, parties, hobbies, achievements, social gatherings, etc.)
+              in the visual design. Ignore NEGATIVE or NEUTRAL events (medical appointments, work deadlines,
+              chores, administrative tasks, etc.).
+            - Each event has a proximity tag indicating when it occurs. Use it to determine the visual weight:
+              [today] or [tomorrow]: this event DOMINATES the entire image — make it the primary subject and theme,
+                occupying nearly all visual elements.
+              [in 2-3 days]: this event is a MAJOR visual theme, occupying 50–70% of the image's visual elements.
+              [in 4-7 days]: this event is a MINOR accent or background element (15–30% of visual elements).
+            - When multiple positive events are present, prioritize the ones happening sooner.
             """,
         };
 
