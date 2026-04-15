@@ -1,0 +1,5 @@
+assembly-versioning-scheme: MajorMinorPatchTag
+tag-prefix: '[vV]'
+ignore:
+  sha: []
+merge-message-formats: {}
