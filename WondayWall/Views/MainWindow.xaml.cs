@@ -1,4 +1,3 @@
-using System.Windows.Controls;
 using System.Windows.Input;
 using WondayWall.Models;
 using WondayWall.ViewModels;
@@ -17,7 +16,7 @@ public partial class MainWindow : FluentWindow
 
     private void HistoryListView_OnMouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
-        if (sender is not ListView { SelectedItem: HistoryItem historyItem })
+        if (sender is not Wpf.Ui.Controls.ListView { SelectedItem: HistoryItem historyItem })
             return;
 
         if (DataContext is not MainWindowViewModel viewModel)
