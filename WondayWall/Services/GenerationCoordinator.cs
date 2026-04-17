@@ -9,7 +9,6 @@ public class GenerationCoordinator(
     ContextService contextService,
     GoogleAiService googleAiService,
     WallpaperService wallpaperService,
-    LockScreenWallpaperService lockScreenWallpaperService,
     AppConfigService appConfigService,
     ILogger<GenerationCoordinator> logger)
 {
@@ -47,14 +46,13 @@ public class GenerationCoordinator(
             else
             {
                 var imageInfo = await googleAiService.GenerateWallpaperAsync(contextResult.PromptContext, ct);
-                wallpaperService.SetWallpaper(imageInfo.FilePath);
+                errorSummary = await wallpaperService.SetWallpaperAsync(
+                    imageInfo.FilePath,
+                    appConfigService.Current.UpdateLockScreen,
+                    ct);
 
-                if (appConfigService.Current.UpdateLockScreen)
-                {
-                    errorSummary = await lockScreenWallpaperService.TryApplyAsync(imageInfo.FilePath, ct);
-                    if (!string.IsNullOrWhiteSpace(errorSummary))
-                        logger.LogWarning("{WarningMessage}", errorSummary);
-                }
+                if (!string.IsNullOrWhiteSpace(errorSummary))
+                    logger.LogWarning("{WarningMessage}", errorSummary);
 
                 isSuccess = true;
                 appliedImagePath = imageInfo.FilePath;
