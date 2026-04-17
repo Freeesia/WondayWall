@@ -1,5 +1,6 @@
 using ConsoleAppFramework;
 using Microsoft.Extensions.Logging;
+using WondayWall.Models;
 using WondayWall.Services;
 
 namespace WondayWall.Commands;
@@ -15,18 +16,15 @@ public class CliCommands(
     [Command("run-once")]
     public async Task RunOnceAsync(CancellationToken cancellationToken = default)
     {
-        var scheduledSlot = coordinator.GetPendingScheduledSlot(DateTimeOffset.Now);
-        if (scheduledSlot is null)
+        var skipIfNoChanges = configService.Current.SkipGenerationWhenNoChanges;
+        var result = await coordinator.RunScheduledAsync(skipIfNoChanges, DateTimeOffset.Now, cancellationToken);
+        if (result is null)
         {
             logger.LogInformation("Skipping scheduled run: current slot is already handled.");
             return;
         }
 
-        logger.LogInformation(
-            "Starting scheduled wallpaper generation for slot {ScheduledSlot:yyyy/MM/dd HH:mm}.",
-            scheduledSlot.Value.ToLocalTime());
-
-        await RunCoreAsync(cancellationToken);
+        LogRunResult(result);
     }
 
     /// <summary>Generate immediately regardless of the current scheduled slot.</summary>
@@ -34,7 +32,8 @@ public class CliCommands(
     public async Task GenerateAsync(CancellationToken cancellationToken = default)
     {
         logger.LogInformation("Starting manual wallpaper generation...");
-        await RunCoreAsync(cancellationToken);
+        var result = await coordinator.RunAsync(skipIfNoChanges: false, ct: cancellationToken);
+        LogRunResult(result);
     }
 
     /// <summary>Check Google Calendar connection and show upcoming events.</summary>
@@ -64,10 +63,8 @@ public class CliCommands(
         logger.LogInformation("Success! Image saved to: {Path}", info.FilePath);
     }
 
-    private async Task RunCoreAsync(CancellationToken cancellationToken)
+    private void LogRunResult(HistoryItem result)
     {
-        var skipIfNoChanges = configService.Current.SkipGenerationWhenNoChanges;
-        var result = await coordinator.RunAsync(skipIfNoChanges, ct: cancellationToken);
         if (result.IsSkipped)
             logger.LogInformation("Skipped: no changes detected.");
         else if (result.IsSuccess)

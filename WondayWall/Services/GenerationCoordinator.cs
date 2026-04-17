@@ -11,7 +11,8 @@ public class GenerationCoordinator(
     WallpaperService wallpaperService,
     ILogger<GenerationCoordinator> logger)
 {
-    private static readonly SemaphoreSlim Lock = new(1, 1);
+    private const string GenerationMutexName = @"Local\WondayWall.Generation";
+    private static readonly TimeSpan GenerationMutexWaitInterval = TimeSpan.FromMilliseconds(250);
     private static readonly TimeSpan[] ScheduledSlotOffsets =
     [
         TimeSpan.Zero,
@@ -24,11 +25,53 @@ public class GenerationCoordinator(
         System.Environment.GetFolderPath(System.Environment.SpecialFolder.ApplicationData),
         "WondayWall", "history.json");
 
-    public async Task<HistoryItem> RunAsync(bool skipIfNoChanges = false, CancellationToken ct = default)
+    public Task<HistoryItem> RunAsync(bool skipIfNoChanges = false, CancellationToken ct = default)
     {
-        if (!await Lock.WaitAsync(0, ct))
-            throw new InvalidOperationException("Generation is already in progress.");
+        return ExecuteWithGenerationMutexAsync(() => RunCoreAsync(skipIfNoChanges, ct), ct);
+    }
 
+    public Task<HistoryItem?> RunScheduledAsync(
+        bool skipIfNoChanges = false,
+        DateTimeOffset? now = null,
+        CancellationToken ct = default)
+    {
+        var effectiveNow = now ?? DateTimeOffset.Now;
+        return ExecuteWithGenerationMutexAsync(async () =>
+        {
+            var scheduledSlot = GetPendingScheduledSlot(effectiveNow, LoadHistory());
+            if (scheduledSlot is null)
+                return null;
+
+            logger.LogInformation(
+                "Starting scheduled wallpaper generation for slot {ScheduledSlot:yyyy/MM/dd HH:mm}.",
+                scheduledSlot.Value.ToLocalTime());
+
+            return await RunCoreAsync(skipIfNoChanges, ct);
+        }, ct);
+    }
+
+    public DateTimeOffset? GetPendingScheduledSlot(DateTimeOffset now)
+    {
+        return GetPendingScheduledSlot(now, LoadHistory());
+    }
+
+    public List<HistoryItem> LoadHistory()
+    {
+        return JsonFileHelper.Load<List<HistoryItem>>(HistoryFilePath) ?? [];
+    }
+
+    private async Task AppendHistoryAsync(HistoryItem item, List<HistoryItem> history)
+    {
+        history.Insert(0, item);
+
+        if (history.Count > 100)
+            history = history.Take(100).ToList();
+
+        await Task.Run(() => JsonFileHelper.Save(HistoryFilePath, history));
+    }
+
+    private async Task<HistoryItem> RunCoreAsync(bool skipIfNoChanges, CancellationToken ct)
+    {
         bool isSuccess = false;
         bool isSkipped = false;
         string? errorSummary = null;
@@ -85,18 +128,47 @@ public class GenerationCoordinator(
             logger.LogError(ex, "履歴の保存に失敗しました");
         }
 
-        finally
-        {
-            Lock.Release();
-        }
-
         return historyItem;
     }
 
-    public DateTimeOffset? GetPendingScheduledSlot(DateTimeOffset now)
+    // GUI and CLI can launch generation in different processes, so guard it with an OS-wide mutex.
+    private static async Task<T> ExecuteWithGenerationMutexAsync<T>(Func<Task<T>> action, CancellationToken ct)
+    {
+        return await Task.Run(() =>
+        {
+            using var mutex = new Mutex(false, GenerationMutexName);
+            var hasHandle = false;
+
+            try
+            {
+                while (!hasHandle)
+                {
+                    ct.ThrowIfCancellationRequested();
+
+                    try
+                    {
+                        hasHandle = mutex.WaitOne(GenerationMutexWaitInterval);
+                    }
+                    catch (AbandonedMutexException)
+                    {
+                        hasHandle = true;
+                    }
+                }
+
+                return action().GetAwaiter().GetResult();
+            }
+            finally
+            {
+                if (hasHandle)
+                    mutex.ReleaseMutex();
+            }
+        }, CancellationToken.None);
+    }
+
+    private static DateTimeOffset? GetPendingScheduledSlot(DateTimeOffset now, List<HistoryItem> history)
     {
         var latestSlot = GetLatestScheduledSlotAtOrBefore(now);
-        var lastCompletedRunAt = LoadHistory()
+        var lastCompletedRunAt = history
             .Where(h => h.IsSuccess)
             .Select(h => h.ExecutedAt)
             .OrderByDescending(executedAt => executedAt)
@@ -106,21 +178,6 @@ public class GenerationCoordinator(
             return null;
 
         return latestSlot;
-    }
-
-    public List<HistoryItem> LoadHistory()
-    {
-        return JsonFileHelper.Load<List<HistoryItem>>(HistoryFilePath) ?? [];
-    }
-
-    private async Task AppendHistoryAsync(HistoryItem item, List<HistoryItem> history)
-    {
-        history.Insert(0, item);
-
-        if (history.Count > 100)
-            history = history.Take(100).ToList();
-
-        await Task.Run(() => JsonFileHelper.Save(HistoryFilePath, history));
     }
 
     private static DateTimeOffset GetLatestScheduledSlotAtOrBefore(DateTimeOffset now)
