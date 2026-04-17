@@ -122,9 +122,9 @@
                                         DisplayMemberBinding="{Binding UsedNewsTopics.Count, FallbackValue=0}"
                                         Header="ニュース" />
                                     <GridViewColumn
-                                        Width="200"
+                                        Width="280"
                                         DisplayMemberBinding="{Binding ErrorSummary}"
-                                        Header="エラー" />
+                                        Header="メッセージ" />
                                 </ui:GridView>
                             </ui:ListView.View>
                         </ui:ListView>
@@ -395,6 +395,16 @@
                                             VerticalAlignment="Center"
                                             Content="直近の予定がなくニュースに変化がない場合は生成をスキップ"
                                             IsChecked="{Binding AppConfig.SkipGenerationWhenNoChanges, UpdateSourceTrigger=PropertyChanged}" />
+                                    </ui:CardControl>
+
+                                    <ui:CardControl Header="ロック画面の更新（実験的）">
+                                        <ui:CardControl.Icon>
+                                            <ui:SymbolIcon Symbol="LockClosed24" />
+                                        </ui:CardControl.Icon>
+                                        <ui:ToggleSwitch
+                                            VerticalAlignment="Center"
+                                            Content="デスクトップ壁紙に加えてロック画面も更新する"
+                                            IsChecked="{Binding AppConfig.UpdateLockScreen, UpdateSourceTrigger=PropertyChanged}" />
                                     </ui:CardControl>
                                 </StackPanel>
                             </GroupBox>
