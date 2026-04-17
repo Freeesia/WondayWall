@@ -102,7 +102,11 @@
                             FontSize="16"
                             FontWeight="SemiBold"
                             Text="実行履歴" />
-                        <ui:ListView MinHeight="200" ItemsSource="{Binding History}">
+                        <ui:ListView
+                            x:Name="HistoryListView"
+                            MinHeight="200"
+                            ItemsSource="{Binding History}"
+                            MouseDoubleClick="HistoryListView_OnMouseDoubleClick">
                             <ui:ListView.View>
                                 <ui:GridView>
                                     <GridViewColumn
