@@ -397,7 +397,7 @@
                                             IsChecked="{Binding AppConfig.SkipGenerationWhenNoChanges, UpdateSourceTrigger=PropertyChanged}" />
                                     </ui:CardControl>
 
-                                    <ui:CardControl Header="ロック画面の更新（実験的）">
+                                    <ui:CardControl Header="ロック画面の更新">
                                         <ui:CardControl.Icon>
                                             <ui:SymbolIcon Symbol="LockClosed24" />
                                         </ui:CardControl.Icon>
