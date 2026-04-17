@@ -9,6 +9,8 @@ public class GenerationCoordinator(
     ContextService contextService,
     GoogleAiService googleAiService,
     WallpaperService wallpaperService,
+    LockScreenWallpaperService lockScreenWallpaperService,
+    AppConfigService appConfigService,
     ILogger<GenerationCoordinator> logger)
 {
     private static readonly SemaphoreSlim Lock = new(1, 1);
@@ -46,6 +48,13 @@ public class GenerationCoordinator(
             {
                 var imageInfo = await googleAiService.GenerateWallpaperAsync(contextResult.PromptContext, ct);
                 wallpaperService.SetWallpaper(imageInfo.FilePath);
+
+                if (appConfigService.Current.UpdateLockScreen)
+                {
+                    errorSummary = await lockScreenWallpaperService.TryApplyAsync(imageInfo.FilePath, ct);
+                    if (!string.IsNullOrWhiteSpace(errorSummary))
+                        logger.LogWarning("{WarningMessage}", errorSummary);
+                }
 
                 isSuccess = true;
                 appliedImagePath = imageInfo.FilePath;
