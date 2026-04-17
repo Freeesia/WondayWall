@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Microsoft.Win32.TaskScheduler;
 using System.Security.Principal;
 
@@ -40,8 +39,7 @@ public class TaskSchedulerService
         td.Settings.MultipleInstances = TaskInstancesPolicy.IgnoreNew;
         td.Settings.StartWhenAvailable = false;
 
-        var exePath = Process.GetCurrentProcess().MainModule!.FileName;
-        td.Actions.Add(new ExecAction(exePath, "run-once"));
+        td.Actions.Add(new ExecAction(Environment.ProcessPath, "run-once"));
 
         ts.RootFolder.RegisterTaskDefinition(TaskName, td);
     }
