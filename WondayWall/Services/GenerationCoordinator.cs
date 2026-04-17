@@ -12,6 +12,13 @@ public class GenerationCoordinator(
     ILogger<GenerationCoordinator> logger)
 {
     private static readonly SemaphoreSlim Lock = new(1, 1);
+    private static readonly TimeSpan[] ScheduledSlotOffsets =
+    [
+        TimeSpan.Zero,
+        TimeSpan.FromHours(6),
+        TimeSpan.FromHours(12),
+        TimeSpan.FromHours(18),
+    ];
 
     private static readonly string HistoryFilePath = Path.Combine(
         System.Environment.GetFolderPath(System.Environment.SpecialFolder.ApplicationData),
@@ -77,12 +84,28 @@ public class GenerationCoordinator(
             // 履歴の保存失敗は生成フロー全体を止めない
             logger.LogError(ex, "履歴の保存に失敗しました");
         }
+
         finally
         {
             Lock.Release();
         }
 
         return historyItem;
+    }
+
+    public DateTimeOffset? GetPendingScheduledSlot(DateTimeOffset now)
+    {
+        var latestSlot = GetLatestScheduledSlotAtOrBefore(now);
+        var lastCompletedRunAt = LoadHistory()
+            .Where(h => h.IsSuccess)
+            .Select(h => h.ExecutedAt)
+            .OrderByDescending(executedAt => executedAt)
+            .FirstOrDefault();
+
+        if (lastCompletedRunAt != default && lastCompletedRunAt >= latestSlot)
+            return null;
+
+        return latestSlot;
     }
 
     public List<HistoryItem> LoadHistory()
@@ -98,6 +121,21 @@ public class GenerationCoordinator(
             history = history.Take(100).ToList();
 
         await Task.Run(() => JsonFileHelper.Save(HistoryFilePath, history));
+    }
+
+    private static DateTimeOffset GetLatestScheduledSlotAtOrBefore(DateTimeOffset now)
+    {
+        var localNow = now.ToLocalTime();
+        var dayStart = new DateTimeOffset(localNow.Year, localNow.Month, localNow.Day, 0, 0, 0, localNow.Offset);
+
+        for (var i = ScheduledSlotOffsets.Length - 1; i >= 0; i--)
+        {
+            var candidate = dayStart + ScheduledSlotOffsets[i];
+            if (candidate <= localNow)
+                return candidate;
+        }
+
+        return dayStart.AddDays(-1) + ScheduledSlotOffsets[^1];
     }
 
     /// <summary>
