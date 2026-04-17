@@ -1,3 +1,7 @@
+using System.Windows.Controls;
+using System.Windows.Input;
+using WondayWall.Models;
+using WondayWall.ViewModels;
 using Wpf.Ui.Appearance;
 using Wpf.Ui.Controls;
 
@@ -9,5 +13,16 @@ public partial class MainWindow : FluentWindow
     {
         SystemThemeWatcher.Watch(this);
         InitializeComponent();
+    }
+
+    private void HistoryListView_OnMouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not ListView { SelectedItem: HistoryItem historyItem })
+            return;
+
+        if (DataContext is not MainWindowViewModel viewModel)
+            return;
+
+        viewModel.OpenHistoryImageCommand.Execute(historyItem);
     }
 }
