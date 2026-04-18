@@ -1,9 +1,9 @@
-using System.Diagnostics;
 using Microsoft.Win32.TaskScheduler;
+using System.Security.Principal;
 
 namespace WondayWall.Services;
 
-public class TaskSchedulerService(AppConfigService configService)
+public class TaskSchedulerService
 {
     private const string TaskName = "WondayWall";
 
@@ -15,24 +15,31 @@ public class TaskSchedulerService(AppConfigService configService)
 
     public void Enable()
     {
-        var config = configService.Load();
         using var ts = new TaskService();
         var td = ts.NewTask();
-        td.RegistrationInfo.Description = "WondayWall 壁紙自動生成";
+        td.RegistrationInfo.Description = "WondayWall 壁紙自動生成 (0:00 / 6:00 / 12:00 / 18:00 + ログオン時補完)";
 
-        var trigger = new TimeTrigger
+        var dailyTrigger = new DailyTrigger
         {
-            StartBoundary = DateTime.Now,
-            Repetition =
-            {
-                Interval = TimeSpan.FromHours(config.UpdateIntervalHours),
-                Duration = TimeSpan.Zero,
-            },
+            StartBoundary = DateTime.Today,
+            DaysInterval = 1,
         };
-        td.Triggers.Add(trigger);
+        dailyTrigger.Repetition.Interval = TimeSpan.FromHours(6);
+        dailyTrigger.Repetition.Duration = TimeSpan.FromDays(1);
 
-        var exePath = Process.GetCurrentProcess().MainModule!.FileName;
-        td.Actions.Add(new ExecAction(exePath, "run-once"));
+        using var identity = WindowsIdentity.GetCurrent();
+        var logonTrigger = new LogonTrigger
+        {
+            UserId = identity.Name,
+            Enabled = true,
+        };
+
+        td.Triggers.Add(dailyTrigger);
+        td.Triggers.Add(logonTrigger);
+        td.Settings.MultipleInstances = TaskInstancesPolicy.IgnoreNew;
+        td.Settings.StartWhenAvailable = false;
+
+        td.Actions.Add(new ExecAction(Environment.ProcessPath, "run-once"));
 
         ts.RootFolder.RegisterTaskDefinition(TaskName, td);
     }
