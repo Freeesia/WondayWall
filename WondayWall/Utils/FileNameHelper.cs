@@ -6,7 +6,7 @@ public static class FileNameHelper
 {
     public static string GenerateImageFileName(string prefix = "wallpaper", string extension = "png")
     {
-        var timestamp = DateTimeOffset.Now.ToString("yyyyMMdd_HHmmss");
+        var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
         return $"{prefix}_{timestamp}.{extension}";
     }
 
