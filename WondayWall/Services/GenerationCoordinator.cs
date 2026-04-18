@@ -46,13 +46,10 @@ public class GenerationCoordinator(
             else
             {
                 var imageInfo = await googleAiService.GenerateWallpaperAsync(contextResult.PromptContext, ct);
-                errorSummary = await wallpaperService.SetWallpaperAsync(
+                await wallpaperService.SetWallpaperAsync(
                     imageInfo.FilePath,
                     appConfigService.Current.UpdateLockScreen,
                     ct);
-
-                if (!string.IsNullOrWhiteSpace(errorSummary))
-                    logger.LogWarning("{WarningMessage}", errorSummary);
 
                 isSuccess = true;
                 appliedImagePath = imageInfo.FilePath;
