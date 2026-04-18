@@ -56,7 +56,7 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
 
         try
         {
-            _ = await GetCalendarServiceAsync(ct);
+            _ = await GetCalendarServiceAsync(dataStore, existingToken, ct);
             return true;
         }
         catch (Exception ex)
@@ -323,16 +323,28 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
         if (_calendarService != null)
             return _calendarService;
 
+        var dataStore = CreateCalendarTokenStore();
+        var existingToken = await GetStoredCalendarTokenAsync(dataStore);
+        if (existingToken == null)
+            throw new InvalidOperationException("Googleカレンダーは未接続です。接続ボタンから認証してください。");
+
+        return await GetCalendarServiceAsync(dataStore, existingToken, ct);
+    }
+
+    private async Task<CalendarService> GetCalendarServiceAsync(
+        FileDataStore dataStore,
+        TokenResponse existingToken,
+        CancellationToken ct = default)
+    {
+        if (_calendarService != null)
+            return _calendarService;
+
         var secrets = new ClientSecrets
         {
             ClientId = ClientId,
             ClientSecret = ClientSecret,
         };
 
-        var dataStore = CreateCalendarTokenStore();
-        var existingToken = await GetStoredCalendarTokenAsync(dataStore);
-        if (existingToken == null)
-            throw new InvalidOperationException("Googleカレンダーは未接続です。接続ボタンから認証してください。");
         if (IsTokenExpired(existingToken, DateTime.UtcNow) && !CanRefreshToken(existingToken))
             throw new InvalidOperationException("Googleカレンダーの認証トークンが期限切れです。接続ボタンから再認証してください。");
 
