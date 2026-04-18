@@ -11,8 +11,8 @@ public record PromptCalendarEvent(
     string Id,
     string Title,
     string ProximityTag,
-    DateTimeOffset StartTime,
-    DateTimeOffset? EndTime = null,
+    DateTime StartTime,
+    DateTime? EndTime = null,
     string? Location = null,
     string? Description = null);
 
@@ -21,5 +21,5 @@ public record PromptNewsTopic(
     string Title,
     string? Summary = null,
     string? Url = null,
-    DateTimeOffset? PublishedAt = null,
+    DateTime? PublishedAt = null,
     string? OgpImageUrl = null);

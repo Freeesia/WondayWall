@@ -114,7 +114,7 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
 
         return new GeneratedImageInfo(
             FilePath: filePath,
-            GeneratedAt: DateTimeOffset.UtcNow,
+            GeneratedAt: DateTime.Now,
             UsedPrompt: imagePrompt,
             SourceContext: context);
     }
