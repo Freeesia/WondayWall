@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
@@ -124,7 +126,7 @@ public partial class MainWindowViewModel : ObservableObject
 
         try
         {
-            var result = await _coordinator.RunAsync(ct);
+            var result = await _coordinator.RunAsync(ct: ct);
             LastResultMessage = result.IsSuccess
                 ? $"Done! Image: {result.AppliedImagePath}"
                 : $"Failed: {result.ErrorSummary}";
@@ -242,6 +244,37 @@ public partial class MainWindowViewModel : ObservableObject
     {
         if (!string.IsNullOrEmpty(url))
             RssSources.Remove(url);
+    }
+
+    [RelayCommand]
+    private void OpenHistoryImage(HistoryItem? item)
+    {
+        var imagePath = item?.AppliedImagePath;
+        if (string.IsNullOrWhiteSpace(imagePath))
+        {
+            LastResultMessage = "画像パスがありません。";
+            return;
+        }
+
+        if (!File.Exists(imagePath))
+        {
+            LastResultMessage = $"画像ファイルが見つかりません: {imagePath}";
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = imagePath,
+                UseShellExecute = true,
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "履歴画像を開けませんでした: {ImagePath}", imagePath);
+            LastResultMessage = $"画像を開けませんでした: {ex.Message}";
+        }
     }
 
     private void LoadHistory()

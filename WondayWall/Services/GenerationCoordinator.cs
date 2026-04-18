@@ -12,22 +12,56 @@ public class GenerationCoordinator(
     WallpaperService wallpaperService,
     ILogger<GenerationCoordinator> logger)
 {
-    private static readonly SemaphoreSlim Lock = new(1, 1);
+    private const string GenerationMutexName = @"Local\WondayWall.Generation";
+    private static readonly TimeSpan GenerationMutexWaitInterval = TimeSpan.FromMilliseconds(250);
+    private static readonly TimeSpan[] ScheduledSlotOffsets =
+    [
+        TimeSpan.Zero,
+        TimeSpan.FromHours(6),
+        TimeSpan.FromHours(12),
+        TimeSpan.FromHours(18),
+    ];
 
-    private static readonly string HistoryFilePath = Path.Combine(
-        System.Environment.GetFolderPath(System.Environment.SpecialFolder.ApplicationData),
-        "WondayWall", "history.json");
+    private static readonly string HistoryFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "WondayWall", "history.json");
 
-    public async Task<HistoryItem> RunAsync(CancellationToken ct = default)
+    public Task<HistoryItem> RunAsync(bool skipIfNoChanges = false, CancellationToken ct = default)
+        => ExecuteWithGenerationMutexAsync(() => RunCoreAsync(skipIfNoChanges, ct), ct);
+
+    public Task<HistoryItem?> RunScheduledAsync(
+        bool skipIfNoChanges = false,
+        DateTimeOffset? now = null,
+        CancellationToken ct = default)
     {
-        if (!await Lock.WaitAsync(0, ct))
-            throw new InvalidOperationException("Generation is already in progress.");
+        var effectiveNow = now ?? DateTimeOffset.Now;
+        return ExecuteWithGenerationMutexAsync(async () =>
+        {
+            var scheduledSlot = GetPendingScheduledSlot(effectiveNow, LoadHistory());
+            if (scheduledSlot is null)
+                return null;
 
+            logger.LogInformation(
+                "Starting scheduled wallpaper generation for slot {ScheduledSlot:yyyy/MM/dd HH:mm}.",
+                scheduledSlot.Value.ToLocalTime());
+
+            return await RunCoreAsync(skipIfNoChanges, ct);
+        }, ct);
+    }
+
+    public List<HistoryItem> LoadHistory()
+        => JsonFileHelper.Load<List<HistoryItem>>(HistoryFilePath) ?? [];
+
+    private void AppendHistory(HistoryItem item, List<HistoryItem> history)
+        => JsonFileHelper.Save(HistoryFilePath, history.Prepend(item).Take(100));
+
+    private async Task<HistoryItem> RunCoreAsync(bool skipIfNoChanges, CancellationToken ct)
+    {
         bool isSuccess = false;
+        bool isSkipped = false;
         string? errorSummary = null;
         string? appliedImagePath = null;
         List<CalendarEventItem>? usedEvents = null;
         List<NewsTopicItem>? usedTopics = null;
+        var historyItems = LoadHistory();
 
         try
         {
@@ -37,9 +71,10 @@ public class GenerationCoordinator(
             // UseCurrentWallpaperAsBase が有効なら直前の成功生成画像をベースとして設定
             if (configService.Current.UseCurrentWallpaperAsBase)
             {
-                var baseImagePath = LoadHistory()
+                var baseImagePath = historyItems
                     .OrderByDescending(h => h.ExecutedAt)
                     .FirstOrDefault(h => h.IsSuccess
+                                        && !h.IsSkipped
                                         && h.AppliedImagePath != null
                                         && File.Exists(h.AppliedImagePath))
                     ?.AppliedImagePath;
@@ -47,13 +82,28 @@ public class GenerationCoordinator(
                     promptContext = promptContext with { BaseImagePath = baseImagePath };
             }
 
-            var imageInfo = await googleAiService.GenerateWallpaperAsync(promptContext, ct);
-            wallpaperService.SetWallpaper(imageInfo.FilePath);
+            // スキップ条件チェック：直近の予定がなく、ニュースに変化がない場合はスキップ
+            if (skipIfNoChanges
+                && contextResult.CalendarEvents.Count == 0
+                && !HasNewsChanged(contextResult.NewsTopics, historyItems))
+            {
+                logger.LogInformation("変化がないため画像生成をスキップします");
+                isSuccess = true;
+                isSkipped = true;
+            }
+            else
+            {
+                var imageInfo = await googleAiService.GenerateWallpaperAsync(promptContext, ct);
+                await wallpaperService.SetWallpaperAsync(
+                    imageInfo.FilePath,
+                    configService.Current.UpdateLockScreen,
+                    ct);
 
-            isSuccess = true;
-            appliedImagePath = imageInfo.FilePath;
-            usedEvents = contextResult.CalendarEvents;
-            usedTopics = contextResult.NewsTopics;
+                isSuccess = true;
+                appliedImagePath = imageInfo.FilePath;
+                usedEvents = contextResult.CalendarEvents;
+                usedTopics = contextResult.NewsTopics;
+            }
         }
         catch (Exception ex)
         {
@@ -66,38 +116,108 @@ public class GenerationCoordinator(
             ErrorSummary: errorSummary,
             AppliedImagePath: appliedImagePath,
             UsedCalendarEvents: usedEvents,
-            UsedNewsTopics: usedTopics);
+            UsedNewsTopics: usedTopics,
+            IsSkipped: isSkipped);
 
         try
         {
-            await AppendHistoryAsync(historyItem);
+            AppendHistory(historyItem, historyItems);
         }
         catch (Exception ex)
         {
             // 履歴の保存失敗は生成フロー全体を止めない
             logger.LogError(ex, "履歴の保存に失敗しました");
         }
-        finally
-        {
-            Lock.Release();
-        }
 
         return historyItem;
     }
 
-    public List<HistoryItem> LoadHistory()
+    // GUI and CLI can launch generation in different processes, so guard it with an OS-wide mutex.
+    private static Task<T> ExecuteWithGenerationMutexAsync<T>(Func<Task<T>> action, CancellationToken ct)
+        => Task.Run(async () =>
+            {
+                using var mutex = new Mutex(false, GenerationMutexName);
+                var hasHandle = false;
+
+                try
+                {
+                    while (!hasHandle)
+                    {
+                        ct.ThrowIfCancellationRequested();
+
+                        try
+                        {
+                            hasHandle = mutex.WaitOne(GenerationMutexWaitInterval);
+                        }
+                        catch (AbandonedMutexException)
+                        {
+                            hasHandle = true;
+                        }
+                    }
+
+                    return await action();
+                }
+                finally
+                {
+                    if (hasHandle)
+                        mutex.ReleaseMutex();
+                }
+            }, ct);
+
+    private static DateTimeOffset? GetPendingScheduledSlot(DateTimeOffset now, List<HistoryItem> history)
     {
-        return JsonFileHelper.Load<List<HistoryItem>>(HistoryFilePath) ?? [];
+        var latestSlot = GetLatestScheduledSlotAtOrBefore(now);
+        var lastCompletedRunAt = history
+            .Where(h => h.IsSuccess)
+            .Select(h => h.ExecutedAt)
+            .OrderByDescending(executedAt => executedAt)
+            .FirstOrDefault();
+
+        if (lastCompletedRunAt != default && lastCompletedRunAt >= latestSlot)
+            return null;
+
+        return latestSlot;
     }
 
-    private async Task AppendHistoryAsync(HistoryItem item)
+    private static DateTimeOffset GetLatestScheduledSlotAtOrBefore(DateTimeOffset now)
     {
-        var history = LoadHistory();
-        history.Insert(0, item);
+        var localNow = now.ToLocalTime();
+        var dayStart = new DateTimeOffset(localNow.Year, localNow.Month, localNow.Day, 0, 0, 0, localNow.Offset);
 
-        if (history.Count > 100)
-            history = history.Take(100).ToList();
+        for (var i = ScheduledSlotOffsets.Length - 1; i >= 0; i--)
+        {
+            var candidate = dayStart + ScheduledSlotOffsets[i];
+            if (candidate <= localNow)
+                return candidate;
+        }
 
-        await Task.Run(() => JsonFileHelper.Save(HistoryFilePath, history));
+        return dayStart.AddDays(-1) + ScheduledSlotOffsets[^1];
+    }
+
+    /// <summary>
+    /// 直前の成功した生成履歴と比較し、ニューストピックに変化があるかを返す。
+    /// 前回の履歴がない場合は変化ありとみなす。
+    /// </summary>
+    private static bool HasNewsChanged(List<NewsTopicItem> currentNews, List<HistoryItem> history)
+    {
+        // スキップ判定に使う直前の成功・非スキップ履歴を取得
+        var lastHistory = history
+            .FirstOrDefault(h => h.IsSuccess && !h.IsSkipped);
+
+        if (lastHistory?.UsedNewsTopics == null || lastHistory.UsedNewsTopics.Count == 0)
+            return true;
+
+        // URLがあればURLで、なければタイトルで比較（どちらもnullの場合は除外）
+        var previousKeys = lastHistory.UsedNewsTopics
+            .Select(n => n.Url ?? n.Title)
+            .Where(k => k != null)
+            .ToHashSet();
+
+        var currentKeys = currentNews
+            .Select(n => n.Url ?? n.Title)
+            .Where(k => k != null)
+            .ToHashSet();
+
+        return !previousKeys.SetEquals(currentKeys);
     }
 }
