@@ -360,19 +360,12 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
 
     private static bool IsTokenExpired(TokenResponse token, DateTime utcNow)
     {
-        object? rawExpiresIn = token.ExpiresInSeconds;
-        var expiresInSeconds = rawExpiresIn switch
-        {
-            long v => v,
-            int v => v,
-            string s when long.TryParse(s, out var parsed) => parsed,
-            _ => (long?)null,
-        };
-
-        if (expiresInSeconds is null || expiresInSeconds <= 0 || token.IssuedUtc == default)
+        if (token.ExpiresInSeconds is not long expiresInSeconds ||
+            expiresInSeconds <= 0 ||
+            token.IssuedUtc == default)
             return true;
 
-        var expiresAtUtc = token.IssuedUtc.AddSeconds(expiresInSeconds.Value);
+        var expiresAtUtc = token.IssuedUtc.AddSeconds(expiresInSeconds);
         return utcNow >= expiresAtUtc.AddMinutes(-1);
     }
 
