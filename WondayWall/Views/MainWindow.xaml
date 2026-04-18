@@ -369,25 +369,22 @@
 
                             <GroupBox Header="スケジュール設定">
                                 <StackPanel>
-                                    <ui:CardControl Header="自動実行スケジュール">
+                                    <ui:CardControl Header="自動実行">
                                         <ui:CardControl.Icon>
                                             <ui:SymbolIcon Symbol="Clock24" />
                                         </ui:CardControl.Icon>
-                                        <TextBlock
-                                            Width="320"
-                                            Text="毎日 0:00 / 6:00 / 12:00 / 18:00 に実行します。PC の電源断などで定刻を逃した場合だけ、次回ログオン時に補完実行します。"
-                                            TextWrapping="Wrap" />
-                                    </ui:CardControl>
-
-                                    <ui:CardControl Header="タスクスケジューラ">
-                                        <ui:CardControl.Icon>
-                                            <ui:SymbolIcon Symbol="Clock24" />
-                                        </ui:CardControl.Icon>
-                                        <ui:ToggleSwitch
-                                            VerticalAlignment="Center"
-                                            Command="{Binding ToggleTaskSchedulerCommand}"
-                                            Content="固定時刻スケジュールを有効にする"
-                                            IsChecked="{Binding IsTaskSchedulerEnabled}" />
+                                        <StackPanel Orientation="Vertical">
+                                            <ui:ToggleSwitch
+                                                VerticalAlignment="Center"
+                                                Command="{Binding ToggleTaskSchedulerCommand}"
+                                                Content="固定時刻スケジュールを有効にする"
+                                                IsChecked="{Binding IsTaskSchedulerEnabled}" />
+                                            <TextBlock
+                                                Width="320"
+                                                Margin="24,4,0,0"
+                                                Text="毎日 0:00 / 6:00 / 12:00 / 18:00 に実行します。PC の電源断などで定刻を逃した場合だけ、次回ログオン時に補完実行します。"
+                                                TextWrapping="Wrap" />
+                                        </StackPanel>
                                     </ui:CardControl>
 
                                     <ui:CardControl Header="変化なし時のスキップ">

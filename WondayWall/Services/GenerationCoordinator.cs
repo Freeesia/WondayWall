@@ -21,14 +21,10 @@ public class GenerationCoordinator(
         TimeSpan.FromHours(18),
     ];
 
-    private static readonly string HistoryFilePath = Path.Combine(
-        System.Environment.GetFolderPath(System.Environment.SpecialFolder.ApplicationData),
-        "WondayWall", "history.json");
+    private static readonly string HistoryFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "WondayWall", "history.json");
 
     public Task<HistoryItem> RunAsync(bool skipIfNoChanges = false, CancellationToken ct = default)
-    {
-        return ExecuteWithGenerationMutexAsync(() => RunCoreAsync(skipIfNoChanges, ct), ct);
-    }
+        => ExecuteWithGenerationMutexAsync(() => RunCoreAsync(skipIfNoChanges, ct), ct);
 
     public Task<HistoryItem?> RunScheduledAsync(
         bool skipIfNoChanges = false,
@@ -50,25 +46,11 @@ public class GenerationCoordinator(
         }, ct);
     }
 
-    public DateTimeOffset? GetPendingScheduledSlot(DateTimeOffset now)
-    {
-        return GetPendingScheduledSlot(now, LoadHistory());
-    }
-
     public List<HistoryItem> LoadHistory()
-    {
-        return JsonFileHelper.Load<List<HistoryItem>>(HistoryFilePath) ?? [];
-    }
+        => JsonFileHelper.Load<List<HistoryItem>>(HistoryFilePath) ?? [];
 
-    private async Task AppendHistoryAsync(HistoryItem item, List<HistoryItem> history)
-    {
-        history.Insert(0, item);
-
-        if (history.Count > 100)
-            history = history.Take(100).ToList();
-
-        await Task.Run(() => JsonFileHelper.Save(HistoryFilePath, history));
-    }
+    private void AppendHistory(HistoryItem item, List<HistoryItem> history)
+        => JsonFileHelper.Save(HistoryFilePath, history.Prepend(item).Take(100));
 
     private async Task<HistoryItem> RunCoreAsync(bool skipIfNoChanges, CancellationToken ct)
     {
@@ -120,7 +102,7 @@ public class GenerationCoordinator(
 
         try
         {
-            await AppendHistoryAsync(historyItem, historyItems);
+            AppendHistory(historyItem, historyItems);
         }
         catch (Exception ex)
         {
@@ -132,38 +114,36 @@ public class GenerationCoordinator(
     }
 
     // GUI and CLI can launch generation in different processes, so guard it with an OS-wide mutex.
-    private static async Task<T> ExecuteWithGenerationMutexAsync<T>(Func<Task<T>> action, CancellationToken ct)
-    {
-        return await Task.Run(() =>
-        {
-            using var mutex = new Mutex(false, GenerationMutexName);
-            var hasHandle = false;
-
-            try
+    private static Task<T> ExecuteWithGenerationMutexAsync<T>(Func<Task<T>> action, CancellationToken ct)
+        => Task.Run(async () =>
             {
-                while (!hasHandle)
+                using var mutex = new Mutex(false, GenerationMutexName);
+                var hasHandle = false;
+
+                try
                 {
-                    ct.ThrowIfCancellationRequested();
+                    while (!hasHandle)
+                    {
+                        ct.ThrowIfCancellationRequested();
 
-                    try
-                    {
-                        hasHandle = mutex.WaitOne(GenerationMutexWaitInterval);
+                        try
+                        {
+                            hasHandle = mutex.WaitOne(GenerationMutexWaitInterval);
+                        }
+                        catch (AbandonedMutexException)
+                        {
+                            hasHandle = true;
+                        }
                     }
-                    catch (AbandonedMutexException)
-                    {
-                        hasHandle = true;
-                    }
+
+                    return await action();
                 }
-
-                return action().GetAwaiter().GetResult();
-            }
-            finally
-            {
-                if (hasHandle)
-                    mutex.ReleaseMutex();
-            }
-        }, CancellationToken.None);
-    }
+                finally
+                {
+                    if (hasHandle)
+                        mutex.ReleaseMutex();
+                }
+            }, ct);
 
     private static DateTimeOffset? GetPendingScheduledSlot(DateTimeOffset now, List<HistoryItem> history)
     {
