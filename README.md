@@ -36,12 +36,12 @@ WondayWall.exe run-once
 | RSS ニュース連携 | 指定フィードの最新記事を壁紙テーマに反映 |
 | 手動生成 | GUI から即時生成可能 |
 | 生成履歴 | 過去の壁紙を一覧で確認 |
-| CLI モード | `run-once` / `generate` でスクリプト・タスクスケジューラから呼び出し可能 |
+| CLI モード | `run-once` / `generate` でタスクスケジューラや手動実行から呼び出し可能 |
 
 ## CLI コマンド
 
 ```powershell
-WondayWall.exe run-once          # 1回生成して終了（タスクスケジューラ向け）
+WondayWall.exe run-once          # 現在の定刻枠が未処理なら1回生成して終了（タスクスケジューラ向け）
 WondayWall.exe generate          # 即時生成
 WondayWall.exe check-calendar    # カレンダー取得のみ確認
 WondayWall.exe check-news        # ニュース取得のみ確認
