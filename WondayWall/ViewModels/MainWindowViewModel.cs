@@ -76,33 +76,20 @@ public partial class MainWindowViewModel : ObservableObject
     /// <summary>起動時にカレンダー一覧・カレンダーイベント・ニュースをバックグラウンドで取得する</summary>
     private async Task InitializeDataAsync()
     {
-        // カレンダー一覧: ログイン済みの場合のみ（エラーは無視）
-        try
-        {
-            await foreach (var cal in _contextService.FetchAvailableCalendarsAsync())
-            {
-                cal.IsSelected = AppConfig.TargetCalendarIds.Contains(cal.Id);
-                AvailableCalendars.Add(cal);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "起動時のカレンダー一覧取得をスキップしました");
-        }
+        var canAccessCalendarSilently = await _contextService.CanAccessCalendarSilentlyAsync();
+        if (!canAccessCalendarSilently)
+            CalendarStatus = "Not connected";
 
-        // カレンダーイベント: ログイン済みの場合のみ（エラーは無視）
-        try
+        if (canAccessCalendarSilently)
         {
-            await foreach (var ev in _contextService.FetchCalendarEventsAsync())
-                RecentEvents.Add(ev);
-            IsCalendarConnected = true;
-            CalendarStatus = RecentEvents.Count > 0
-                ? $"Connected — {RecentEvents.Count} event(s)"
-                : "Connected — no upcoming events";
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "起動時のカレンダーイベント取得をスキップしました");
+            try
+            {
+                await RefreshCalendarDataAsync(includeFoundSuffix: false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "起動時のカレンダーデータ取得をスキップしました");
+            }
         }
 
         // ニュース
@@ -189,26 +176,34 @@ public partial class MainWindowViewModel : ObservableObject
         CalendarStatus = IsCalendarConnected ? "再取得中..." : "接続中...";
         try
         {
-            AvailableCalendars.Clear();
-            await foreach (var cal in _contextService.FetchAvailableCalendarsAsync(ct))
-            {
-                cal.IsSelected = AppConfig.TargetCalendarIds.Contains(cal.Id);
-                AvailableCalendars.Add(cal);
-            }
-
-            RecentEvents.Clear();
-            await foreach (var ev in _contextService.FetchCalendarEventsAsync(ct))
-                RecentEvents.Add(ev);
-
-            IsCalendarConnected = true;
-            CalendarStatus = RecentEvents.Count > 0
-                ? $"Connected — {RecentEvents.Count} event(s) found"
-                : "Connected — no upcoming events";
+            _ = await _contextService.GetCalendarServiceInteractiveAsync(ct);
+            await RefreshCalendarDataAsync(ct, includeFoundSuffix: true);
         }
         catch (Exception ex)
         {
             CalendarStatus = $"Error: {ex.Message}";
         }
+    }
+
+    private async Task RefreshCalendarDataAsync(CancellationToken ct = default, bool includeFoundSuffix = false)
+    {
+        AvailableCalendars.Clear();
+        await foreach (var cal in _contextService.FetchAvailableCalendarsAsync(ct))
+        {
+            cal.IsSelected = AppConfig.TargetCalendarIds.Contains(cal.Id);
+            AvailableCalendars.Add(cal);
+        }
+
+        RecentEvents.Clear();
+        await foreach (var ev in _contextService.FetchCalendarEventsAsync(ct))
+            RecentEvents.Add(ev);
+
+        IsCalendarConnected = true;
+        CalendarStatus = RecentEvents.Count > 0
+            ? includeFoundSuffix
+                ? $"Connected — {RecentEvents.Count} event(s) found"
+                : $"Connected — {RecentEvents.Count} event(s)"
+            : "Connected — no upcoming events";
     }
 
     [RelayCommand]

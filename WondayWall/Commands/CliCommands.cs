@@ -35,6 +35,7 @@ public class CliCommands(
     public async Task CheckCalendarAsync(CancellationToken cancellationToken = default)
     {
         logger.LogInformation("Fetching calendar events...");
+        _ = await contextService.GetCalendarServiceInteractiveAsync(cancellationToken);
         await foreach (var ev in contextService.FetchCalendarEventsAsync(cancellationToken))
             logger.LogInformation("  [{Start:yyyy/MM/dd HH:mm}] {Title}", ev.StartTime, ev.Title);
     }

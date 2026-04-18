@@ -5,6 +5,8 @@ using System.Text;
 using System.ServiceModel.Syndication;
 using System.Xml;
 using Google.Apis.Auth.OAuth2;
+using Google.Apis.Auth.OAuth2.Flows;
+using Google.Apis.Auth.OAuth2.Responses;
 using Google.Apis.Calendar.v3;
 using Google.Apis.Services;
 using Google.Apis.Util.Store;
@@ -36,6 +38,32 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
     }
 
     private CalendarService? _calendarService;
+
+    /// <summary>
+    /// ブラウザ認証を表示せずにGoogleカレンダーへアクセス可能かを確認する。
+    /// </summary>
+    public async Task<bool> CanAccessCalendarSilentlyAsync(CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(ClientId) ||
+            string.IsNullOrWhiteSpace(ClientSecret))
+            return false;
+
+        var dataStore = CreateCalendarTokenStore();
+        var existingToken = await dataStore.GetAsync<TokenResponse>("user");
+        if (existingToken == null)
+            return false;
+
+        try
+        {
+            _ = await GetCalendarServiceAsync(dataStore, existingToken, ct);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "サイレントなカレンダー接続確認に失敗しました");
+            return false;
+        }
+    }
 
     /// <summary>Googleカレンダーのイベントを非同期ストリームで返す（直近1週間先まで）</summary>
     public async IAsyncEnumerable<CalendarEventItem> FetchCalendarEventsAsync(
@@ -244,7 +272,7 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
         var config = configService.Current;
 
         // カレンダーイベントを収集
-        var events = await FetchCalendarEventsAsync(ct)
+        var events = await FetchCalendarEventsAsync(ct: ct)
             .Take(5)
             .ToListAsync(ct)
             .ConfigureAwait(false);
@@ -294,9 +322,21 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
         if (_calendarService != null)
             return _calendarService;
 
-        var credPath = Path.Combine(
-            System.Environment.GetFolderPath(System.Environment.SpecialFolder.ApplicationData),
-            "WondayWall", "calendar-token");
+        var dataStore = CreateCalendarTokenStore();
+        var existingToken = await dataStore.GetAsync<TokenResponse>("user");
+        if (existingToken == null)
+            throw new InvalidOperationException("Googleカレンダーは未接続です。接続ボタンから認証してください。");
+
+        return await GetCalendarServiceAsync(dataStore, existingToken, ct);
+    }
+
+    private async Task<CalendarService> GetCalendarServiceAsync(
+        FileDataStore dataStore,
+        TokenResponse existingToken,
+        CancellationToken ct = default)
+    {
+        if (_calendarService != null)
+            return _calendarService;
 
         var secrets = new ClientSecrets
         {
@@ -304,12 +344,20 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
             ClientSecret = ClientSecret,
         };
 
-        var credential = await GoogleWebAuthorizationBroker.AuthorizeAsync(
-            secrets,
-            [CalendarService.Scope.CalendarReadonly],
-            "user",
-            ct,
-            new FileDataStore(credPath, true));
+        var flow = new GoogleAuthorizationCodeFlow(new GoogleAuthorizationCodeFlow.Initializer
+        {
+            ClientSecrets = secrets,
+            Scopes = [CalendarService.Scope.CalendarReadonly],
+            DataStore = dataStore,
+        });
+        var credential = new UserCredential(flow, "user", existingToken);
+
+        if (IsTokenExpired(existingToken, DateTime.UtcNow))
+        {
+            var refreshed = await credential.RefreshTokenAsync(ct);
+            if (!refreshed)
+                throw new InvalidOperationException("Googleカレンダーの認証トークンが期限切れです。接続ボタンから再認証してください。");
+        }
 
         _calendarService = new CalendarService(new BaseClientService.Initializer
         {
@@ -318,5 +366,51 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
         });
 
         return _calendarService;
+    }
+
+    private static bool IsTokenExpired(TokenResponse token, DateTime utcNow)
+    {
+        if (token.ExpiresInSeconds is not long expiresInSeconds ||
+            expiresInSeconds <= 0 ||
+            token.IssuedUtc == default)
+            return true;
+
+        var expiresAtUtc = token.IssuedUtc.AddSeconds(expiresInSeconds);
+        return utcNow >= expiresAtUtc.AddMinutes(-1);
+    }
+
+    public async Task<CalendarService> GetCalendarServiceInteractiveAsync(CancellationToken ct = default)
+    {
+        if (_calendarService != null)
+            return _calendarService;
+
+        var secrets = new ClientSecrets
+        {
+            ClientId = ClientId,
+            ClientSecret = ClientSecret,
+        };
+        var dataStore = CreateCalendarTokenStore();
+        var credential = await GoogleWebAuthorizationBroker.AuthorizeAsync(
+            secrets,
+            [CalendarService.Scope.CalendarReadonly],
+            "user",
+            ct,
+            dataStore);
+
+        _calendarService = new CalendarService(new BaseClientService.Initializer
+        {
+            HttpClientInitializer = credential,
+            ApplicationName = "WondayWall",
+        });
+
+        return _calendarService;
+    }
+
+    private static FileDataStore CreateCalendarTokenStore()
+    {
+        var credPath = Path.Combine(
+            System.Environment.GetFolderPath(System.Environment.SpecialFolder.ApplicationData),
+            "WondayWall", "calendar-token");
+        return new FileDataStore(credPath, true);
     }
 }
