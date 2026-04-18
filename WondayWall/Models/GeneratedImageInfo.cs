@@ -2,6 +2,6 @@ namespace WondayWall.Models;
 
 public record GeneratedImageInfo(
     string FilePath,
-    DateTimeOffset GeneratedAt,
+    DateTime GeneratedAt,
     string UsedPrompt,
     PromptContext? SourceContext = null);

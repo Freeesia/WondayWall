@@ -25,10 +25,10 @@ public static class ScheduleHelper
             .ToArray();
     }
 
-    public static DateTimeOffset GetLatestScheduledSlotAtOrBefore(DateTimeOffset now, int runsPerDay)
+    public static DateTime GetLatestScheduledSlotAtOrBefore(DateTime now, int runsPerDay)
     {
-        var localNow = now.ToLocalTime();
-        var dayStart = new DateTimeOffset(localNow.Year, localNow.Month, localNow.Day, 0, 0, 0, localNow.Offset);
+        var localNow = now;
+        var dayStart = localNow.Date;
         var slotOffsets = GetSlotOffsets(runsPerDay);
 
         for (var i = slotOffsets.Count - 1; i >= 0; i--)

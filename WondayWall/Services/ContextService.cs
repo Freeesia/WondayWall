@@ -1,6 +1,7 @@
 using System.IO;
 using System.Net.Http;
 using System.Runtime.CompilerServices;
+using System.Globalization;
 using System.Text;
 using System.ServiceModel.Syndication;
 using System.Xml;
@@ -116,15 +117,17 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
 
             foreach (var ev in result.Items)
             {
-                var start = ev.Start?.DateTimeDateTimeOffset
-                            ?? (ev.Start?.Date != null
-                                ? DateTimeOffset.Parse(ev.Start.Date)
-                                : DateTimeOffset.UtcNow);
+                var start = ev.Start?.DateTimeDateTimeOffset is { } startDateTimeOffset
+                    ? startDateTimeOffset.LocalDateTime
+                    : ev.Start?.Date != null
+                        ? DateTime.Parse(ev.Start.Date, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal)
+                        : DateTime.Now;
 
-                var endTime = ev.End?.DateTimeDateTimeOffset
-                           ?? (ev.End?.Date != null
-                               ? DateTimeOffset.Parse(ev.End.Date)
-                               : (DateTimeOffset?)null);
+                var endTime = ev.End?.DateTimeDateTimeOffset is { } endDateTimeOffset
+                    ? endDateTimeOffset.LocalDateTime
+                    : ev.End?.Date != null
+                        ? DateTime.Parse(ev.End.Date, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal)
+                        : (DateTime?)null;
 
                 yield return new CalendarEventItem(
                     Title: ev.Summary ?? "(no title)",
@@ -198,7 +201,7 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
             .ToList();
         var allResults = await Task.WhenAll(fetchTasks);
 
-        var weekAgo = DateTimeOffset.UtcNow.AddDays(-7);
+        var weekAgo = DateTime.Now.AddDays(-7);
 
         // 公開日時の新しい順にソート
         var sortedRawItems = allResults
@@ -240,7 +243,7 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
         }
     }
 
-    private record RssItem(string Title, string? Summary, string? Url, DateTimeOffset PublishedAt);
+    private record RssItem(string Title, string? Summary, string? Url, DateTime PublishedAt);
 
     /// <summary>1つのRSSソースから7日フィルター済みの生アイテムを返す（OGPなし）</summary>
     private async Task<IReadOnlyList<RssItem>> FetchFromRssSourceAsync(string rssUrl, CancellationToken ct)
@@ -263,7 +266,7 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
                 item.Title?.Text ?? string.Empty,
                 item.Summary?.Text == "None" ? null : item.Summary?.Text,
                 item.Links.FirstOrDefault()?.Uri.ToString(),
-                item.PublishDate))
+                item.PublishDate.LocalDateTime))
             .ToList();
     }
 
@@ -283,11 +286,11 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
             .ToListAsync(ct)
             .ConfigureAwait(false);
 
-        var today = DateTimeOffset.Now.Date;
+        var today = DateTime.Today;
         var tomorrow = today.AddDays(1);
 
         // 前日イベント判定: 明日開始するイベントがあれば、そのイベントのみ対象にしてニュースを除外する
-        var tomorrowEvents = events.Where(e => e.StartTime.LocalDateTime.Date == tomorrow).ToList();
+        var tomorrowEvents = events.Where(e => e.StartTime.Date == tomorrow).ToList();
         var filteredEvents = tomorrowEvents.Count > 0 ? tomorrowEvents : events;
         var filteredNews = tomorrowEvents.Count > 0 ? [] : news;
 
@@ -295,7 +298,7 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
         var context = new PromptContext(
             EventSummary: string.Join("\n", filteredEvents.Select(e =>
             {
-                var daysUntil = (e.StartTime.LocalDateTime.Date - today).Days;
+                var daysUntil = (e.StartTime.Date - today).Days;
                 var proximityTag = daysUntil <= 0 ? "today" : daysUntil == 1 ? "tomorrow" : $"in {daysUntil} days";
                 var line = $"- {e.Title} [{proximityTag}] ({e.StartTime:yyyy/MM/dd HH:mm})" +
                            (string.IsNullOrEmpty(e.Location) ? "" : $" @ {e.Location}");

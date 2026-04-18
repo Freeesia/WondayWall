@@ -21,10 +21,10 @@ public class GenerationCoordinator(
 
     public Task<HistoryItem?> RunScheduledAsync(
         bool skipIfNoChanges = false,
-        DateTimeOffset? now = null,
+        DateTime? now = null,
         CancellationToken ct = default)
     {
-        var effectiveNow = now ?? DateTimeOffset.Now;
+        var effectiveNow = now ?? DateTime.Now;
         var runsPerDay = ScheduleHelper.NormalizeRunsPerDay(appConfigService.Current.RunsPerDay);
 
         return ExecuteWithGenerationMutexAsync(async () =>
@@ -36,7 +36,7 @@ public class GenerationCoordinator(
             logger.LogInformation(
                 "{RunsPerDay}回/日スケジュールの枠 {ScheduledSlot:yyyy/MM/dd HH:mm} の壁紙生成を開始します。",
                 runsPerDay,
-                scheduledSlot.Value.ToLocalTime());
+                scheduledSlot.Value);
 
             return await RunCoreAsync(skipIfNoChanges, ct);
         }, ct);
@@ -91,7 +91,7 @@ public class GenerationCoordinator(
 
         var historyItems = LoadHistory();
         var historyItem = new HistoryItem(
-            ExecutedAt: DateTimeOffset.UtcNow,
+            ExecutedAt: DateTime.Now,
             IsSuccess: isSuccess,
             ErrorSummary: errorSummary,
             AppliedImagePath: appliedImagePath,
@@ -144,7 +144,7 @@ public class GenerationCoordinator(
                 }
             }, ct);
 
-    private static DateTimeOffset? GetPendingScheduledSlot(DateTimeOffset now, List<HistoryItem> history, int runsPerDay)
+    private static DateTime? GetPendingScheduledSlot(DateTime now, List<HistoryItem> history, int runsPerDay)
     {
         var latestSlot = ScheduleHelper.GetLatestScheduledSlotAtOrBefore(now, runsPerDay);
         var lastCompletedRunAt = history
