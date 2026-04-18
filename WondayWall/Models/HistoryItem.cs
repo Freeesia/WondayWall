@@ -1,7 +1,7 @@
 namespace WondayWall.Models;
 
 public record HistoryItem(
-    DateTimeOffset ExecutedAt,
+    DateTime ExecutedAt,
     bool IsSuccess,
     string? ErrorSummary = null,
     string? AppliedImagePath = null,

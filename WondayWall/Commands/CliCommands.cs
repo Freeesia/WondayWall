@@ -17,7 +17,7 @@ public class CliCommands(
     public async Task RunOnceAsync(CancellationToken cancellationToken = default)
     {
         var skipIfNoChanges = configService.Current.SkipGenerationWhenNoChanges;
-        var result = await coordinator.RunScheduledAsync(skipIfNoChanges, DateTimeOffset.Now, cancellationToken);
+        var result = await coordinator.RunScheduledAsync(skipIfNoChanges, DateTime.Now, cancellationToken);
         if (result is null)
         {
             logger.LogInformation("Skipping scheduled run: current slot is already handled.");

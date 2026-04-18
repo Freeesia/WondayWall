@@ -29,10 +29,10 @@ public class GenerationCoordinator(
 
     public Task<HistoryItem?> RunScheduledAsync(
         bool skipIfNoChanges = false,
-        DateTimeOffset? now = null,
+        DateTime? now = null,
         CancellationToken ct = default)
     {
-        var effectiveNow = now ?? DateTimeOffset.Now;
+        var effectiveNow = now ?? DateTime.Now;
         return ExecuteWithGenerationMutexAsync(async () =>
         {
             var scheduledSlot = GetPendingScheduledSlot(effectiveNow, LoadHistory());
@@ -41,7 +41,7 @@ public class GenerationCoordinator(
 
             logger.LogInformation(
                 "Starting scheduled wallpaper generation for slot {ScheduledSlot:yyyy/MM/dd HH:mm}.",
-                scheduledSlot.Value.ToLocalTime());
+                scheduledSlot.Value);
 
             return await RunCoreAsync(skipIfNoChanges, ct);
         }, ct);
@@ -96,7 +96,7 @@ public class GenerationCoordinator(
 
         var historyItems = LoadHistory();
         var historyItem = new HistoryItem(
-            ExecutedAt: DateTimeOffset.UtcNow,
+            ExecutedAt: DateTime.Now,
             IsSuccess: isSuccess,
             ErrorSummary: errorSummary,
             AppliedImagePath: appliedImagePath,
@@ -149,7 +149,7 @@ public class GenerationCoordinator(
                 }
             }, ct);
 
-    private static DateTimeOffset? GetPendingScheduledSlot(DateTimeOffset now, List<HistoryItem> history)
+    private static DateTime? GetPendingScheduledSlot(DateTime now, List<HistoryItem> history)
     {
         var latestSlot = GetLatestScheduledSlotAtOrBefore(now);
         var lastCompletedRunAt = history
@@ -164,10 +164,10 @@ public class GenerationCoordinator(
         return latestSlot;
     }
 
-    private static DateTimeOffset GetLatestScheduledSlotAtOrBefore(DateTimeOffset now)
+    private static DateTime GetLatestScheduledSlotAtOrBefore(DateTime now)
     {
-        var localNow = now.ToLocalTime();
-        var dayStart = new DateTimeOffset(localNow.Year, localNow.Month, localNow.Day, 0, 0, 0, localNow.Offset);
+        var localNow = now;
+        var dayStart = localNow.Date;
 
         for (var i = ScheduledSlotOffsets.Length - 1; i >= 0; i--)
         {
