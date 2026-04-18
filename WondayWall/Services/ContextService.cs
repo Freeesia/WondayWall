@@ -50,8 +50,6 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
         var (dataStore, existingToken) = await LoadCalendarTokenStoreAsync();
         if (existingToken == null)
             return false;
-        if (IsTokenExpired(existingToken, DateTime.UtcNow) && !CanRefreshToken(existingToken))
-            return false;
 
         try
         {
