@@ -60,7 +60,25 @@ public class CliCommands(
     public async Task CheckGoogleAiAsync(CancellationToken cancellationToken = default)
     {
         logger.LogInformation("Testing Google AI connection...");
-        var info = await googleAiService.GenerateWallpaperAsync(new("Test event", "Test news", "1920x1080"), cancellationToken);
+        var info = await googleAiService.GenerateWallpaperAsync(
+            new(
+                CalendarEvents:
+                [
+                    new PromptCalendarEvent(
+                        Id: "event-1",
+                        Title: "Sample trip",
+                        ProximityTag: "tomorrow",
+                        StartTime: DateTimeOffset.Now.AddDays(1))
+                ],
+                NewsTopics:
+                [
+                    new PromptNewsTopic(
+                        Id: "news-1",
+                        Title: "Sample news topic",
+                        Summary: "Sample news summary")
+                ],
+                ImageSize: "1920x1080"),
+            cancellationToken);
         logger.LogInformation("Success! Image saved to: {Path}", info.FilePath);
     }
 

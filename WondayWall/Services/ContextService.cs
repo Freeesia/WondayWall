@@ -284,37 +284,39 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
             .ConfigureAwait(false);
 
         var today = DateTimeOffset.Now.Date;
-        var tomorrow = today.AddDays(1);
-
-        // 前日イベント判定: 明日開始するイベントがあれば、そのイベントのみ対象にしてニュースを除外する
-        var tomorrowEvents = events.Where(e => e.StartTime.LocalDateTime.Date == tomorrow).ToList();
-        var filteredEvents = tomorrowEvents.Count > 0 ? tomorrowEvents : events;
-        var filteredNews = tomorrowEvents.Count > 0 ? [] : news;
 
         var displayInfo = DisplayHelper.GetDisplayInfo();
         var context = new PromptContext(
-            EventSummary: string.Join("\n", filteredEvents.Select(e =>
-            {
-                var daysUntil = (e.StartTime.LocalDateTime.Date - today).Days;
-                var proximityTag = daysUntil <= 0 ? "today" : daysUntil == 1 ? "tomorrow" : $"in {daysUntil} days";
-                var line = $"- {e.Title} [{proximityTag}] ({e.StartTime:yyyy/MM/dd HH:mm})" +
-                           (string.IsNullOrEmpty(e.Location) ? "" : $" @ {e.Location}");
-                return string.IsNullOrEmpty(e.Description)
-                    ? line
-                    : $"{line}\n  {e.Description}";
-            })),
-            NewsSummary: string.Join("\n", filteredNews.Select(n => string.IsNullOrEmpty(n.Summary) ? $"- {n.Title}" : $"- {n.Title}\n  {n.Summary}")),
+            CalendarEvents: events.Select((eventItem, index) => new PromptCalendarEvent(
+                Id: $"event-{index + 1}",
+                Title: eventItem.Title,
+                ProximityTag: GetProximityTag(eventItem.StartTime, today),
+                StartTime: eventItem.StartTime,
+                EndTime: eventItem.EndTime,
+                Location: eventItem.Location,
+                Description: eventItem.Description))
+                .ToList(),
+            NewsTopics: news.Select((newsItem, index) => new PromptNewsTopic(
+                Id: $"news-{index + 1}",
+                Title: newsItem.Title,
+                Summary: newsItem.Summary,
+                Url: newsItem.Url,
+                PublishedAt: newsItem.PublishedAt,
+                OgpImageUrl: newsItem.OgpImageUrl))
+                .ToList(),
             ImageSize: displayInfo.Size,
             AspectRatio: displayInfo.AspectRatio,
             AdditionalConstraints: string.IsNullOrWhiteSpace(config.UserPrompt)
                 ? null
-                : config.UserPrompt,
-            OgpImageUrls: filteredNews.Where(n => n.OgpImageUrl != null)
-                              .Select(n => n.OgpImageUrl!)
-                              .Take(3)
-                              .ToList());
+                : config.UserPrompt);
 
-        return new ContextBuildResult(context, filteredEvents, filteredNews);
+        return new ContextBuildResult(context, events, news);
+    }
+
+    private static string GetProximityTag(DateTimeOffset startTime, DateTime today)
+    {
+        var daysUntil = (startTime.LocalDateTime.Date - today).Days;
+        return daysUntil <= 0 ? "today" : daysUntil == 1 ? "tomorrow" : $"in {daysUntil} days";
     }
 
     private async Task<CalendarService> GetCalendarServiceAsync(CancellationToken ct = default)
