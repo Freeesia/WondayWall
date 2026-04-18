@@ -47,7 +47,8 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
             string.IsNullOrWhiteSpace(ClientSecret))
             return false;
 
-        var (dataStore, existingToken) = await LoadCalendarTokenStoreAsync();
+        var dataStore = CreateCalendarTokenStore();
+        var existingToken = await dataStore.GetAsync<TokenResponse>("user");
         if (existingToken == null)
             return false;
 
@@ -320,7 +321,8 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
         if (_calendarService != null)
             return _calendarService;
 
-        var (dataStore, existingToken) = await LoadCalendarTokenStoreAsync();
+        var dataStore = CreateCalendarTokenStore();
+        var existingToken = await dataStore.GetAsync<TokenResponse>("user");
         if (existingToken == null)
             throw new InvalidOperationException("Googleカレンダーは未接続です。接続ボタンから認証してください。");
 
@@ -386,7 +388,7 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
             ClientId = ClientId,
             ClientSecret = ClientSecret,
         };
-        var (dataStore, _) = await LoadCalendarTokenStoreAsync();
+        var dataStore = CreateCalendarTokenStore();
         var credential = await GoogleWebAuthorizationBroker.AuthorizeAsync(
             secrets,
             [CalendarService.Scope.CalendarReadonly],
@@ -403,13 +405,11 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
         return _calendarService;
     }
 
-    private static async Task<(FileDataStore Store, TokenResponse? Token)> LoadCalendarTokenStoreAsync()
+    private static FileDataStore CreateCalendarTokenStore()
     {
         var credPath = Path.Combine(
             System.Environment.GetFolderPath(System.Environment.SpecialFolder.ApplicationData),
             "WondayWall", "calendar-token");
-        var dataStore = new FileDataStore(credPath, true);
-        var token = await dataStore.GetAsync<TokenResponse>("user");
-        return (dataStore, token);
+        return new FileDataStore(credPath, true);
     }
 }
