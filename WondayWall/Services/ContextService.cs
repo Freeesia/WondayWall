@@ -47,8 +47,7 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
             string.IsNullOrWhiteSpace(ClientSecret))
             return false;
 
-        var dataStore = CreateCalendarTokenStore();
-        var existingToken = await GetStoredCalendarTokenAsync(dataStore);
+        var (dataStore, existingToken) = await LoadCalendarTokenStoreAsync();
         if (existingToken == null)
             return false;
         if (IsTokenExpired(existingToken, DateTime.UtcNow) && !CanRefreshToken(existingToken))
@@ -323,8 +322,7 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
         if (_calendarService != null)
             return _calendarService;
 
-        var dataStore = CreateCalendarTokenStore();
-        var existingToken = await GetStoredCalendarTokenAsync(dataStore);
+        var (dataStore, existingToken) = await LoadCalendarTokenStoreAsync();
         if (existingToken == null)
             throw new InvalidOperationException("Googleカレンダーは未接続です。接続ボタンから認証してください。");
 
@@ -390,7 +388,7 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
             ClientId = ClientId,
             ClientSecret = ClientSecret,
         };
-        var dataStore = CreateCalendarTokenStore();
+        var (dataStore, _) = await LoadCalendarTokenStoreAsync();
         var credential = await GoogleWebAuthorizationBroker.AuthorizeAsync(
             secrets,
             [CalendarService.Scope.CalendarReadonly],
@@ -407,16 +405,13 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
         return _calendarService;
     }
 
-    private static FileDataStore CreateCalendarTokenStore()
+    private static async Task<(FileDataStore Store, TokenResponse? Token)> LoadCalendarTokenStoreAsync()
     {
         var credPath = Path.Combine(
             System.Environment.GetFolderPath(System.Environment.SpecialFolder.ApplicationData),
             "WondayWall", "calendar-token");
-        return new FileDataStore(credPath, true);
-    }
-
-    private static Task<TokenResponse?> GetStoredCalendarTokenAsync(FileDataStore dataStore)
-    {
-        return dataStore.GetAsync<TokenResponse>("user");
+        var dataStore = new FileDataStore(credPath, true);
+        var token = await dataStore.GetAsync<TokenResponse>("user");
+        return (dataStore, token);
     }
 }
