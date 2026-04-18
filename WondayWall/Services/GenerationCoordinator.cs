@@ -9,6 +9,7 @@ public class GenerationCoordinator(
     ContextService contextService,
     GoogleAiService googleAiService,
     WallpaperService wallpaperService,
+    AppConfigService appConfigService,
     ILogger<GenerationCoordinator> logger)
 {
     private const string GenerationMutexName = @"Local\WondayWall.Generation";
@@ -77,7 +78,10 @@ public class GenerationCoordinator(
             else
             {
                 var imageInfo = await googleAiService.GenerateWallpaperAsync(contextResult.PromptContext, ct);
-                wallpaperService.SetWallpaper(imageInfo.FilePath);
+                await wallpaperService.SetWallpaperAsync(
+                    imageInfo.FilePath,
+                    appConfigService.Current.UpdateLockScreen,
+                    ct);
 
                 isSuccess = true;
                 appliedImagePath = imageInfo.FilePath;
