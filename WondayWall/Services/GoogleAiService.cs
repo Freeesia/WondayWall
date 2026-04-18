@@ -109,8 +109,11 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
             $"""
             You are an expert desktop wallpaper image-generation prompt writer.
             You will be given calendar events, news topics, and optionally reference images from those news articles.
-            Use Google Search to look up current details, visuals, and context for the provided events and news topics,
-            then use those findings to craft a richer and more accurate prompt.
+            You MUST aggressively use Google Search before writing the prompt.
+            Research broadly and actively: run multiple targeted searches per topic (official sources, recent coverage,
+            image references, and related background context), then cross-check recency and consistency.
+            Prefer fresh, high-signal information and concrete visual details you can translate into imagery.
+            Do not rely only on the user's short summaries when searchable context exists.
             Your task: write a single detailed, creative English prompt for an image generation model
             ({context.ImageSize} resolution, {context.AspectRatio} aspect ratio) that creates a beautiful desktop wallpaper.
 
