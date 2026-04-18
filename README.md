@@ -1,4 +1,4 @@
-# WondayWall
+# <img src="assets/icon_512.png" width="32" > WondayWall
 
 予定や関心を反映した壁紙を生成する Windows 向けパーソナル壁紙アプリ
 
@@ -9,7 +9,7 @@
 
 - Windows 10 / 11
 - [.NET 10 Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)
-- Google Cloud プロジェクト（Calendar API + Gemini API 有効化済み）
+- Google カレンダー連携
 - Google AI API キー
 
 ## セットアップ
