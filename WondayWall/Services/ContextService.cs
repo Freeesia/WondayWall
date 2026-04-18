@@ -54,6 +54,8 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
         var existingToken = await dataStore.GetAsync<TokenResponse>("user");
         if (existingToken == null)
             return false;
+        if (IsTokenExpired(existingToken, DateTime.UtcNow) && !CanRefreshToken(existingToken))
+            return false;
 
         try
         {
@@ -337,6 +339,8 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
         var existingToken = await dataStore.GetAsync<TokenResponse>("user");
         if (existingToken == null)
             throw new InvalidOperationException("Googleカレンダーは未接続です。接続ボタンから認証してください。");
+        if (IsTokenExpired(existingToken, DateTime.UtcNow) && !CanRefreshToken(existingToken))
+            throw new InvalidOperationException("Googleカレンダーの認証トークンが期限切れです。接続ボタンから再認証してください。");
 
         var credential = await GoogleWebAuthorizationBroker.AuthorizeAsync(
             secrets,
@@ -352,6 +356,20 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
         });
 
         return _calendarService;
+    }
+
+    private static bool IsTokenExpired(TokenResponse token, DateTime utcNow)
+    {
+        if (token.ExpiresInSeconds <= 0 || token.IssuedUtc == default)
+            return false;
+
+        var expiresAtUtc = token.IssuedUtc.AddSeconds(token.ExpiresInSeconds);
+        return utcNow >= expiresAtUtc.AddMinutes(-1);
+    }
+
+    private static bool CanRefreshToken(TokenResponse token)
+    {
+        return !string.IsNullOrWhiteSpace(token.RefreshToken);
     }
 
     public async Task<CalendarService> GetCalendarServiceInteractiveAsync(CancellationToken ct = default)
