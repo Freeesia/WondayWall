@@ -9,4 +9,6 @@ public class AppConfig
     public string UserPrompt { get; set; } = string.Empty;
     /// <summary>タスクスケジューラ実行時、変化がなければ生成をスキップする</summary>
     public bool SkipGenerationWhenNoChanges { get; set; } = false;
+    /// <summary>デスクトップ壁紙に加えてロック画面も更新する</summary>
+    public bool UpdateLockScreen { get; set; } = false;
 }

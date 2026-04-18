@@ -21,7 +21,11 @@ public class CliCommands(
         if (result.IsSkipped)
             logger.LogInformation("Skipped: no changes detected.");
         else if (result.IsSuccess)
+        {
             logger.LogInformation("Done. Wallpaper set: {Path}", result.AppliedImagePath);
+            if (!string.IsNullOrWhiteSpace(result.ErrorSummary))
+                logger.LogWarning("{WarningMessage}", result.ErrorSummary);
+        }
         else
             logger.LogError("Failed: {Error}", result.ErrorSummary);
     }

@@ -1,5 +1,8 @@
 using System.IO;
 using Microsoft.Extensions.Logging;
+using Windows.Foundation.Metadata;
+using Windows.Storage;
+using Windows.System.UserProfile;
 using Windows.Win32.UI.Shell;
 using WindowsDesktop;
 
@@ -27,8 +30,21 @@ public class WallpaperService
         });
     }
 
-    /// <summary>すべての仮想デスクトップに壁紙を適用する</summary>
-    public unsafe void SetWallpaper(string imagePath)
+    /// <summary>デスクトップ壁紙を適用し、必要に応じてロック画面も更新する</summary>
+    public async Task SetWallpaperAsync(string imagePath, bool updateLockScreen, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        var fullPath = ValidateImagePath(imagePath);
+        SetDesktopWallpaperCore(fullPath);
+
+        if (!updateLockScreen)
+            return;
+
+        await TrySetLockScreenAsync(fullPath, ct);
+    }
+
+    private static string ValidateImagePath(string imagePath)
     {
         if (string.IsNullOrWhiteSpace(imagePath))
             throw new ArgumentException("Image path must not be empty.", nameof(imagePath));
@@ -36,9 +52,11 @@ public class WallpaperService
         if (!File.Exists(imagePath))
             throw new FileNotFoundException("Wallpaper image not found.", imagePath);
 
-        var fullPath = Path.GetFullPath(imagePath);
+        return Path.GetFullPath(imagePath);
+    }
 
-        // 仮想デスクトップ API が使用可能な場合は全仮想デスクトップに壁紙を適用
+    private unsafe void SetDesktopWallpaperCore(string fullPath)
+    {
         if (VirtualDesktop.IsSupported)
         {
             try
@@ -57,6 +75,31 @@ public class WallpaperService
         fixed (char* pathPtr = fullPath)
         {
             _wallpaper.SetWallpaper(default, pathPtr);
+        }
+    }
+
+    private static bool IsLockScreenSupported()
+        => OperatingSystem.IsWindows()
+        && ApiInformation.IsTypePresent("Windows.System.UserProfile.LockScreen")
+        && ApiInformation.IsMethodPresent("Windows.System.UserProfile.LockScreen", nameof(LockScreen.SetImageFileAsync));
+
+    private async Task TrySetLockScreenAsync(string fullPath, CancellationToken ct)
+    {
+        if (!IsLockScreenSupported())
+        {
+            logger.LogInformation("ロック画面の更新はこの環境ではサポートされていないため、デスクトップ壁紙のみ更新します");
+            return;
+        }
+
+        try
+        {
+            ct.ThrowIfCancellationRequested();
+            var file = await StorageFile.GetFileFromPathAsync(fullPath);
+            await LockScreen.SetImageFileAsync(file);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "ロック画面の更新に失敗したため、デスクトップ壁紙のみ更新しました");
         }
     }
 }
