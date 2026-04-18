@@ -47,11 +47,8 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
             string.IsNullOrWhiteSpace(ClientSecret))
             return false;
 
-        var credPath = Path.Combine(
-            System.Environment.GetFolderPath(System.Environment.SpecialFolder.ApplicationData),
-            "WondayWall", "calendar-token");
-        var dataStore = new FileDataStore(credPath, true);
-        var existingToken = await dataStore.GetAsync<TokenResponse>("user");
+        var dataStore = CreateCalendarTokenStore();
+        var existingToken = await GetStoredCalendarTokenAsync(dataStore);
         if (existingToken == null)
             return false;
         if (IsTokenExpired(existingToken, DateTime.UtcNow) && !CanRefreshToken(existingToken))
@@ -62,8 +59,9 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
             _ = await GetCalendarServiceAsync(ct);
             return true;
         }
-        catch
+        catch (Exception ex)
         {
+            logger.LogWarning(ex, "サイレントなカレンダー接続確認に失敗しました");
             return false;
         }
     }
@@ -325,18 +323,14 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
         if (_calendarService != null)
             return _calendarService;
 
-        var credPath = Path.Combine(
-            System.Environment.GetFolderPath(System.Environment.SpecialFolder.ApplicationData),
-            "WondayWall", "calendar-token");
-
         var secrets = new ClientSecrets
         {
             ClientId = ClientId,
             ClientSecret = ClientSecret,
         };
 
-        var dataStore = new FileDataStore(credPath, true);
-        var existingToken = await dataStore.GetAsync<TokenResponse>("user");
+        var dataStore = CreateCalendarTokenStore();
+        var existingToken = await GetStoredCalendarTokenAsync(dataStore);
         if (existingToken == null)
             throw new InvalidOperationException("Googleカレンダーは未接続です。接続ボタンから認証してください。");
         if (IsTokenExpired(existingToken, DateTime.UtcNow) && !CanRefreshToken(existingToken))
@@ -379,16 +373,12 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
         if (_calendarService != null)
             return _calendarService;
 
-        var credPath = Path.Combine(
-            System.Environment.GetFolderPath(System.Environment.SpecialFolder.ApplicationData),
-            "WondayWall", "calendar-token");
-
         var secrets = new ClientSecrets
         {
             ClientId = ClientId,
             ClientSecret = ClientSecret,
         };
-        var dataStore = new FileDataStore(credPath, true);
+        var dataStore = CreateCalendarTokenStore();
         var credential = await GoogleWebAuthorizationBroker.AuthorizeAsync(
             secrets,
             [CalendarService.Scope.CalendarReadonly],
@@ -403,5 +393,18 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
         });
 
         return _calendarService;
+    }
+
+    private static FileDataStore CreateCalendarTokenStore()
+    {
+        var credPath = Path.Combine(
+            System.Environment.GetFolderPath(System.Environment.SpecialFolder.ApplicationData),
+            "WondayWall", "calendar-token");
+        return new FileDataStore(credPath, true);
+    }
+
+    private static Task<TokenResponse?> GetStoredCalendarTokenAsync(FileDataStore dataStore)
+    {
+        return dataStore.GetAsync<TokenResponse>("user");
     }
 }
