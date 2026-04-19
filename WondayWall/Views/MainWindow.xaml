@@ -14,6 +14,7 @@
     ui:Design.Background="{DynamicResource ApplicationBackgroundBrush}"
     ui:Design.Foreground="{DynamicResource TextFillColorPrimaryBrush}"
     ExtendsContentIntoTitleBar="True"
+    Icon="/Assets/AppIcon.ico"
     Language="ja"
     WindowBackdropType="Mica"
     WindowCornerPreference="Default"
@@ -40,7 +41,11 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <ui:TitleBar Title="WondayWall" Grid.Row="0" />
+        <ui:TitleBar Title="WondayWall" Grid.Row="0">
+            <ui:TitleBar.Icon>
+                <ui:ImageIcon Source="/Assets/icon_512.png" />
+            </ui:TitleBar.Icon>
+        </ui:TitleBar>
 
         <Grid Grid.Row="1">
             <TabControl Margin="8">
@@ -367,6 +372,15 @@
                                                 Text="{Binding AppConfig.UserPrompt, UpdateSourceTrigger=PropertyChanged}"
                                                 TextWrapping="Wrap"
                                                 VerticalScrollBarVisibility="Auto" />
+                                        </ui:CardControl>
+                                        <ui:CardControl Header="現在の壁紙をベースに生成">
+                                            <ui:CardControl.Icon>
+                                                <ui:SymbolIcon Symbol="ImageCopy24" />
+                                            </ui:CardControl.Icon>
+                                            <ui:ToggleSwitch
+                                                VerticalAlignment="Center"
+                                                Content="このアプリで生成した壁紙をベースに新しい壁紙を生成する"
+                                                IsChecked="{Binding AppConfig.UseCurrentWallpaperAsBase}" />
                                         </ui:CardControl>
 
                                     </StackPanel>

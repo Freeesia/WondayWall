@@ -9,6 +9,7 @@ public static class JsonFileHelper
     {
         WriteIndented = true,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
     };
 
     public static T? Load<T>(string filePath) where T : class

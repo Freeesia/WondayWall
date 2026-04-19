@@ -1,8 +1,10 @@
 using System.IO;
 using System.Net.Http;
+using System.Text.Json;
 using GenerativeAI;
 using GenerativeAI.Types;
 using Microsoft.Extensions.Logging;
+using WondayWall.ComponentModel;
 using WondayWall.Models;
 using WondayWall.Utils;
 
@@ -14,6 +16,20 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
     private static readonly string FixedImageSavePath = Path.Combine(
         System.Environment.GetFolderPath(System.Environment.SpecialFolder.ApplicationData),
         "WondayWall", "wallpapers");
+    private static readonly JsonSerializerOptions JsonSerializerOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        PropertyNameCaseInsensitive = true,
+        WriteIndented = true,
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    };
+
+    /// <summary>
+    /// ベース画像使用時のスタイル維持指示（テキストモデル・画像モデル共通）
+    /// </summary>
+    private const string BaseImageStyleInstruction =
+        "Preserve the overall composition, color palette, and artistic style of the base wallpaper. " +
+        "Incorporate the new themes and events subtly — avoid drastic visual changes.";
 
     public async Task<GeneratedImageInfo> GenerateWallpaperAsync(
         PromptContext context,
@@ -25,13 +41,26 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
             throw new InvalidOperationException("Google AI API key is not configured.");
 
         // ステップ1: テキストモデルで詳細な画像プロンプトを生成（Google検索グラウンディングを有効化）
-        var textModel = new GenerativeModel(config.GoogleAiApiKey, "gemini-3-flash-preview")
+        var textModel = new GenerativeModelEx(config.GoogleAiApiKey, "gemini-3-flash-preview")
         {
             UseGoogleSearch = true,
+            UseJsonMode = true,
         };
         var contextPrompt = BuildTextModelPrompt(context);
-        var promptResponse = await textModel.GenerateContentAsync(contextPrompt, cancellationToken: ct);
-        var imagePrompt = promptResponse.Text() ?? contextPrompt;
+        var promptRequest = new GenerateContentRequest();
+        promptRequest.UseJsonMode<PromptSelectionResponse>(JsonSerializerOptions);
+        promptRequest.AddText(contextPrompt);
+
+        var promptSelection = await textModel.GenerateObjectAsync<PromptSelectionResponse>(promptRequest, ct);
+        if (promptSelection == null || string.IsNullOrWhiteSpace(promptSelection.ImagePrompt))
+            throw new InvalidOperationException("Google AI returned an invalid structured prompt response.");
+
+        promptSelection.SelectedNewsIds = (promptSelection.SelectedNewsIds ?? [])
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Select(id => id.Trim())
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        var imagePrompt = promptSelection.ImagePrompt.Trim();
 
         // ステップ2: 画像モデルでアスペクト比・サイズを指定して壁紙を生成
         var displayInfo = DisplayHelper.GetDisplayInfo();
@@ -49,14 +78,37 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
             UseGoogleSearch = true,
         };
 
-        // OGP画像がある場合はインラインデータとして添付し、プロンプトにもその旨を付記
-        var ogpUrls = (context.OgpImageUrls ?? []).Take(3).ToList();
+        // テキストモデルが採用したニュースだけ、そのOGP画像を参照画像として添付する
+        var selectedNewsIds = promptSelection.SelectedNewsIds.ToHashSet(StringComparer.Ordinal);
+        var ogpUrls = (context.NewsTopics ?? [])
+            .Where(newsTopic => selectedNewsIds.Contains(newsTopic.Id) && !string.IsNullOrWhiteSpace(newsTopic.OgpImageUrl))
+            .Select(newsTopic => newsTopic.OgpImageUrl!)
+            .Take(3)
+            .ToList();
         var finalPrompt = ogpUrls.Count > 0
-            ? $"{imagePrompt}\n\nReference images from the related news articles are attached. " +
+            ? $"{imagePrompt}\n\nReference images from the selected news topics are attached. " +
               "Incorporate their visual themes, color palette, and subject matter into the wallpaper design."
             : imagePrompt;
 
-        var parts = new List<Part> { new Part(finalPrompt) };
+        var imageRequest = new GenerateContentRequest();
+
+        // ベース壁紙がある場合はインラインデータとして先頭に付加し、プロンプトにも指示を追加
+        if (!string.IsNullOrEmpty(context.BaseImagePath) && File.Exists(context.BaseImagePath))
+        {
+            var baseImageBytes = await File.ReadAllBytesAsync(context.BaseImagePath, ct);
+            var baseMimeType = GetMimeTypeFromPath(context.BaseImagePath);
+            imageRequest.AddInlineData(Convert.ToBase64String(baseImageBytes), baseMimeType);
+            // ベース画像への参照と「大きく変えすぎない」指示をプロンプトに追加
+            imageRequest.AddText(
+                "The current wallpaper is provided as the base image. " +
+                "Create a new wallpaper that evolves gradually from this base. " +
+                BaseImageStyleInstruction + "\n\n" +
+                finalPrompt);
+        }
+        else
+        {
+            imageRequest.AddText(finalPrompt);
+        }
         foreach (var imgUrl in ogpUrls)
         {
             try
@@ -66,14 +118,7 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
                 imgResponse.EnsureSuccessStatusCode();
                 var mimeType = imgResponse.Content.Headers.ContentType?.MediaType ?? "image/jpeg";
                 var imgBytes = await imgResponse.Content.ReadAsByteArrayAsync(ct);
-                parts.Add(new Part
-                {
-                    InlineData = new Blob
-                    {
-                        MimeType = mimeType,
-                        Data = Convert.ToBase64String(imgBytes),
-                    }
-                });
+                imageRequest.AddInlineData(Convert.ToBase64String(imgBytes), mimeType);
             }
             catch (Exception ex)
             {
@@ -81,7 +126,7 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
             }
         }
 
-        var response = await imageModel.GenerateContentAsync(parts, cancellationToken: ct);
+        var response = await imageModel.GenerateContentAsync(imageRequest, cancellationToken: ct);
 
         var imageBytes = ExtractImageBytes(response);
 
@@ -100,13 +145,13 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
 
     /// <summary>
     /// テキストモデルへ送るプロンプトを構築する。
-    /// テキストモデルはこのプロンプトを受け取り、画像生成モデル向けの詳細な英語プロンプトを返す。
+    /// テキストモデルは候補コンテキストから採用要素を決め、画像生成用JSONを返す。
     /// </summary>
     private static string BuildTextModelPrompt(PromptContext context)
     {
         var parts = new List<string>
         {
-            $"""
+            $$"""
             You are an expert desktop wallpaper image-generation prompt writer.
             You will be given calendar events, news topics, and optionally reference images from those news articles.
             You MUST aggressively use Google Search before writing the prompt.
@@ -114,36 +159,51 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
             image references, and related background context), then cross-check recency and consistency.
             Prefer fresh, high-signal information and concrete visual details you can translate into imagery.
             Do not rely only on the user's short summaries when searchable context exists.
-            Your task: write a single detailed, creative English prompt for an image generation model
-            ({context.ImageSize} resolution, {context.AspectRatio} aspect ratio) that creates a beautiful desktop wallpaper.
+            Your task: review all candidate calendar events and news topics, decide which ones should materially influence
+            the wallpaper, and then write a single detailed, creative English prompt for an image generation model
+            ({{context.ImageSize}} resolution, {{context.AspectRatio}} aspect ratio) that creates a beautiful desktop wallpaper.
 
-            The wallpaper should visually reflect the themes, mood, and atmosphere of the provided events and news.
-            If reference images are supplied, incorporate their color palette, visual motifs, and subject matter.
+            The wallpaper should visually reflect the themes, mood, and atmosphere of the selected events and news.
+            If reference images are supplied later, they will correspond only to selected news topics.
             Describe visual elements, style, mood, color palette, lighting, and composition in detail.
             No text, logos, or UI overlays. Wide landscape orientation unless aspect ratio specifies otherwise.
-            Output only the English image generation prompt — no explanation or preamble.
 
             For calendar events:
             - Only include POSITIVE events (celebrations, trips, parties, hobbies, achievements, social gatherings, etc.)
               in the visual design. Ignore NEGATIVE or NEUTRAL events (medical appointments, work deadlines,
-              chores, administrative tasks, etc.).
+              chores, administrative tasks, etc.), but do not let them suppress other event or news candidates.
             - Each event has a proximity tag indicating when it occurs. Use it to determine the visual weight:
               [today] or [tomorrow]: this event DOMINATES the entire image — make it the primary subject and theme,
                 occupying nearly all visual elements.
               [in 2-3 days]: this event is a MAJOR visual theme, occupying 50–70% of the image's visual elements.
               [in 4-7 days]: this event is a MINOR accent or background element (15–30% of visual elements).
             - When multiple positive events are present, prioritize the ones happening sooner.
+            - If the nearest event is NEGATIVE or NEUTRAL, ignore it and continue considering later positive events
+              and news topics as potential primary themes.
+
+            Return a response that matches the configured JSON schema.
+            - imagePrompt must be a single detailed English prompt for the image model.
+            - selectedNewsIds must contain only ids of news topics that materially influenced imagePrompt.
+            - If no news topic is used, selectedNewsIds must be an empty array.
+            - Do not output markdown fences or any extra explanation.
             """,
         };
 
-        if (!string.IsNullOrWhiteSpace(context.EventSummary))
+        if (!string.IsNullOrEmpty(context.BaseImagePath) && File.Exists(context.BaseImagePath))
         {
-            parts.Add($"Upcoming calendar events:\n{context.EventSummary}");
+            parts.Add(
+                "A base wallpaper image will be supplied to the image model. " +
+                BaseImageStyleInstruction);
         }
 
-        if (!string.IsNullOrWhiteSpace(context.NewsSummary))
+        if ((context.CalendarEvents ?? []).Count > 0)
         {
-            parts.Add($"Current news topics:\n{context.NewsSummary}");
+            parts.Add($"Calendar event candidates (JSON):\n{JsonSerializer.Serialize(context.CalendarEvents, JsonSerializerOptions)}");
+        }
+
+        if ((context.NewsTopics ?? []).Count > 0)
+        {
+            parts.Add($"News topic candidates (JSON):\n{JsonSerializer.Serialize(context.NewsTopics, JsonSerializerOptions)}");
         }
 
         if (!string.IsNullOrWhiteSpace(context.AdditionalConstraints))
@@ -168,5 +228,24 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
             }
         }
         return null;
+    }
+
+    /// <summary>ファイルパスの拡張子からMIMEタイプを返す</summary>
+    private static string GetMimeTypeFromPath(string filePath)
+    {
+        return Path.GetExtension(filePath).ToLowerInvariant() switch
+        {
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".png" => "image/png",
+            ".webp" => "image/webp",
+            _ => "image/jpeg",
+        };
+    }
+
+    private sealed class PromptSelectionResponse
+    {
+        public required string ImagePrompt { get; init; }
+
+        public required List<string> SelectedNewsIds { get; set; }
     }
 }
