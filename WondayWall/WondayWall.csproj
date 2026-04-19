@@ -10,10 +10,16 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Version Condition="'$(Version)' == ''">0.0.0-local</Version>
     <Company>StudioFreesia</Company>
+    <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
     <EnableDefaultApplicationDefinition>false</EnableDefaultApplicationDefinition>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
   </PropertyGroup>
 
+  <ItemGroup>
+    <None Remove="Assets\AppIcon.ico" />
+    <Resource Include="Assets\AppIcon.ico" />
+    <Resource Include="..\assets\icon_512.png" Link="Assets\icon_512.png" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
