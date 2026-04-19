@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using WondayWall.Models;
 using WondayWall.Services;
+using WondayWall.Utils;
 
 namespace WondayWall.ViewModels;
 
@@ -36,6 +37,9 @@ public partial class MainWindowViewModel : ObservableObject
     public partial bool IsTaskSchedulerEnabled { get; set; }
 
     [ObservableProperty]
+    public partial int SelectedRunsPerDay { get; set; }
+
+    [ObservableProperty]
     public partial GeneratedImageInfo? LastGeneratedImage { get; set; }
 
     [ObservableProperty]
@@ -51,6 +55,8 @@ public partial class MainWindowViewModel : ObservableObject
     public ObservableCollection<HistoryItem> History { get; } = [];
     public ObservableCollection<string> RssSources { get; } = [];
     public ObservableCollection<AvailableCalendar> AvailableCalendars { get; } = [];
+    public IReadOnlyList<int> AvailableRunsPerDayOptions => ScheduleHelper.SupportedRunsPerDay;
+    public string TaskSchedulerScheduleDescription => ScheduleHelper.FormatScheduleDescription(SelectedRunsPerDay);
 
     public MainWindowViewModel(
         AppConfigService configService,
@@ -66,6 +72,7 @@ public partial class MainWindowViewModel : ObservableObject
         _logger = logger;
 
         AppConfig = configService.Load();
+        SelectedRunsPerDay = ScheduleHelper.NormalizeRunsPerDay(AppConfig.RunsPerDay);
         foreach (var src in AppConfig.RssSources)
             RssSources.Add(src);
         IsTaskSchedulerEnabled = _taskSchedulerService.IsEnabled();
@@ -139,6 +146,7 @@ public partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private void Save()
     {
+        AppConfig.RunsPerDay = ScheduleHelper.NormalizeRunsPerDay(SelectedRunsPerDay);
         AppConfig.RssSources = [.. RssSources];
         if (AvailableCalendars.Count > 0)
         {
@@ -278,5 +286,18 @@ public partial class MainWindowViewModel : ObservableObject
         History.Clear();
         foreach (var item in items)
             History.Add(item);
+    }
+
+    partial void OnSelectedRunsPerDayChanged(int value)
+    {
+        var normalizedRunsPerDay = ScheduleHelper.NormalizeRunsPerDay(value);
+        if (value != normalizedRunsPerDay)
+        {
+            SelectedRunsPerDay = normalizedRunsPerDay;
+            return;
+        }
+
+        AppConfig.RunsPerDay = normalizedRunsPerDay;
+        OnPropertyChanged(nameof(TaskSchedulerScheduleDescription));
     }
 }

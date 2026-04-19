@@ -21,7 +21,7 @@
 5. 興味キーワードと RSS フィード URL を登録
 6. 「今すぐ生成」で動作確認
 
-定期実行するには、**タスクスケジューラ** に下記コマンドを登録します。
+定期実行するには、アプリの設定画面で **1日あたりの更新回数** を選び、**タスクスケジューラ** に下記コマンドを登録します。
 
 ```
 WondayWall.exe run-once
@@ -41,7 +41,7 @@ WondayWall.exe run-once
 ## CLI コマンド
 
 ```powershell
-WondayWall.exe run-once          # 現在の定刻枠が未処理なら1回生成して終了（タスクスケジューラ向け）
+WondayWall.exe run-once          # 設定した更新回数に応じた現在の定刻枠が未処理なら1回生成して終了（タスクスケジューラ向け）
 WondayWall.exe generate          # 即時生成
 WondayWall.exe check-calendar    # カレンダー取得のみ確認
 WondayWall.exe check-news        # ニュース取得のみ確認
@@ -56,6 +56,13 @@ WondayWall.exe check-google-ai   # Gemini API 接続確認
 | 生成履歴 | `%AppData%\WondayWall\history.json` |
 | 生成画像 | `%AppData%\WondayWall\images\` |
 | OAuth トークン | `%AppData%\WondayWall\calendar-token\` |
+
+## スケジュール
+
+- 1日あたりの更新回数は `1 / 2 / 3 / 4 / 6 / 8 / 12 / 24` 回から選択できます
+- 実行時刻は 24 時間を等分した固定時刻になります
+- 例: `1回` は `0:00`、`2回` は `0:00 / 12:00`、`4回` は `0:00 / 6:00 / 12:00 / 18:00`
+- 定刻を逃した場合だけ、次回ログオン時に `run-once` が未処理枠を補完実行します
 
 ## 開発者向け
 

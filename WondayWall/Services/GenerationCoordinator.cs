@@ -14,14 +14,6 @@ public class GenerationCoordinator(
 {
     private const string GenerationMutexName = @"Local\WondayWall.Generation";
     private static readonly TimeSpan GenerationMutexWaitInterval = TimeSpan.FromMilliseconds(250);
-    private static readonly TimeSpan[] ScheduledSlotOffsets =
-    [
-        TimeSpan.Zero,
-        TimeSpan.FromHours(6),
-        TimeSpan.FromHours(12),
-        TimeSpan.FromHours(18),
-    ];
-
     private static readonly string HistoryFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "WondayWall", "history.json");
 
     public Task<HistoryItem> RunAsync(bool skipIfNoChanges = false, CancellationToken ct = default)
@@ -33,14 +25,17 @@ public class GenerationCoordinator(
         CancellationToken ct = default)
     {
         var effectiveNow = now ?? DateTime.Now;
+        var runsPerDay = ScheduleHelper.NormalizeRunsPerDay(appConfigService.Current.RunsPerDay);
+
         return ExecuteWithGenerationMutexAsync(async () =>
         {
-            var scheduledSlot = GetPendingScheduledSlot(effectiveNow, LoadHistory());
+            var scheduledSlot = GetPendingScheduledSlot(effectiveNow, LoadHistory(), runsPerDay);
             if (scheduledSlot is null)
                 return null;
 
             logger.LogInformation(
-                "Starting scheduled wallpaper generation for slot {ScheduledSlot:yyyy/MM/dd HH:mm}.",
+                "{RunsPerDay}回/日スケジュールの枠 {ScheduledSlot:yyyy/MM/dd HH:mm} の壁紙生成を開始します。",
+                runsPerDay,
                 scheduledSlot.Value);
 
             return await RunCoreAsync(skipIfNoChanges, ct);
@@ -117,7 +112,7 @@ public class GenerationCoordinator(
         return historyItem;
     }
 
-    // GUI and CLI can launch generation in different processes, so guard it with an OS-wide mutex.
+    // GUI と CLI が別プロセスで同時起動し得るため、OS 全体で共有する Mutex で直列化する。
     private static Task<T> ExecuteWithGenerationMutexAsync<T>(Func<Task<T>> action, CancellationToken ct)
         => Task.Run(async () =>
             {
@@ -149,9 +144,9 @@ public class GenerationCoordinator(
                 }
             }, ct);
 
-    private static DateTime? GetPendingScheduledSlot(DateTime now, List<HistoryItem> history)
+    private static DateTime? GetPendingScheduledSlot(DateTime now, List<HistoryItem> history, int runsPerDay)
     {
-        var latestSlot = GetLatestScheduledSlotAtOrBefore(now);
+        var latestSlot = ScheduleHelper.GetLatestScheduledSlotAtOrBefore(now, runsPerDay);
         var lastCompletedRunAt = history
             .Where(h => h.IsSuccess)
             .Select(h => h.ExecutedAt)
@@ -162,21 +157,6 @@ public class GenerationCoordinator(
             return null;
 
         return latestSlot;
-    }
-
-    private static DateTime GetLatestScheduledSlotAtOrBefore(DateTime now)
-    {
-        var localNow = now;
-        var dayStart = localNow.Date;
-
-        for (var i = ScheduledSlotOffsets.Length - 1; i >= 0; i--)
-        {
-            var candidate = dayStart + ScheduledSlotOffsets[i];
-            if (candidate <= localNow)
-                return candidate;
-        }
-
-        return dayStart.AddDays(-1) + ScheduledSlotOffsets[^1];
     }
 
     /// <summary>
