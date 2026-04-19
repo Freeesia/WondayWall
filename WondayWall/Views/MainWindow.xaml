@@ -14,6 +14,7 @@
     ui:Design.Background="{DynamicResource ApplicationBackgroundBrush}"
     ui:Design.Foreground="{DynamicResource TextFillColorPrimaryBrush}"
     ExtendsContentIntoTitleBar="True"
+    Icon="/Assets/AppIcon.ico"
     Language="ja"
     WindowBackdropType="Mica"
     WindowCornerPreference="Default"
@@ -40,7 +41,11 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <ui:TitleBar Title="WondayWall" Grid.Row="0" />
+        <ui:TitleBar Title="WondayWall" Grid.Row="0">
+            <ui:TitleBar.Icon>
+                <ui:ImageIcon Source="/Assets/icon_512.png" />
+            </ui:TitleBar.Icon>
+        </ui:TitleBar>
 
         <TabControl Grid.Row="1" Margin="8">
             <!--  ホームタブ  -->
