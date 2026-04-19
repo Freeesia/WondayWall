@@ -2,6 +2,7 @@ using System.IO;
 using System.Net.Http;
 using System.Runtime.CompilerServices;
 using System.Globalization;
+using System.Security.Cryptography;
 using System.Text;
 using System.ServiceModel.Syndication;
 using System.Xml;
@@ -18,8 +19,14 @@ using WondayWall.Utils;
 
 namespace WondayWall.Services;
 
-public class ContextService(AppConfigService configService, IHttpClientFactory httpClientFactory, ILogger<ContextService> logger)
+public class ContextService(
+    AppConfigService configService,
+    HistoryService historyService,
+    IHttpClientFactory httpClientFactory,
+    ILogger<ContextService> logger)
 {
+    private const int MaxPromptNewsCount = 10;
+    private const int MaxRecentNewsCountSinceLastGeneration = 3;
     private readonly HttpClient httpClient = httpClientFactory.CreateClient("WondayWall");
     private const string ClientId = "1032289774423-97qnlp8qkh7vca159jvq1ohggcn4qaqm.apps.googleusercontent.com";
 
@@ -70,8 +77,6 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
     public async IAsyncEnumerable<CalendarEventItem> FetchCalendarEventsAsync(
         [EnumeratorCancellation] CancellationToken ct = default)
     {
-        var config = configService.Current;
-
         if (string.IsNullOrWhiteSpace(ClientId) ||
             string.IsNullOrWhiteSpace(ClientSecret))
             yield break;
@@ -90,163 +95,103 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
         var now = DateTime.UtcNow;
         var end = now.AddDays(7);
 
-        var calendarIds = config.TargetCalendarIds.Count > 0
-            ? config.TargetCalendarIds
-            : ["primary"];
+        const string calendarId = "primary";
 
-        foreach (var calId in calendarIds)
-        {
-            ct.ThrowIfCancellationRequested();
-            Google.Apis.Calendar.v3.Data.Events result;
-            try
-            {
-                var request = calSvc.Events.List(calId);
-                request.TimeMinDateTimeOffset = now;
-                request.TimeMaxDateTimeOffset = end;
-                request.SingleEvents = true;
-                request.OrderBy = EventsResource.ListRequest.OrderByEnum.StartTime;
-                result = await request.ExecuteAsync(ct);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "カレンダーイベントの取得に失敗しました [{CalId}]", calId);
-                continue;
-            }
-
-            if (result.Items == null) continue;
-
-            foreach (var ev in result.Items)
-            {
-                var start = ev.Start?.DateTimeDateTimeOffset is { } startDateTimeOffset
-                    ? startDateTimeOffset.LocalDateTime
-                    : ev.Start?.Date != null
-                        ? DateTime.Parse(ev.Start.Date, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal)
-                        : DateTime.Now;
-
-                var endTime = ev.End?.DateTimeDateTimeOffset is { } endDateTimeOffset
-                    ? endDateTimeOffset.LocalDateTime
-                    : ev.End?.Date != null
-                        ? DateTime.Parse(ev.End.Date, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal)
-                        : (DateTime?)null;
-
-                yield return new CalendarEventItem(
-                    Title: ev.Summary ?? "(no title)",
-                    StartTime: start,
-                    EndTime: endTime,
-                    Location: ev.Location,
-                    Description: ev.Description);
-            }
-        }
-    }
-
-    /// <summary>利用可能なGoogleカレンダー一覧を非同期ストリームで返す</summary>
-    public async IAsyncEnumerable<AvailableCalendar> FetchAvailableCalendarsAsync(
-        [EnumeratorCancellation] CancellationToken ct = default)
-    {
-        if (string.IsNullOrWhiteSpace(ClientId) ||
-            string.IsNullOrWhiteSpace(ClientSecret))
-            yield break;
-
-        CalendarService calSvc;
+        ct.ThrowIfCancellationRequested();
+        Google.Apis.Calendar.v3.Data.Events result;
         try
         {
-            calSvc = await GetCalendarServiceAsync(ct);
+            var request = calSvc.Events.List(calendarId);
+            request.TimeMinDateTimeOffset = now;
+            request.TimeMaxDateTimeOffset = end;
+            request.SingleEvents = true;
+            request.OrderBy = EventsResource.ListRequest.OrderByEnum.StartTime;
+            result = await request.ExecuteAsync(ct);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "カレンダー認証に失敗しました");
+            logger.LogError(ex, "プライマリカレンダーのイベント取得に失敗しました");
             yield break;
         }
 
-        Google.Apis.Calendar.v3.Data.CalendarList calendarList;
-        try
-        {
-            var request = calSvc.CalendarList.List();
-            calendarList = await request.ExecuteAsync(ct);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "カレンダー一覧の取得に失敗しました");
+        if (result.Items == null)
             yield break;
-        }
 
-        if (calendarList.Items == null) yield break;
-
-        foreach (var c in calendarList.Items)
+        foreach (var ev in result.Items)
         {
-            yield return new AvailableCalendar
-            {
-                Id = c.Id ?? string.Empty,
-                Summary = c.Summary ?? c.Id ?? string.Empty,
-            };
+            var start = ev.Start?.DateTimeDateTimeOffset is { } startDateTimeOffset
+                ? startDateTimeOffset.LocalDateTime
+                : ev.Start?.Date != null
+                    ? DateTime.Parse(ev.Start.Date, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal)
+                    : DateTime.Now;
+
+            var endTime = ev.End?.DateTimeDateTimeOffset is { } endDateTimeOffset
+                ? endDateTimeOffset.LocalDateTime
+                : ev.End?.Date != null
+                    ? DateTime.Parse(ev.End.Date, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal)
+                    : (DateTime?)null;
+
+            yield return new CalendarEventItem(
+                Title: ev.Summary ?? "(no title)",
+                StartTime: start,
+                EndTime: endTime,
+                Location: ev.Location,
+                Description: ev.Description);
         }
     }
 
     /// <summary>
-    /// RSSフィードのニューストピックをOGP情報付きで非同期ストリームで返す。
-    /// 全ソースを並列でフェッチし、公開日時の新しい順（直近1週間以内）に返す。
-    /// OGPは各アイテムをyieldする直前に順次取得する（不要な取得を防ぐため）。
+    /// RSSフィードのニューストピックを非同期ストリームで返す。
+    /// UI表示と接続確認用途のため、直近1週間の取得結果一覧をそのまま返す。
     /// </summary>
     public async IAsyncEnumerable<NewsTopicItem> FetchNewsAsync(
         [EnumeratorCancellation] CancellationToken ct = default)
     {
-        var config = configService.Current;
-
-        if (config.RssSources.Count == 0)
-            yield break;
-
-        // 全RSSソースを並列でフェッチ（OGPなし）
-        var fetchTasks = config.RssSources
-            .Select(rssUrl => FetchFromRssSourceAsync(rssUrl, ct))
-            .ToList();
-        var allResults = await Task.WhenAll(fetchTasks);
-
-        var weekAgo = DateTime.Now.AddDays(-7);
-
-        // 公開日時の新しい順にソート
-        var sortedRawItems = allResults
-            .SelectMany(items => items)
-            .Where(i => i.PublishedAt >= weekAgo)
-            .OrderByDescending(item => item.PublishedAt);
-
-        // 各アイテムをyieldする直前にOGPを順次フェッチ
-        foreach (var (title, summary, url, publishedAt) in sortedRawItems)
+        var recentNews = await FetchRecentRssItemsAsync(configService.Current.RssSources, ct);
+        foreach (var item in recentNews)
         {
             ct.ThrowIfCancellationRequested();
-
-            string? imageUrl = null;
-            string? description = null;
-            if (!string.IsNullOrEmpty(url))
-            {
-                try
-                {
-                    var ogp = await OpenGraph.ParseUrlAsync(url, cancellationToken: ct);
-                    if (ogp.Image != null)
-                        imageUrl = ogp.Image.OriginalString;
-
-                    // RSSにサマリーがなければOGPの説明をフォールバックとして使用
-                    if (ogp.Metadata.TryGetValue("og:description", out var descMeta))
-                        description = descMeta.FirstOrDefault()?.Value;
-                }
-                catch
-                {
-                    // OGP取得失敗は無視
-                }
-            }
-
-            yield return new NewsTopicItem(
-                Title: title,
-                Summary: !string.IsNullOrEmpty(summary) ? summary : description,
-                Url: url,
-                PublishedAt: publishedAt,
-                OgpImageUrl: imageUrl);
+            yield return item.ToNewsTopicItem();
         }
     }
 
-    private record RssItem(string Title, string? Summary, string? Url, DateTime PublishedAt);
+    private record RssItem(
+        string SourceRssUrl,
+        string Title,
+        string? Summary,
+        string? Url,
+        DateTime PublishedAt,
+        string? DuplicateKey,
+        string StableId)
+    {
+        public NewsTopicItem ToNewsTopicItem(string? summaryOverride = null, string? ogpImageUrl = null)
+            => new(
+                Title,
+                summaryOverride ?? Summary,
+                Url,
+                PublishedAt,
+                ogpImageUrl);
+    }
+
+    private async Task<List<RssItem>> FetchRecentRssItemsAsync(IReadOnlyList<string> rssSources, CancellationToken ct)
+    {
+        if (rssSources.Count == 0)
+            return [];
+
+        var weekAgo = DateTime.Now.AddDays(-7);
+        var fetchTasks = rssSources
+            .Select(rssUrl => FetchFromRssSourceAsync(rssUrl, weekAgo, ct))
+            .ToList();
+        var allResults = await Task.WhenAll(fetchTasks);
+
+        return allResults
+            .SelectMany(items => items)
+            .OrderByDescending(item => item.PublishedAt)
+            .ToList();
+    }
 
     /// <summary>1つのRSSソースから7日フィルター済みの生アイテムを返す（OGPなし）</summary>
-    private async Task<IReadOnlyList<RssItem>> FetchFromRssSourceAsync(string rssUrl, CancellationToken ct)
+    private async Task<IReadOnlyList<RssItem>> FetchFromRssSourceAsync(string rssUrl, DateTime weekAgo, CancellationToken ct)
     {
         SyndicationFeed feed;
         try
@@ -263,10 +208,20 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
 
         return feed.Items
             .Select(item => new RssItem(
-                item.Title?.Text ?? string.Empty,
-                item.Summary?.Text == "None" ? null : item.Summary?.Text,
-                item.Links.FirstOrDefault()?.Uri.ToString(),
-                item.PublishDate.LocalDateTime))
+                SourceRssUrl: rssUrl,
+                Title: item.Title?.Text ?? string.Empty,
+                Summary: item.Summary?.Text == "None" ? null : item.Summary?.Text,
+                Url: item.Links.FirstOrDefault()?.Uri.ToString(),
+                PublishedAt: item.PublishDate.LocalDateTime,
+                DuplicateKey: CreateDuplicateKey(item.Links.FirstOrDefault()?.Uri.ToString(), item.Title?.Text),
+                StableId: CreateStableId(
+                    rssUrl,
+                    item.Id,
+                    item.Links.FirstOrDefault()?.Uri.ToString(),
+                    item.PublishDate.LocalDateTime,
+                    item.Title?.Text)))
+            .Where(item => item.PublishedAt >= weekAgo)
+            .OrderByDescending(item => item.PublishedAt)
             .ToList();
     }
 
@@ -281,10 +236,7 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
             .ConfigureAwait(false);
 
         // ニューストピックを収集
-        var news = await FetchNewsAsync(ct)
-            .Take(5)
-            .ToListAsync(ct)
-            .ConfigureAwait(false);
+        var news = await BuildPromptNewsAsync(ct).ConfigureAwait(false);
 
         var today = DateTime.Today;
 
@@ -315,6 +267,143 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
 
         return new ContextBuildResult(context, events, news);
     }
+
+    private async Task<List<NewsTopicItem>> BuildPromptNewsAsync(CancellationToken ct)
+    {
+        var recentNews = await FetchRecentRssItemsAsync(configService.Current.RssSources, ct);
+        var lastGeneratedAt = historyService.GetLastSuccessfulGenerated()?.ExecutedAt;
+        var selectedNews = SelectPromptNewsItems(recentNews, lastGeneratedAt);
+        return await EnrichWithOgpAsync(selectedNews, ct);
+    }
+
+    private async Task<List<NewsTopicItem>> EnrichWithOgpAsync(IReadOnlyList<RssItem> selectedNews, CancellationToken ct)
+    {
+        var enrichedNews = new List<NewsTopicItem>(selectedNews.Count);
+
+        foreach (var item in selectedNews.OrderByDescending(item => item.PublishedAt))
+        {
+            ct.ThrowIfCancellationRequested();
+
+            string? summary = item.Summary;
+            string? ogpImageUrl = null;
+
+            if (!string.IsNullOrWhiteSpace(item.Url))
+            {
+                try
+                {
+                    var ogp = await OpenGraph.ParseUrlAsync(item.Url, cancellationToken: ct);
+                    if (ogp.Image != null)
+                        ogpImageUrl = ogp.Image.OriginalString;
+
+                    if (string.IsNullOrWhiteSpace(summary)
+                        && ogp.Metadata.TryGetValue("og:description", out var descriptionMetadata))
+                    {
+                        summary = descriptionMetadata.FirstOrDefault()?.Value;
+                    }
+                }
+                catch
+                {
+                    // OGP取得失敗は無視
+                }
+            }
+
+            enrichedNews.Add(item.ToNewsTopicItem(summary, ogpImageUrl));
+        }
+
+        return enrichedNews;
+    }
+
+    private static List<RssItem> SelectPromptNewsItems(IReadOnlyList<RssItem> recentNews, DateTime? lastGeneratedAt)
+    {
+        if (recentNews.Count == 0)
+            return [];
+
+        var selectedNews = new List<RssItem>(MaxPromptNewsCount);
+        var selectedKeys = new HashSet<string>(StringComparer.Ordinal);
+
+        if (lastGeneratedAt is DateTime lastGenerated)
+        {
+            var recentSinceLastGeneration = recentNews
+                .Where(item => item.PublishedAt > lastGenerated)
+                .OrderBy(item => ComputeStableSelectionOrder(item, lastGenerated))
+                .ThenByDescending(item => item.PublishedAt)
+                .Take(MaxRecentNewsCountSinceLastGeneration)
+                .ToList();
+
+            AddSelectedNews(selectedNews, selectedKeys, recentSinceLastGeneration);
+        }
+
+        var representativeNews = recentNews
+            .GroupBy(item => item.SourceRssUrl)
+            .Select(group => group.FirstOrDefault(item => !selectedKeys.Contains(GetSelectionKey(item))))
+            .Where(item => item is not null)
+            .Select(item => item!)
+            .OrderByDescending(item => item.PublishedAt)
+            .ToList();
+
+        AddSelectedNews(selectedNews, selectedKeys, representativeNews);
+
+        var remainingNews = recentNews
+            .Where(item => !selectedKeys.Contains(GetSelectionKey(item)))
+            .OrderByDescending(item => item.PublishedAt);
+
+        AddSelectedNews(selectedNews, selectedKeys, remainingNews);
+
+        return selectedNews
+            .OrderByDescending(item => item.PublishedAt)
+            .ToList();
+    }
+
+    private static void AddSelectedNews(
+        List<RssItem> selectedNews,
+        HashSet<string> selectedKeys,
+        IEnumerable<RssItem> candidates)
+    {
+        foreach (var item in candidates)
+        {
+            if (selectedNews.Count >= MaxPromptNewsCount)
+                break;
+
+            var selectionKey = GetSelectionKey(item);
+            if (!selectedKeys.Add(selectionKey))
+                continue;
+
+            selectedNews.Add(item);
+        }
+    }
+
+    private static string GetSelectionKey(RssItem item)
+        => item.DuplicateKey ?? item.StableId;
+
+    /// <summary>
+    /// 同じ候補集合なら同じ3件になるように疑似乱択する。
+    /// スキップ判定がランダム差分で揺れないようにするため。
+    /// </summary>
+    private static string ComputeStableSelectionOrder(RssItem item, DateTime lastGeneratedAt)
+    {
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes($"{lastGeneratedAt:O}|{GetSelectionKey(item)}"));
+        return Convert.ToHexString(bytes);
+    }
+
+    private static string? CreateDuplicateKey(string? url, string? title)
+    {
+        if (!string.IsNullOrWhiteSpace(url))
+            return url.Trim();
+
+        if (!string.IsNullOrWhiteSpace(title))
+            return title.Trim();
+
+        return null;
+    }
+
+    private static string CreateStableId(string rssUrl, string? itemId, string? url, DateTime publishedAt, string? title)
+        => string.Join(
+            "|",
+            rssUrl.Trim(),
+            itemId?.Trim() ?? string.Empty,
+            url?.Trim() ?? string.Empty,
+            publishedAt.ToString("O", CultureInfo.InvariantCulture),
+            title?.Trim() ?? string.Empty);
 
     private static string GetProximityTag(DateTime startTime, DateTime today)
     {

@@ -10,11 +10,11 @@ public class GenerationCoordinator(
     GoogleAiService googleAiService,
     WallpaperService wallpaperService,
     AppConfigService appConfigService,
+    HistoryService historyService,
     ILogger<GenerationCoordinator> logger)
 {
     private const string GenerationMutexName = @"Local\WondayWall.Generation";
     private static readonly TimeSpan GenerationMutexWaitInterval = TimeSpan.FromMilliseconds(250);
-    private static readonly string HistoryFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "WondayWall", "history.json");
 
     public Task<HistoryItem> RunAsync(bool skipIfNoChanges = false, CancellationToken ct = default)
         => ExecuteWithGenerationMutexAsync(() => RunCoreAsync(skipIfNoChanges, ct), ct);
@@ -29,7 +29,7 @@ public class GenerationCoordinator(
 
         return ExecuteWithGenerationMutexAsync(async () =>
         {
-            var scheduledSlot = GetPendingScheduledSlot(effectiveNow, LoadHistory(), runsPerDay);
+            var scheduledSlot = GetPendingScheduledSlot(effectiveNow, historyService.Load(), runsPerDay);
             if (scheduledSlot is null)
                 return null;
 
@@ -43,10 +43,7 @@ public class GenerationCoordinator(
     }
 
     public List<HistoryItem> LoadHistory()
-        => JsonFileHelper.Load<List<HistoryItem>>(HistoryFilePath) ?? [];
-
-    private void AppendHistory(HistoryItem item, List<HistoryItem> history)
-        => JsonFileHelper.Save(HistoryFilePath, history.Prepend(item).Take(100));
+        => historyService.Load();
 
     private async Task<HistoryItem> RunCoreAsync(bool skipIfNoChanges, CancellationToken ct)
     {
@@ -64,7 +61,7 @@ public class GenerationCoordinator(
             // スキップ条件チェック：直近の予定がなく、ニュースに変化がない場合はスキップ
             if (skipIfNoChanges
                 && contextResult.CalendarEvents.Count == 0
-                && !HasNewsChanged(contextResult.NewsTopics, LoadHistory()))
+                && !HasNewsChanged(contextResult.NewsTopics, historyService.Load()))
             {
                 logger.LogInformation("変化がないため画像生成をスキップします");
                 isSuccess = true;
@@ -89,7 +86,6 @@ public class GenerationCoordinator(
             errorSummary = ex.Message;
         }
 
-        var historyItems = LoadHistory();
         var historyItem = new HistoryItem(
             ExecutedAt: DateTime.Now,
             IsSuccess: isSuccess,
@@ -101,7 +97,7 @@ public class GenerationCoordinator(
 
         try
         {
-            AppendHistory(historyItem, historyItems);
+            historyService.Append(historyItem);
         }
         catch (Exception ex)
         {
