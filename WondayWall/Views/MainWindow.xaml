@@ -372,6 +372,15 @@
                                             TextWrapping="Wrap"
                                             VerticalScrollBarVisibility="Auto" />
                                     </ui:CardControl>
+                                    <ui:CardControl Header="現在の壁紙をベースに生成">
+                                        <ui:CardControl.Icon>
+                                            <ui:SymbolIcon Symbol="ImageCopy24" />
+                                        </ui:CardControl.Icon>
+                                        <ui:ToggleSwitch
+                                            VerticalAlignment="Center"
+                                            Content="このアプリで生成した壁紙をベースに新しい壁紙を生成する"
+                                            IsChecked="{Binding AppConfig.UseCurrentWallpaperAsBase}" />
+                                    </ui:CardControl>
 
                                 </StackPanel>
                             </GroupBox>

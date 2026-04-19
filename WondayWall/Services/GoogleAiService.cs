@@ -4,6 +4,7 @@ using System.Text.Json;
 using GenerativeAI;
 using GenerativeAI.Types;
 using Microsoft.Extensions.Logging;
+using WondayWall.ComponentModel;
 using WondayWall.Models;
 using WondayWall.Utils;
 
@@ -20,7 +21,15 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         PropertyNameCaseInsensitive = true,
         WriteIndented = true,
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
     };
+
+    /// <summary>
+    /// ベース画像使用時のスタイル維持指示（テキストモデル・画像モデル共通）
+    /// </summary>
+    private const string BaseImageStyleInstruction =
+        "Preserve the overall composition, color palette, and artistic style of the base wallpaper. " +
+        "Incorporate the new themes and events subtly — avoid drastic visual changes.";
 
     public async Task<GeneratedImageInfo> GenerateWallpaperAsync(
         PromptContext context,
@@ -32,9 +41,10 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
             throw new InvalidOperationException("Google AI API key is not configured.");
 
         // ステップ1: テキストモデルで詳細な画像プロンプトを生成（Google検索グラウンディングを有効化）
-        var textModel = new GenerativeModel(config.GoogleAiApiKey, "gemini-3-flash-preview")
+        var textModel = new GenerativeModelEx(config.GoogleAiApiKey, "gemini-3-flash-preview")
         {
             UseGoogleSearch = true,
+            UseJsonMode = true,
         };
         var contextPrompt = BuildTextModelPrompt(context);
         var promptRequest = new GenerateContentRequest();
@@ -81,7 +91,24 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
             : imagePrompt;
 
         var imageRequest = new GenerateContentRequest();
-        imageRequest.AddText(finalPrompt);
+
+        // ベース壁紙がある場合はインラインデータとして先頭に付加し、プロンプトにも指示を追加
+        if (!string.IsNullOrEmpty(context.BaseImagePath) && File.Exists(context.BaseImagePath))
+        {
+            var baseImageBytes = await File.ReadAllBytesAsync(context.BaseImagePath, ct);
+            var baseMimeType = GetMimeTypeFromPath(context.BaseImagePath);
+            imageRequest.AddInlineData(Convert.ToBase64String(baseImageBytes), baseMimeType);
+            // ベース画像への参照と「大きく変えすぎない」指示をプロンプトに追加
+            imageRequest.AddText(
+                "The current wallpaper is provided as the base image. " +
+                "Create a new wallpaper that evolves gradually from this base. " +
+                BaseImageStyleInstruction + "\n\n" +
+                finalPrompt);
+        }
+        else
+        {
+            imageRequest.AddText(finalPrompt);
+        }
         foreach (var imgUrl in ogpUrls)
         {
             try
@@ -162,6 +189,13 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
             """,
         };
 
+        if (!string.IsNullOrEmpty(context.BaseImagePath) && File.Exists(context.BaseImagePath))
+        {
+            parts.Add(
+                "A base wallpaper image will be supplied to the image model. " +
+                BaseImageStyleInstruction);
+        }
+
         if ((context.CalendarEvents ?? []).Count > 0)
         {
             parts.Add($"Calendar event candidates (JSON):\n{JsonSerializer.Serialize(context.CalendarEvents, JsonSerializerOptions)}");
@@ -194,6 +228,18 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
             }
         }
         return null;
+    }
+
+    /// <summary>ファイルパスの拡張子からMIMEタイプを返す</summary>
+    private static string GetMimeTypeFromPath(string filePath)
+    {
+        return Path.GetExtension(filePath).ToLowerInvariant() switch
+        {
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".png" => "image/png",
+            ".webp" => "image/webp",
+            _ => "image/jpeg",
+        };
     }
 
     private sealed class PromptSelectionResponse
