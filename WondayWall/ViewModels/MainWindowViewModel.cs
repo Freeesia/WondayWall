@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
+using System.Security;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
@@ -37,6 +38,24 @@ public partial class MainWindowViewModel : ObservableObject
     public partial bool IsTaskSchedulerEnabled { get; set; }
 
     [ObservableProperty]
+    public partial bool ShowSetupWizard { get; set; }
+
+    [ObservableProperty]
+    public partial string SetupGoogleAiApiKey { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string SetupRssSourceUrl { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string SetupRssValidationMessage { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string SetupCompletionErrorMessage { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial bool IsSetupSchedulerEnabled { get; set; } = true;
+
+    [ObservableProperty]
     public partial int SelectedRunsPerDay { get; set; }
 
     [ObservableProperty]
@@ -57,6 +76,7 @@ public partial class MainWindowViewModel : ObservableObject
     public ObservableCollection<AvailableCalendar> AvailableCalendars { get; } = [];
     public IReadOnlyList<int> AvailableRunsPerDayOptions => ScheduleHelper.SupportedRunsPerDay;
     public string TaskSchedulerScheduleDescription => ScheduleHelper.FormatScheduleDescription(SelectedRunsPerDay);
+    public string SetupTaskSchedulerScheduleDescription => ScheduleHelper.FormatScheduleDescription(1);
 
     public MainWindowViewModel(
         AppConfigService configService,
@@ -72,6 +92,8 @@ public partial class MainWindowViewModel : ObservableObject
         _logger = logger;
 
         AppConfig = configService.Load();
+        ShowSetupWizard = !configService.HasSavedConfig;
+        SetupGoogleAiApiKey = AppConfig.GoogleAiApiKey;
         SelectedRunsPerDay = ScheduleHelper.NormalizeRunsPerDay(AppConfig.RunsPerDay);
         foreach (var src in AppConfig.RssSources)
             RssSources.Add(src);
@@ -91,7 +113,7 @@ public partial class MainWindowViewModel : ObservableObject
         {
             try
             {
-                await RefreshCalendarDataAsync(includeFoundSuffix: false);
+                await RefreshCalendarDataAsync(includeFoundSuffix: false, autoSelectDefaultCalendar: false);
             }
             catch (Exception ex)
             {
@@ -146,19 +168,14 @@ public partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private void Save()
     {
-        AppConfig.RunsPerDay = ScheduleHelper.NormalizeRunsPerDay(SelectedRunsPerDay);
-        AppConfig.RssSources = [.. RssSources];
-        if (AvailableCalendars.Count > 0)
+        try
         {
-            AppConfig.TargetCalendarIds = AvailableCalendars
-                .Where(c => c.IsSelected)
-                .Select(c => c.Id)
-                .ToList();
+            SaveSettings(IsTaskSchedulerEnabled, "Settings saved.");
         }
-        _configService.Save(AppConfig);
-        if (IsTaskSchedulerEnabled)
-            _taskSchedulerService.Enable();
-        LastResultMessage = "Settings saved.";
+        catch (Exception ex)
+        {
+            LastResultMessage = $"Settings save error: {ex.Message}";
+        }
     }
 
     [RelayCommand]
@@ -178,6 +195,70 @@ public partial class MainWindowViewModel : ObservableObject
         }
     }
 
+    [RelayCommand(CanExecute = nameof(CanCompleteSetup))]
+    private void CompleteSetup()
+    {
+        SetupCompletionErrorMessage = string.Empty;
+        SetupRssValidationMessage = string.Empty;
+
+        var apiKey = SetupGoogleAiApiKey.Trim();
+        if (string.IsNullOrWhiteSpace(apiKey))
+            return;
+
+        AppConfig.GoogleAiApiKey = apiKey;
+
+        var rssUrl = SetupRssSourceUrl.Trim();
+        if (!string.IsNullOrEmpty(rssUrl))
+        {
+            if (!Uri.TryCreate(rssUrl, UriKind.Absolute, out _))
+            {
+                SetupRssValidationMessage = "有効なRSSフィードURLを入力してください。";
+                return;
+            }
+
+            if (!RssSources.Contains(rssUrl))
+                RssSources.Add(rssUrl);
+        }
+
+        if (IsSetupSchedulerEnabled)
+        {
+            var previousRunsPerDay = SelectedRunsPerDay;
+            SelectedRunsPerDay = 1;
+
+            try
+            {
+                SaveSettings(IsSetupSchedulerEnabled, "初回セットアップが完了しました。");
+                ShowSetupWizard = false;
+                SetupRssSourceUrl = string.Empty;
+            }
+            catch (Exception ex) when (ex is SecurityException or UnauthorizedAccessException)
+            {
+                SelectedRunsPerDay = previousRunsPerDay;
+                SetupCompletionErrorMessage = $"タスクスケジューラの設定に失敗しました。無効にして完了するか、再試行してください: {ex.Message}";
+            }
+            catch (Exception ex)
+            {
+                SelectedRunsPerDay = previousRunsPerDay;
+                SetupCompletionErrorMessage = $"初回セットアップを完了できませんでした: {ex.Message}";
+            }
+
+            return;
+        }
+
+        try
+        {
+            SaveSettings(IsSetupSchedulerEnabled, "初回セットアップが完了しました。");
+            ShowSetupWizard = false;
+            SetupRssSourceUrl = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            SetupCompletionErrorMessage = $"初回セットアップを完了できませんでした: {ex.Message}";
+        }
+    }
+
+    private bool CanCompleteSetup() => !string.IsNullOrWhiteSpace(SetupGoogleAiApiKey);
+
     [RelayCommand]
     private async Task ConnectCalendarAsync(CancellationToken ct = default)
     {
@@ -185,7 +266,7 @@ public partial class MainWindowViewModel : ObservableObject
         try
         {
             _ = await _contextService.GetCalendarServiceInteractiveAsync(ct);
-            await RefreshCalendarDataAsync(ct, includeFoundSuffix: true);
+            await RefreshCalendarDataAsync(ct, includeFoundSuffix: true, autoSelectDefaultCalendar: true);
         }
         catch (Exception ex)
         {
@@ -193,14 +274,45 @@ public partial class MainWindowViewModel : ObservableObject
         }
     }
 
-    private async Task RefreshCalendarDataAsync(CancellationToken ct = default, bool includeFoundSuffix = false)
+    private async Task RefreshCalendarDataAsync(
+        CancellationToken ct = default,
+        bool includeFoundSuffix = false,
+        bool autoSelectDefaultCalendar = false)
     {
-        AvailableCalendars.Clear();
+        var selectedCalendarIds = AvailableCalendars
+            .Where(c => c.IsSelected)
+            .Select(c => c.Id)
+            .ToHashSet(StringComparer.Ordinal);
+        if (selectedCalendarIds.Count == 0)
+        {
+            selectedCalendarIds = AppConfig.TargetCalendarIds
+                .ToHashSet(StringComparer.Ordinal);
+        }
+
+        var calendars = new List<AvailableCalendar>();
+
         await foreach (var cal in _contextService.FetchAvailableCalendarsAsync(ct))
         {
-            cal.IsSelected = AppConfig.TargetCalendarIds.Contains(cal.Id);
-            AvailableCalendars.Add(cal);
+            cal.IsSelected = selectedCalendarIds.Contains(cal.Id);
+            calendars.Add(cal);
         }
+
+        if (autoSelectDefaultCalendar && selectedCalendarIds.Count == 0)
+        {
+            var defaultCalendar = calendars.FirstOrDefault(static c => c.IsPrimary);
+            if (defaultCalendar is not null)
+            {
+                defaultCalendar.IsSelected = true;
+                selectedCalendarIds.Add(defaultCalendar.Id);
+            }
+        }
+
+        if (selectedCalendarIds.Count > 0)
+            AppConfig.TargetCalendarIds = [.. selectedCalendarIds];
+
+        AvailableCalendars.Clear();
+        foreach (var cal in calendars)
+            AvailableCalendars.Add(cal);
 
         RecentEvents.Clear();
         await foreach (var ev in _contextService.FetchCalendarEventsAsync(ct))
@@ -286,6 +398,54 @@ public partial class MainWindowViewModel : ObservableObject
         History.Clear();
         foreach (var item in items)
             History.Add(item);
+    }
+
+    private void SaveSettings(bool enableTaskScheduler, string successMessage)
+    {
+        ApplyCurrentSelectionsToConfig();
+        ApplyTaskSchedulerState(enableTaskScheduler);
+        _configService.Save(AppConfig);
+        IsTaskSchedulerEnabled = enableTaskScheduler;
+        LastResultMessage = successMessage;
+    }
+
+    private void ApplyCurrentSelectionsToConfig()
+    {
+        AppConfig.RunsPerDay = ScheduleHelper.NormalizeRunsPerDay(SelectedRunsPerDay);
+        AppConfig.RssSources = [.. RssSources];
+        if (AvailableCalendars.Count > 0)
+        {
+            AppConfig.TargetCalendarIds = AvailableCalendars
+                .Where(c => c.IsSelected)
+                .Select(c => c.Id)
+                .ToList();
+        }
+    }
+
+    private void ApplyTaskSchedulerState(bool enableTaskScheduler)
+    {
+        if (enableTaskScheduler)
+            _taskSchedulerService.Enable();
+        else
+            _taskSchedulerService.Disable();
+    }
+
+    partial void OnSetupGoogleAiApiKeyChanged(string value)
+    {
+        AppConfig.GoogleAiApiKey = value;
+        SetupCompletionErrorMessage = string.Empty;
+        CompleteSetupCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnSetupRssSourceUrlChanged(string value)
+    {
+        SetupRssValidationMessage = string.Empty;
+        SetupCompletionErrorMessage = string.Empty;
+    }
+
+    partial void OnIsSetupSchedulerEnabledChanged(bool value)
+    {
+        SetupCompletionErrorMessage = string.Empty;
     }
 
     partial void OnSelectedRunsPerDayChanged(int value)

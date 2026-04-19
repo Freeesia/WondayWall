@@ -178,6 +178,7 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
             {
                 Id = c.Id ?? string.Empty,
                 Summary = c.Summary ?? c.Id ?? string.Empty,
+                IsPrimary = c.Primary ?? false,
             };
         }
     }
