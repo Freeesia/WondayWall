@@ -383,10 +383,26 @@
                                                 Command="{Binding ToggleTaskSchedulerCommand}"
                                                 Content="固定時刻スケジュールを有効にする"
                                                 IsChecked="{Binding IsTaskSchedulerEnabled}" />
+                                            <StackPanel Margin="24,8,0,0">
+                                                <TextBlock
+                                                    Margin="0,0,0,4"
+                                                    FontWeight="SemiBold"
+                                                    Text="1日あたりの更新回数" />
+                                                <ComboBox
+                                                    Width="120"
+                                                    ItemsSource="{Binding AvailableRunsPerDayOptions}"
+                                                    SelectedItem="{Binding SelectedRunsPerDay, UpdateSourceTrigger=PropertyChanged}">
+                                                    <ComboBox.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <TextBlock Text="{Binding StringFormat={}{0}回}" />
+                                                        </DataTemplate>
+                                                    </ComboBox.ItemTemplate>
+                                                </ComboBox>
+                                            </StackPanel>
                                             <TextBlock
                                                 Width="320"
-                                                Margin="24,4,0,0"
-                                                Text="毎日 0:00 / 6:00 / 12:00 / 18:00 に実行します。PC の電源断などで定刻を逃した場合だけ、次回ログオン時に補完実行します。"
+                                                Margin="24,8,0,0"
+                                                Text="{Binding TaskSchedulerScheduleDescription}"
                                                 TextWrapping="Wrap" />
                                         </StackPanel>
                                     </ui:CardControl>
