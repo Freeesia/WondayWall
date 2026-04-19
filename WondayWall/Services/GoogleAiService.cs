@@ -21,7 +21,6 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
         PropertyNameCaseInsensitive = true,
         WriteIndented = true,
     };
-    private static readonly Schema PromptSelectionResponseSchema = CreatePromptSelectionResponseSchema();
 
     public async Task<GeneratedImageInfo> GenerateWallpaperAsync(
         PromptContext context,
@@ -38,18 +37,19 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
             UseGoogleSearch = true,
         };
         var contextPrompt = BuildTextModelPrompt(context);
-        var promptRequest = new GenerateContentRequest
-        {
-            GenerationConfig = new GenerationConfig
-            {
-                ResponseMimeType = "application/json",
-                ResponseSchema = PromptSelectionResponseSchema,
-            },
-        };
+        var promptRequest = new GenerateContentRequest();
+        promptRequest.UseJsonMode<PromptSelectionResponse>(JsonSerializerOptions);
         promptRequest.AddText(contextPrompt);
 
-        var promptResponse = await textModel.GenerateContentAsync(promptRequest, cancellationToken: ct);
-        var promptSelection = ParsePromptSelection(promptResponse.Text());
+        var promptSelection = await textModel.GenerateObjectAsync<PromptSelectionResponse>(promptRequest, ct);
+        if (promptSelection == null || string.IsNullOrWhiteSpace(promptSelection.ImagePrompt))
+            throw new InvalidOperationException("Google AI returned an invalid structured prompt response.");
+
+        promptSelection.SelectedNewsIds = (promptSelection.SelectedNewsIds ?? [])
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Select(id => id.Trim())
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
         var imagePrompt = promptSelection.ImagePrompt.Trim();
 
         // ステップ2: 画像モデルでアスペクト比・サイズを指定して壁紙を生成
@@ -80,7 +80,8 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
               "Incorporate their visual themes, color palette, and subject matter into the wallpaper design."
             : imagePrompt;
 
-        var parts = new List<Part> { new Part(finalPrompt) };
+        var imageRequest = new GenerateContentRequest();
+        imageRequest.AddText(finalPrompt);
         foreach (var imgUrl in ogpUrls)
         {
             try
@@ -90,14 +91,7 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
                 imgResponse.EnsureSuccessStatusCode();
                 var mimeType = imgResponse.Content.Headers.ContentType?.MediaType ?? "image/jpeg";
                 var imgBytes = await imgResponse.Content.ReadAsByteArrayAsync(ct);
-                parts.Add(new Part
-                {
-                    InlineData = new Blob
-                    {
-                        MimeType = mimeType,
-                        Data = Convert.ToBase64String(imgBytes),
-                    }
-                });
+                imageRequest.AddInlineData(Convert.ToBase64String(imgBytes), mimeType);
             }
             catch (Exception ex)
             {
@@ -105,7 +99,7 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
             }
         }
 
-        var response = await imageModel.GenerateContentAsync(parts, cancellationToken: ct);
+        var response = await imageModel.GenerateContentAsync(imageRequest, cancellationToken: ct);
 
         var imageBytes = ExtractImageBytes(response);
 
@@ -170,12 +164,12 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
 
         if ((context.CalendarEvents ?? []).Count > 0)
         {
-            parts.Add($"Calendar event candidates (JSON):\n{SerializeCandidates(context.CalendarEvents)}");
+            parts.Add($"Calendar event candidates (JSON):\n{JsonSerializer.Serialize(context.CalendarEvents, JsonSerializerOptions)}");
         }
 
         if ((context.NewsTopics ?? []).Count > 0)
         {
-            parts.Add($"News topic candidates (JSON):\n{SerializeCandidates(context.NewsTopics)}");
+            parts.Add($"News topic candidates (JSON):\n{JsonSerializer.Serialize(context.NewsTopics, JsonSerializerOptions)}");
         }
 
         if (!string.IsNullOrWhiteSpace(context.AdditionalConstraints))
@@ -184,37 +178,6 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
         }
 
         return string.Join("\n\n", parts);
-    }
-
-    private static string SerializeCandidates<T>(IReadOnlyList<T>? items)
-        => JsonSerializer.Serialize(items ?? Array.Empty<T>(), JsonSerializerOptions);
-
-    private static Schema CreatePromptSelectionResponseSchema()
-        => GoogleSchemaHelper.ConvertToSchema<PromptSelectionResponse>(JsonSerializerOptions);
-
-    private static PromptSelectionResponse ParsePromptSelection(string? responseText)
-    {
-        if (string.IsNullOrWhiteSpace(responseText))
-            throw new InvalidOperationException("Google AI did not return a structured prompt response.");
-
-        try
-        {
-            var response = JsonSerializer.Deserialize<PromptSelectionResponse>(responseText, JsonSerializerOptions);
-            if (response == null || string.IsNullOrWhiteSpace(response.ImagePrompt))
-                throw new InvalidOperationException("Google AI returned a prompt response without imagePrompt.");
-
-            response.SelectedNewsIds = (response.SelectedNewsIds ?? [])
-                .Where(id => !string.IsNullOrWhiteSpace(id))
-                .Select(id => id.Trim())
-                .Distinct(StringComparer.Ordinal)
-                .ToList();
-
-            return response;
-        }
-        catch (JsonException ex)
-        {
-            throw new InvalidOperationException("Failed to parse Google AI structured prompt response.", ex);
-        }
     }
 
     private static byte[]? ExtractImageBytes(GenerateContentResponse response)
