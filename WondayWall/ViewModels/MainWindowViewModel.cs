@@ -183,14 +183,17 @@ public partial class MainWindowViewModel : ObservableObject
         }
     }
 
-    [RelayCommand(CanExecute = nameof(CanCompleteSetup))]
+    [RelayCommand]
     private void CompleteSetup()
     {
         LastResultMessage = string.Empty;
 
         var apiKey = AppConfig.GoogleAiApiKey.Trim();
         if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            LastResultMessage = "Google AI APIキーを入力してください。";
             return;
+        }
 
         AppConfig.GoogleAiApiKey = apiKey;
 
@@ -243,8 +246,6 @@ public partial class MainWindowViewModel : ObservableObject
             LastResultMessage = $"初回セットアップを完了できませんでした: {ex.Message}";
         }
     }
-
-    private bool CanCompleteSetup() => !string.IsNullOrWhiteSpace(AppConfig.GoogleAiApiKey);
 
     [RelayCommand]
     private async Task ConnectCalendarAsync(CancellationToken ct = default)

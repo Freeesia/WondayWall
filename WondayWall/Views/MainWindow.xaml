@@ -486,8 +486,7 @@
                                     <ui:PasswordBox
                                         Width="420"
                                         Margin="0,8,0,0"
-                                        Password="{Binding AppConfig.GoogleAiApiKey, UpdateSourceTrigger=PropertyChanged}"
-                                        PasswordChanged="SetupPasswordBox_OnPasswordChanged" />
+                                        Password="{Binding AppConfig.GoogleAiApiKey, UpdateSourceTrigger=PropertyChanged}" />
                                 </StackPanel>
                             </ui:CardControl>
 

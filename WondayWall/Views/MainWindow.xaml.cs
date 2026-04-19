@@ -1,5 +1,4 @@
 using System.Windows.Input;
-using System.Windows;
 using WondayWall.Models;
 using WondayWall.ViewModels;
 using Wpf.Ui.Appearance;
@@ -24,13 +23,5 @@ public partial class MainWindow : FluentWindow
             return;
 
         viewModel.OpenHistoryImageCommand.Execute(historyItem);
-    }
-
-    private void SetupPasswordBox_OnPasswordChanged(object sender, RoutedEventArgs e)
-    {
-        if (DataContext is not MainWindowViewModel viewModel)
-            return;
-
-        viewModel.CompleteSetupCommand.NotifyCanExecuteChanged();
     }
 }
