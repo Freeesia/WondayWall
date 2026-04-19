@@ -21,6 +21,7 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
         PropertyNameCaseInsensitive = true,
         WriteIndented = true,
     };
+    private static readonly Schema PromptSelectionResponseSchema = CreatePromptSelectionResponseSchema();
 
     public async Task<GeneratedImageInfo> GenerateWallpaperAsync(
         PromptContext context,
@@ -37,14 +38,19 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
             UseGoogleSearch = true,
         };
         var contextPrompt = BuildTextModelPrompt(context);
-        var promptResponse = await textModel.GenerateContentAsync(contextPrompt, cancellationToken: ct);
-        var promptSelection = ParsePromptSelection(promptResponse.Text(), context);
-        if (!promptSelection.IsStructuredResponse)
+        var promptRequest = new GenerateContentRequest
         {
-            logger.LogWarning("テキストモデル応答が想定JSONではなかったため、生テキストを画像プロンプトとして扱います");
-        }
+            GenerationConfig = new GenerationConfig
+            {
+                ResponseMimeType = "application/json",
+                ResponseSchema = PromptSelectionResponseSchema,
+            },
+        };
+        promptRequest.AddText(contextPrompt);
 
-        var imagePrompt = promptSelection.ImagePrompt;
+        var promptResponse = await textModel.GenerateContentAsync(promptRequest, cancellationToken: ct);
+        var promptSelection = ParsePromptSelection(promptResponse.Text());
+        var imagePrompt = promptSelection.ImagePrompt.Trim();
 
         // ステップ2: 画像モデルでアスペクト比・サイズを指定して壁紙を生成
         var displayInfo = DisplayHelper.GetDisplayInfo();
@@ -154,16 +160,10 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
             - If the nearest event is NEGATIVE or NEUTRAL, ignore it and continue considering later positive events
               and news topics as potential primary themes.
 
-            Return valid JSON only with this exact shape:
-            {
-              "imagePrompt": "A detailed English image-generation prompt",
-              "selectedNewsIds": ["news-1", "news-2"]
-            }
-
-            JSON rules:
-            - imagePrompt: a single detailed English prompt for the image model.
-            - selectedNewsIds: only ids of news topics that materially influenced imagePrompt.
-            - If no news topic is used, return an empty array.
+            Return a response that matches the configured JSON schema.
+            - imagePrompt must be a single detailed English prompt for the image model.
+            - selectedNewsIds must contain only ids of news topics that materially influenced imagePrompt.
+            - If no news topic is used, selectedNewsIds must be an empty array.
             - Do not output markdown fences or any extra explanation.
             """,
         };
@@ -189,104 +189,32 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
     private static string SerializeCandidates<T>(IReadOnlyList<T>? items)
         => JsonSerializer.Serialize(items ?? Array.Empty<T>(), JsonSerializerOptions);
 
-    private static PromptSelectionResult ParsePromptSelection(string? responseText, PromptContext context)
+    private static Schema CreatePromptSelectionResponseSchema()
+        => GoogleSchemaHelper.ConvertToSchema<PromptSelectionResponse>(JsonSerializerOptions);
+
+    private static PromptSelectionResponse ParsePromptSelection(string? responseText)
     {
-        if (TryParsePromptSelectionResponse(responseText, out var parsedResponse))
-        {
-            return new PromptSelectionResult(
-                ImagePrompt: parsedResponse!.ImagePrompt!.Trim(),
-                SelectedNewsIds: (parsedResponse.SelectedNewsIds ?? [])
-                    .Where(id => !string.IsNullOrWhiteSpace(id))
-                    .Select(id => id.Trim())
-                    .Distinct(StringComparer.Ordinal)
-                    .ToList(),
-                IsStructuredResponse: true);
-        }
-
-        var fallbackPrompt = !string.IsNullOrWhiteSpace(responseText)
-            ? responseText.Trim()
-            : BuildFallbackImagePrompt(context);
-
-        return new PromptSelectionResult(fallbackPrompt, [], false);
-    }
-
-    private static bool TryParsePromptSelectionResponse(string? responseText, out PromptSelectionResponse? response)
-    {
-        response = null;
-
         if (string.IsNullOrWhiteSpace(responseText))
-            return false;
-
-        var jsonText = ExtractJsonObject(responseText);
-        if (string.IsNullOrWhiteSpace(jsonText))
-            return false;
+            throw new InvalidOperationException("Google AI did not return a structured prompt response.");
 
         try
         {
-            response = JsonSerializer.Deserialize<PromptSelectionResponse>(jsonText, JsonSerializerOptions);
-            return !string.IsNullOrWhiteSpace(response?.ImagePrompt);
+            var response = JsonSerializer.Deserialize<PromptSelectionResponse>(responseText, JsonSerializerOptions);
+            if (response == null || string.IsNullOrWhiteSpace(response.ImagePrompt))
+                throw new InvalidOperationException("Google AI returned a prompt response without imagePrompt.");
+
+            response.SelectedNewsIds = (response.SelectedNewsIds ?? [])
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Select(id => id.Trim())
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+
+            return response;
         }
-        catch (JsonException)
+        catch (JsonException ex)
         {
-            response = null;
-            return false;
+            throw new InvalidOperationException("Failed to parse Google AI structured prompt response.", ex);
         }
-    }
-
-    private static string? ExtractJsonObject(string responseText)
-    {
-        var trimmed = responseText.Trim();
-        var startIndex = trimmed.IndexOf('{');
-        var endIndex = trimmed.LastIndexOf('}');
-        if (startIndex < 0 || endIndex <= startIndex)
-            return null;
-
-        return trimmed[startIndex..(endIndex + 1)];
-    }
-
-    private static string BuildFallbackImagePrompt(PromptContext context)
-    {
-        var parts = new List<string>
-        {
-            $"Create a beautiful desktop wallpaper at {context.ImageSize} resolution with a {context.AspectRatio} aspect ratio.",
-            "Use the provided calendar events and news topics as inspiration. Favor positive upcoming events, and let relevant news lead when events are not suitable.",
-            "No text, logos, or UI overlays. Wide landscape composition.",
-        };
-
-        if ((context.CalendarEvents ?? []).Count > 0)
-        {
-            parts.Add("Calendar events:\n" + string.Join("\n", context.CalendarEvents!.Select(FormatFallbackEvent)));
-        }
-
-        if ((context.NewsTopics ?? []).Count > 0)
-        {
-            parts.Add("News topics:\n" + string.Join("\n", context.NewsTopics!.Select(FormatFallbackNews)));
-        }
-
-        if (!string.IsNullOrWhiteSpace(context.AdditionalConstraints))
-        {
-            parts.Add($"Additional instructions: {context.AdditionalConstraints}");
-        }
-
-        return string.Join("\n\n", parts);
-    }
-
-    private static string FormatFallbackEvent(PromptCalendarEvent eventItem)
-    {
-        var line = $"- {eventItem.Title} [{eventItem.ProximityTag}] ({eventItem.StartTime:yyyy/MM/dd HH:mm})";
-        if (!string.IsNullOrWhiteSpace(eventItem.Location))
-            line += $" @ {eventItem.Location}";
-        if (!string.IsNullOrWhiteSpace(eventItem.Description))
-            line += $": {eventItem.Description}";
-        return line;
-    }
-
-    private static string FormatFallbackNews(PromptNewsTopic newsTopic)
-    {
-        var line = $"- {newsTopic.Title}";
-        if (!string.IsNullOrWhiteSpace(newsTopic.Summary))
-            line += $": {newsTopic.Summary}";
-        return line;
     }
 
     private static byte[]? ExtractImageBytes(GenerateContentResponse response)
@@ -307,13 +235,8 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
 
     private sealed class PromptSelectionResponse
     {
-        public string? ImagePrompt { get; init; }
+        public required string ImagePrompt { get; init; }
 
-        public List<string>? SelectedNewsIds { get; init; }
+        public required List<string> SelectedNewsIds { get; set; }
     }
-
-    private sealed record PromptSelectionResult(
-        string ImagePrompt,
-        List<string> SelectedNewsIds,
-        bool IsStructuredResponse);
 }
