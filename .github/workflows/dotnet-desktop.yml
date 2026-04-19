@@ -99,7 +99,7 @@ jobs:
               (cd "$dir" && zip -r "../${base}.zip" .)
             fi
           done
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v2.6.1
         with:
           generate_release_notes: true
           draft: true
