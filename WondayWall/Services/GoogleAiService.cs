@@ -15,14 +15,11 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
     private static readonly string FixedImageSavePath = Path.Combine(
         System.Environment.GetFolderPath(System.Environment.SpecialFolder.ApplicationData),
         "WondayWall", "wallpapers");
-    private static readonly JsonSerializerOptions PromptJsonSerializerOptions = new()
+    private static readonly JsonSerializerOptions JsonSerializerOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        WriteIndented = true,
-    };
-    private static readonly JsonSerializerOptions ResponseJsonSerializerOptions = new()
-    {
         PropertyNameCaseInsensitive = true,
+        WriteIndented = true,
     };
 
     public async Task<GeneratedImageInfo> GenerateWallpaperAsync(
@@ -190,7 +187,7 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
     }
 
     private static string SerializeCandidates<T>(IReadOnlyList<T>? items)
-        => JsonSerializer.Serialize(items ?? Array.Empty<T>(), PromptJsonSerializerOptions);
+        => JsonSerializer.Serialize(items ?? Array.Empty<T>(), JsonSerializerOptions);
 
     private static PromptSelectionResult ParsePromptSelection(string? responseText, PromptContext context)
     {
@@ -226,7 +223,7 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
 
         try
         {
-            response = JsonSerializer.Deserialize<PromptSelectionResponse>(jsonText, ResponseJsonSerializerOptions);
+            response = JsonSerializer.Deserialize<PromptSelectionResponse>(jsonText, JsonSerializerOptions);
             return !string.IsNullOrWhiteSpace(response?.ImagePrompt);
         }
         catch (JsonException)
