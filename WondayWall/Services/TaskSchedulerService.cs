@@ -1,9 +1,10 @@
 using Microsoft.Win32.TaskScheduler;
 using System.Security.Principal;
+using WondayWall.Utils;
 
 namespace WondayWall.Services;
 
-public class TaskSchedulerService
+public class TaskSchedulerService(AppConfigService appConfigService)
 {
     private const string TaskName = "WondayWall";
 
@@ -15,17 +16,22 @@ public class TaskSchedulerService
 
     public void Enable()
     {
+        var runsPerDay = ScheduleHelper.NormalizeRunsPerDay(appConfigService.Current.RunsPerDay);
+
         using var ts = new TaskService();
         var td = ts.NewTask();
-        td.RegistrationInfo.Description = "WondayWall 壁紙自動生成 (0:00 / 6:00 / 12:00 / 18:00 + ログオン時補完)";
+        td.RegistrationInfo.Description = $"WondayWall 壁紙自動生成 ({ScheduleHelper.FormatSlotTimes(runsPerDay)} + ログオン時補完)";
 
         var dailyTrigger = new DailyTrigger
         {
             StartBoundary = DateTime.Today,
             DaysInterval = 1,
         };
-        dailyTrigger.Repetition.Interval = TimeSpan.FromHours(6);
-        dailyTrigger.Repetition.Duration = TimeSpan.FromDays(1);
+        if (runsPerDay > 1)
+        {
+            dailyTrigger.Repetition.Interval = ScheduleHelper.GetInterval(runsPerDay);
+            dailyTrigger.Repetition.Duration = TimeSpan.FromDays(1);
+        }
 
         using var identity = WindowsIdentity.GetCurrent();
         var logonTrigger = new LogonTrigger
