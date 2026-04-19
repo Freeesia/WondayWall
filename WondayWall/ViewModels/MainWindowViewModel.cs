@@ -41,21 +41,6 @@ public partial class MainWindowViewModel : ObservableObject
     public partial bool ShowSetupWizard { get; set; }
 
     [ObservableProperty]
-    public partial string SetupGoogleAiApiKey { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial string SetupRssSourceUrl { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial string SetupRssValidationMessage { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial string SetupCompletionErrorMessage { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial bool IsSetupSchedulerEnabled { get; set; } = true;
-
-    [ObservableProperty]
     public partial int SelectedRunsPerDay { get; set; }
 
     [ObservableProperty]
@@ -76,7 +61,6 @@ public partial class MainWindowViewModel : ObservableObject
     public ObservableCollection<AvailableCalendar> AvailableCalendars { get; } = [];
     public IReadOnlyList<int> AvailableRunsPerDayOptions => ScheduleHelper.SupportedRunsPerDay;
     public string TaskSchedulerScheduleDescription => ScheduleHelper.FormatScheduleDescription(SelectedRunsPerDay);
-    public string SetupTaskSchedulerScheduleDescription => ScheduleHelper.FormatScheduleDescription(1);
 
     public MainWindowViewModel(
         AppConfigService configService,
@@ -93,11 +77,15 @@ public partial class MainWindowViewModel : ObservableObject
 
         AppConfig = configService.Load();
         ShowSetupWizard = !configService.HasSavedConfig;
-        SetupGoogleAiApiKey = AppConfig.GoogleAiApiKey;
         SelectedRunsPerDay = ScheduleHelper.NormalizeRunsPerDay(AppConfig.RunsPerDay);
         foreach (var src in AppConfig.RssSources)
             RssSources.Add(src);
         IsTaskSchedulerEnabled = _taskSchedulerService.IsEnabled();
+        if (ShowSetupWizard)
+        {
+            IsTaskSchedulerEnabled = true;
+            LastResultMessage = string.Empty;
+        }
         LoadHistory();
         _ = InitializeDataAsync();
     }
@@ -198,21 +186,20 @@ public partial class MainWindowViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanCompleteSetup))]
     private void CompleteSetup()
     {
-        SetupCompletionErrorMessage = string.Empty;
-        SetupRssValidationMessage = string.Empty;
+        LastResultMessage = string.Empty;
 
-        var apiKey = SetupGoogleAiApiKey.Trim();
+        var apiKey = AppConfig.GoogleAiApiKey.Trim();
         if (string.IsNullOrWhiteSpace(apiKey))
             return;
 
         AppConfig.GoogleAiApiKey = apiKey;
 
-        var rssUrl = SetupRssSourceUrl.Trim();
+        var rssUrl = NewRssSourceUrl.Trim();
         if (!string.IsNullOrEmpty(rssUrl))
         {
             if (!Uri.TryCreate(rssUrl, UriKind.Absolute, out _))
             {
-                SetupRssValidationMessage = "有効なRSSフィードURLを入力してください。";
+                LastResultMessage = "有効なRSSフィードURLを入力してください。";
                 return;
             }
 
@@ -220,26 +207,26 @@ public partial class MainWindowViewModel : ObservableObject
                 RssSources.Add(rssUrl);
         }
 
-        if (IsSetupSchedulerEnabled)
+        if (IsTaskSchedulerEnabled)
         {
             var previousRunsPerDay = SelectedRunsPerDay;
             SelectedRunsPerDay = 1;
 
             try
             {
-                SaveSettings(IsSetupSchedulerEnabled, "初回セットアップが完了しました。");
+                SaveSettings(IsTaskSchedulerEnabled, "初回セットアップが完了しました。");
                 ShowSetupWizard = false;
-                SetupRssSourceUrl = string.Empty;
+                NewRssSourceUrl = string.Empty;
             }
             catch (Exception ex) when (ex is SecurityException or UnauthorizedAccessException)
             {
                 SelectedRunsPerDay = previousRunsPerDay;
-                SetupCompletionErrorMessage = $"タスクスケジューラの設定に失敗しました。無効にして完了するか、再試行してください: {ex.Message}";
+                LastResultMessage = $"タスクスケジューラの設定に失敗しました。無効にして完了するか、再試行してください: {ex.Message}";
             }
             catch (Exception ex)
             {
                 SelectedRunsPerDay = previousRunsPerDay;
-                SetupCompletionErrorMessage = $"初回セットアップを完了できませんでした: {ex.Message}";
+                LastResultMessage = $"初回セットアップを完了できませんでした: {ex.Message}";
             }
 
             return;
@@ -247,17 +234,17 @@ public partial class MainWindowViewModel : ObservableObject
 
         try
         {
-            SaveSettings(IsSetupSchedulerEnabled, "初回セットアップが完了しました。");
+            SaveSettings(IsTaskSchedulerEnabled, "初回セットアップが完了しました。");
             ShowSetupWizard = false;
-            SetupRssSourceUrl = string.Empty;
+            NewRssSourceUrl = string.Empty;
         }
         catch (Exception ex)
         {
-            SetupCompletionErrorMessage = $"初回セットアップを完了できませんでした: {ex.Message}";
+            LastResultMessage = $"初回セットアップを完了できませんでした: {ex.Message}";
         }
     }
 
-    private bool CanCompleteSetup() => !string.IsNullOrWhiteSpace(SetupGoogleAiApiKey);
+    private bool CanCompleteSetup() => !string.IsNullOrWhiteSpace(AppConfig.GoogleAiApiKey);
 
     [RelayCommand]
     private async Task ConnectCalendarAsync(CancellationToken ct = default)
@@ -428,24 +415,6 @@ public partial class MainWindowViewModel : ObservableObject
             _taskSchedulerService.Enable();
         else
             _taskSchedulerService.Disable();
-    }
-
-    partial void OnSetupGoogleAiApiKeyChanged(string value)
-    {
-        AppConfig.GoogleAiApiKey = value;
-        SetupCompletionErrorMessage = string.Empty;
-        CompleteSetupCommand.NotifyCanExecuteChanged();
-    }
-
-    partial void OnSetupRssSourceUrlChanged(string value)
-    {
-        SetupRssValidationMessage = string.Empty;
-        SetupCompletionErrorMessage = string.Empty;
-    }
-
-    partial void OnIsSetupSchedulerEnabledChanged(bool value)
-    {
-        SetupCompletionErrorMessage = string.Empty;
     }
 
     partial void OnSelectedRunsPerDayChanged(int value)

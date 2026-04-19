@@ -486,7 +486,8 @@
                                     <ui:PasswordBox
                                         Width="420"
                                         Margin="0,8,0,0"
-                                        Password="{Binding SetupGoogleAiApiKey, UpdateSourceTrigger=PropertyChanged}" />
+                                        Password="{Binding AppConfig.GoogleAiApiKey, UpdateSourceTrigger=PropertyChanged}"
+                                        PasswordChanged="SetupPasswordBox_OnPasswordChanged" />
                                 </StackPanel>
                             </ui:CardControl>
 
@@ -537,11 +538,11 @@
                                         Width="520"
                                         Margin="0,8,0,0"
                                         PlaceholderText="https://example.com/feed.xml"
-                                        Text="{Binding SetupRssSourceUrl, UpdateSourceTrigger=PropertyChanged}" />
+                                        Text="{Binding NewRssSourceUrl, UpdateSourceTrigger=PropertyChanged}" />
                                     <TextBlock
                                         Margin="0,8,0,0"
                                         Foreground="{DynamicResource SystemFillColorCriticalBrush}"
-                                        Text="{Binding SetupRssValidationMessage}"
+                                        Text="{Binding LastResultMessage}"
                                         TextWrapping="Wrap" />
                                 </StackPanel>
                             </ui:CardControl>
@@ -558,10 +559,10 @@
                                     <ui:ToggleSwitch
                                         Margin="0,8,0,0"
                                         Content="1日1回のタスクスケジューラを有効にする"
-                                        IsChecked="{Binding IsSetupSchedulerEnabled}" />
+                                        IsChecked="{Binding IsTaskSchedulerEnabled}" />
                                     <TextBlock
                                         Margin="0,8,0,0"
-                                        Text="{Binding SetupTaskSchedulerScheduleDescription}"
+                                        Text="毎日 0:00 に実行します。PC の電源断などで定刻を逃した場合だけ、次回ログオン時に補完実行します。"
                                         TextWrapping="Wrap" />
                                 </StackPanel>
                             </ui:CardControl>
@@ -569,7 +570,7 @@
                             <TextBlock
                                 Margin="0,0,0,8"
                                 Foreground="{DynamicResource SystemFillColorCriticalBrush}"
-                                Text="{Binding SetupCompletionErrorMessage}"
+                                Text="{Binding LastResultMessage}"
                                 TextWrapping="Wrap" />
                             <TextBlock
                                 Margin="0,0,0,4"
