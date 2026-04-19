@@ -4,6 +4,7 @@ using System.Text.Json;
 using GenerativeAI;
 using GenerativeAI.Types;
 using Microsoft.Extensions.Logging;
+using WondayWall.ComponentModel;
 using WondayWall.Models;
 using WondayWall.Utils;
 
@@ -20,6 +21,7 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         PropertyNameCaseInsensitive = true,
         WriteIndented = true,
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
     };
 
     /// <summary>
@@ -39,9 +41,10 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
             throw new InvalidOperationException("Google AI API key is not configured.");
 
         // ステップ1: テキストモデルで詳細な画像プロンプトを生成（Google検索グラウンディングを有効化）
-        var textModel = new GenerativeModel(config.GoogleAiApiKey, "gemini-3-flash-preview")
+        var textModel = new GenerativeModelEx(config.GoogleAiApiKey, "gemini-3-flash-preview")
         {
             UseGoogleSearch = true,
+            UseJsonMode = true,
         };
         var contextPrompt = BuildTextModelPrompt(context);
         var promptRequest = new GenerateContentRequest();
