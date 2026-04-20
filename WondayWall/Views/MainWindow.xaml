@@ -359,7 +359,10 @@
                                             <ui:CardControl.Icon>
                                                 <ui:SymbolIcon Symbol="Password24" />
                                             </ui:CardControl.Icon>
-                                            <ui:PasswordBox Width="320" Password="{Binding AppConfig.GoogleAiApiKey, UpdateSourceTrigger=PropertyChanged}" />
+                                            <ui:PasswordBox
+                                                Width="320"
+                                                Password="{Binding AppConfig.GoogleAiApiKey, UpdateSourceTrigger=PropertyChanged}"
+                                                PasswordChanged="ApiKeyPasswordBox_OnPasswordChanged" />
                                         </ui:CardControl>
                                         <ui:CardControl Header="ユーザープロンプト（追加の指示）">
                                             <ui:CardControl.Icon>
@@ -486,7 +489,8 @@
                                     <ui:PasswordBox
                                         Width="420"
                                         Margin="0,8,0,0"
-                                        Password="{Binding AppConfig.GoogleAiApiKey, UpdateSourceTrigger=PropertyChanged}" />
+                                        Password="{Binding AppConfig.GoogleAiApiKey, UpdateSourceTrigger=PropertyChanged}"
+                                        PasswordChanged="ApiKeyPasswordBox_OnPasswordChanged" />
                                 </StackPanel>
                             </ui:CardControl>
 
