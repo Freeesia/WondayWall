@@ -3,6 +3,7 @@ namespace WondayWall.Models;
 public class AppConfig
 {
     public string GoogleAiApiKey { get; set; } = string.Empty;
+    public List<string> TargetCalendarIds { get; set; } = [];
     public List<string> RssSources { get; set; } = [];
     public string UserPrompt { get; set; } = string.Empty;
     /// <summary>1日あたりの自動更新回数</summary>

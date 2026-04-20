@@ -350,7 +350,7 @@ CLI 側では、できるだけ `GenerationCoordinator` や `ContextService` を
 ### データ
 
 * Google Calendar 接続状態
-* プライマリカレンダーの接続状態
+* 取得対象カレンダー
 * 興味キーワード
 * RSS 一覧
 * 取得結果プレビュー

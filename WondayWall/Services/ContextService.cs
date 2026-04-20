@@ -77,6 +77,8 @@ public class ContextService(
     public async IAsyncEnumerable<CalendarEventItem> FetchCalendarEventsAsync(
         [EnumeratorCancellation] CancellationToken ct = default)
     {
+        var config = configService.Current;
+
         if (string.IsNullOrWhiteSpace(ClientId) ||
             string.IsNullOrWhiteSpace(ClientSecret))
             yield break;
@@ -95,48 +97,95 @@ public class ContextService(
         var now = DateTime.UtcNow;
         var end = now.AddDays(7);
 
-        const string calendarId = "primary";
+        var calendarIds = config.TargetCalendarIds.Count > 0
+            ? config.TargetCalendarIds
+            : ["primary"];
 
-        ct.ThrowIfCancellationRequested();
-        Google.Apis.Calendar.v3.Data.Events result;
+        foreach (var calId in calendarIds)
+        {
+            ct.ThrowIfCancellationRequested();
+            Google.Apis.Calendar.v3.Data.Events result;
+            try
+            {
+                var request = calSvc.Events.List(calId);
+                request.TimeMinDateTimeOffset = now;
+                request.TimeMaxDateTimeOffset = end;
+                request.SingleEvents = true;
+                request.OrderBy = EventsResource.ListRequest.OrderByEnum.StartTime;
+                result = await request.ExecuteAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "カレンダーイベントの取得に失敗しました [{CalId}]", calId);
+                continue;
+            }
+
+            if (result.Items == null) continue;
+
+            foreach (var ev in result.Items)
+            {
+                var start = ev.Start?.DateTimeDateTimeOffset is { } startDateTimeOffset
+                    ? startDateTimeOffset.LocalDateTime
+                    : ev.Start?.Date != null
+                        ? DateTime.Parse(ev.Start.Date, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal)
+                        : DateTime.Now;
+
+                var endTime = ev.End?.DateTimeDateTimeOffset is { } endDateTimeOffset
+                    ? endDateTimeOffset.LocalDateTime
+                    : ev.End?.Date != null
+                        ? DateTime.Parse(ev.End.Date, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal)
+                        : (DateTime?)null;
+
+                yield return new CalendarEventItem(
+                    Title: ev.Summary ?? "(no title)",
+                    StartTime: start,
+                    EndTime: endTime,
+                    Location: ev.Location,
+                    Description: ev.Description);
+            }
+        }
+    }
+
+    /// <summary>利用可能なGoogleカレンダー一覧を非同期ストリームで返す</summary>
+    public async IAsyncEnumerable<AvailableCalendar> FetchAvailableCalendarsAsync(
+        [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(ClientId) ||
+            string.IsNullOrWhiteSpace(ClientSecret))
+            yield break;
+
+        CalendarService calSvc;
         try
         {
-            var request = calSvc.Events.List(calendarId);
-            request.TimeMinDateTimeOffset = now;
-            request.TimeMaxDateTimeOffset = end;
-            request.SingleEvents = true;
-            request.OrderBy = EventsResource.ListRequest.OrderByEnum.StartTime;
-            result = await request.ExecuteAsync(ct);
+            calSvc = await GetCalendarServiceAsync(ct);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "プライマリカレンダーのイベント取得に失敗しました");
+            logger.LogError(ex, "カレンダー認証に失敗しました");
             yield break;
         }
 
-        if (result.Items == null)
-            yield break;
-
-        foreach (var ev in result.Items)
+        Google.Apis.Calendar.v3.Data.CalendarList calendarList;
+        try
         {
-            var start = ev.Start?.DateTimeDateTimeOffset is { } startDateTimeOffset
-                ? startDateTimeOffset.LocalDateTime
-                : ev.Start?.Date != null
-                    ? DateTime.Parse(ev.Start.Date, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal)
-                    : DateTime.Now;
+            var request = calSvc.CalendarList.List();
+            calendarList = await request.ExecuteAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "カレンダー一覧の取得に失敗しました");
+            yield break;
+        }
 
-            var endTime = ev.End?.DateTimeDateTimeOffset is { } endDateTimeOffset
-                ? endDateTimeOffset.LocalDateTime
-                : ev.End?.Date != null
-                    ? DateTime.Parse(ev.End.Date, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal)
-                    : (DateTime?)null;
+        if (calendarList.Items == null) yield break;
 
-            yield return new CalendarEventItem(
-                Title: ev.Summary ?? "(no title)",
-                StartTime: start,
-                EndTime: endTime,
-                Location: ev.Location,
-                Description: ev.Description);
+        foreach (var c in calendarList.Items)
+        {
+            yield return new AvailableCalendar
+            {
+                Id = c.Id ?? string.Empty,
+                Summary = c.Summary ?? c.Id ?? string.Empty,
+            };
         }
     }
 

@@ -194,7 +194,22 @@
                                     <TextBlock
                                         Margin="0,0,0,4"
                                         Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                        Text="プライマリカレンダーを参照します" />
+                                        Text="参照するカレンダー" />
+                                    <ui:ListView
+                                        MaxHeight="120"
+                                        ItemsSource="{Binding AvailableCalendars}"
+                                        VirtualizingPanel.ScrollUnit="Pixel">
+                                        <ui:ListView.ItemContainerStyle>
+                                            <Style BasedOn="{StaticResource {x:Type ui:ListViewItem}}" TargetType="ui:ListViewItem">
+                                                <Setter Property="Padding" Value="0" />
+                                            </Style>
+                                        </ui:ListView.ItemContainerStyle>
+                                        <ui:ListView.ItemTemplate>
+                                            <DataTemplate>
+                                                <CheckBox Content="{Binding Summary}" IsChecked="{Binding IsSelected}" />
+                                            </DataTemplate>
+                                        </ui:ListView.ItemTemplate>
+                                    </ui:ListView>
 
                                     <TextBlock
                                         Margin="0,4,0,4"

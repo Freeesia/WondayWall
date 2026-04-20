@@ -55,6 +55,7 @@ public partial class MainWindowViewModel : ObservableObject
     public ObservableCollection<NewsTopicItem> RecentNews { get; } = [];
     public ObservableCollection<HistoryItem> History { get; } = [];
     public ObservableCollection<string> RssSources { get; } = [];
+    public ObservableCollection<AvailableCalendar> AvailableCalendars { get; } = [];
     public IReadOnlyList<int> AvailableRunsPerDayOptions => ScheduleHelper.SupportedRunsPerDay;
     public string TaskSchedulerScheduleDescription => ScheduleHelper.FormatScheduleDescription(SelectedRunsPerDay);
 
@@ -82,7 +83,7 @@ public partial class MainWindowViewModel : ObservableObject
         _ = InitializeDataAsync();
     }
 
-    /// <summary>起動時にカレンダーイベント・ニュースをバックグラウンドで取得する</summary>
+    /// <summary>起動時にカレンダー一覧・カレンダーイベント・ニュースをバックグラウンドで取得する</summary>
     private async Task InitializeDataAsync()
     {
         var canAccessCalendarSilently = await _contextService.CanAccessCalendarSilentlyAsync();
@@ -150,6 +151,13 @@ public partial class MainWindowViewModel : ObservableObject
     {
         AppConfig.RunsPerDay = ScheduleHelper.NormalizeRunsPerDay(SelectedRunsPerDay);
         AppConfig.RssSources = [.. RssSources];
+        if (AvailableCalendars.Count > 0)
+        {
+            AppConfig.TargetCalendarIds = AvailableCalendars
+                .Where(c => c.IsSelected)
+                .Select(c => c.Id)
+                .ToList();
+        }
         _configService.Save(AppConfig);
         if (IsTaskSchedulerEnabled)
             _taskSchedulerService.Enable();
@@ -190,6 +198,13 @@ public partial class MainWindowViewModel : ObservableObject
 
     private async Task RefreshCalendarDataAsync(CancellationToken ct = default, bool includeFoundSuffix = false)
     {
+        AvailableCalendars.Clear();
+        await foreach (var cal in _contextService.FetchAvailableCalendarsAsync(ct))
+        {
+            cal.IsSelected = AppConfig.TargetCalendarIds.Contains(cal.Id);
+            AvailableCalendars.Add(cal);
+        }
+
         RecentEvents.Clear();
         await foreach (var ev in _contextService.FetchCalendarEventsAsync(ct))
             RecentEvents.Add(ev);
