@@ -101,7 +101,7 @@ public partial class MainWindowViewModel : ObservableObject
         {
             try
             {
-                await RefreshCalendarDataAsync(includeFoundSuffix: false, autoSelectDefaultCalendar: false);
+                await RefreshCalendarDataAsync(includeFoundSuffix: false);
             }
             catch (Exception ex)
             {
@@ -184,9 +184,10 @@ public partial class MainWindowViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void CompleteSetup()
+    private async Task CompleteSetup(CancellationToken ct = default)
     {
         LastResultMessage = string.Empty;
+        const string setupCompletedMessage = "初回セットアップが完了しました。";
 
         var apiKey = AppConfig.GoogleAiApiKey.Trim();
         if (string.IsNullOrWhiteSpace(apiKey))
@@ -210,39 +211,68 @@ public partial class MainWindowViewModel : ObservableObject
                 RssSources.Add(rssUrl);
         }
 
-        if (IsTaskSchedulerEnabled)
+        if (IsCalendarConnected && AvailableCalendars.Count > 0)
         {
-            var previousRunsPerDay = SelectedRunsPerDay;
-            SelectedRunsPerDay = 1;
+            var primaryCalendarId = AvailableCalendars
+                .FirstOrDefault(static c => c.IsPrimary)?
+                .Id;
+            if (!string.IsNullOrWhiteSpace(primaryCalendarId))
+            {
+                foreach (var calendar in AvailableCalendars)
+                    calendar.IsSelected = calendar.Id == primaryCalendarId;
 
-            try
-            {
-                SaveSettings(IsTaskSchedulerEnabled, "初回セットアップが完了しました。");
-                ShowSetupWizard = false;
-                NewRssSourceUrl = string.Empty;
+                AppConfig.TargetCalendarIds = [primaryCalendarId];
             }
-            catch (Exception ex) when (ex is SecurityException or UnauthorizedAccessException)
-            {
-                SelectedRunsPerDay = previousRunsPerDay;
-                LastResultMessage = $"タスクスケジューラの設定に失敗しました。無効にして完了するか、再試行してください: {ex.Message}";
-            }
-            catch (Exception ex)
-            {
-                SelectedRunsPerDay = previousRunsPerDay;
-                LastResultMessage = $"初回セットアップを完了できませんでした: {ex.Message}";
-            }
-
-            return;
         }
+
+        var previousRunsPerDay = SelectedRunsPerDay;
+        if (IsTaskSchedulerEnabled)
+            SelectedRunsPerDay = 1;
 
         try
         {
-            SaveSettings(IsTaskSchedulerEnabled, "初回セットアップが完了しました。");
+            SaveSettings(IsTaskSchedulerEnabled, setupCompletedMessage);
             ShowSetupWizard = false;
             NewRssSourceUrl = string.Empty;
+
+            if (IsCalendarConnected && AvailableCalendars.Count > 0)
+            {
+                try
+                {
+                    await RefreshCalendarDataAsync(ct);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "初回セットアップ完了後のカレンダーデータ取得をスキップしました");
+                }
+            }
+
+            if (RssSources.Count > 0)
+            {
+                try
+                {
+                    RecentNews.Clear();
+                    await foreach (var n in _contextService.FetchNewsAsync(ct))
+                        RecentNews.Add(n);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "初回セットアップ完了後のニュース取得をスキップしました");
+                }
+            }
+
+            LastResultMessage = setupCompletedMessage;
+        }
+        catch (Exception ex) when (IsTaskSchedulerEnabled && ex is SecurityException or UnauthorizedAccessException)
+        {
+            SelectedRunsPerDay = previousRunsPerDay;
+            LastResultMessage = $"タスクスケジューラの設定に失敗しました。無効にして完了するか、再試行してください: {ex.Message}";
         }
         catch (Exception ex)
         {
+            if (IsTaskSchedulerEnabled)
+                SelectedRunsPerDay = previousRunsPerDay;
+
             LastResultMessage = $"初回セットアップを完了できませんでした: {ex.Message}";
         }
     }
@@ -254,7 +284,7 @@ public partial class MainWindowViewModel : ObservableObject
         try
         {
             _ = await _contextService.GetCalendarServiceInteractiveAsync(ct);
-            await RefreshCalendarDataAsync(ct, includeFoundSuffix: true, autoSelectDefaultCalendar: true);
+            await RefreshCalendarDataAsync(ct, includeFoundSuffix: true);
         }
         catch (Exception ex)
         {
@@ -264,8 +294,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     private async Task RefreshCalendarDataAsync(
         CancellationToken ct = default,
-        bool includeFoundSuffix = false,
-        bool autoSelectDefaultCalendar = false)
+        bool includeFoundSuffix = false)
     {
         var selectedCalendarIds = AvailableCalendars
             .Where(c => c.IsSelected)
@@ -280,20 +309,10 @@ public partial class MainWindowViewModel : ObservableObject
         var calendars = new List<AvailableCalendar>();
 
         await foreach (var cal in _contextService.FetchAvailableCalendarsAsync(ct))
-        {
-            cal.IsSelected = selectedCalendarIds.Contains(cal.Id);
             calendars.Add(cal);
-        }
 
-        if (autoSelectDefaultCalendar && selectedCalendarIds.Count == 0)
-        {
-            var defaultCalendar = calendars.FirstOrDefault(static c => c.IsPrimary);
-            if (defaultCalendar is not null)
-            {
-                defaultCalendar.IsSelected = true;
-                selectedCalendarIds.Add(defaultCalendar.Id);
-            }
-        }
+        foreach (var cal in calendars)
+            cal.IsSelected = selectedCalendarIds.Contains(cal.Id);
 
         if (selectedCalendarIds.Count > 0)
             AppConfig.TargetCalendarIds = [.. selectedCalendarIds];
@@ -393,6 +412,8 @@ public partial class MainWindowViewModel : ObservableObject
         ApplyCurrentSelectionsToConfig();
         ApplyTaskSchedulerState(enableTaskScheduler);
         _configService.Save(AppConfig);
+        // AppConfig は変更通知を持たないため、ネストされた値を参照するバインディングを再評価させる。
+        OnPropertyChanged(nameof(AppConfig));
         IsTaskSchedulerEnabled = enableTaskScheduler;
         LastResultMessage = successMessage;
     }

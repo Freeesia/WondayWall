@@ -71,7 +71,23 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
         [EnumeratorCancellation] CancellationToken ct = default)
     {
         var config = configService.Current;
+        await foreach (var item in FetchCalendarEventsCoreAsync(config.TargetCalendarIds ?? [], ct))
+            yield return item;
+    }
 
+    /// <summary>指定したGoogleカレンダーのイベントを非同期ストリームで返す（直近1週間先まで）</summary>
+    public async IAsyncEnumerable<CalendarEventItem> FetchCalendarEventsAsync(
+        IReadOnlyList<string> calendarIds,
+        [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        await foreach (var item in FetchCalendarEventsCoreAsync(calendarIds, ct))
+            yield return item;
+    }
+
+    private async IAsyncEnumerable<CalendarEventItem> FetchCalendarEventsCoreAsync(
+        IReadOnlyList<string> calendarIds,
+        [EnumeratorCancellation] CancellationToken ct = default)
+    {
         if (string.IsNullOrWhiteSpace(ClientId) ||
             string.IsNullOrWhiteSpace(ClientSecret))
             yield break;
@@ -89,10 +105,6 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
 
         var now = DateTime.UtcNow;
         var end = now.AddDays(7);
-
-        var calendarIds = config.TargetCalendarIds.Count > 0
-            ? config.TargetCalendarIds
-            : ["primary"];
 
         foreach (var calId in calendarIds)
         {
