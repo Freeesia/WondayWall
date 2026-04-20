@@ -1,5 +1,4 @@
 using System.Windows.Input;
-using System.Windows;
 using WondayWall.Models;
 using WondayWall.ViewModels;
 using Wpf.Ui.Appearance;
@@ -24,16 +23,5 @@ public partial class MainWindow : FluentWindow
             return;
 
         viewModel.OpenHistoryImageCommand.Execute(historyItem);
-    }
-
-    private void ApiKeyPasswordBox_OnPasswordChanged(object sender, RoutedEventArgs e)
-    {
-        if (sender is not PasswordBox passwordBox)
-            return;
-
-        if (DataContext is not MainWindowViewModel viewModel)
-            return;
-
-        viewModel.AppConfig.GoogleAiApiKey = passwordBox.Password;
     }
 }
