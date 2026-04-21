@@ -5,7 +5,9 @@ public record PromptContext(
     IReadOnlyList<PromptNewsTopic>? NewsTopics = null,
     string ImageSize = "1920x1080",
     string AspectRatio = "16:9",
-    string? AdditionalConstraints = null);
+    string? AdditionalConstraints = null,
+    /// <summary>ベースとして使用するこのアプリが生成した壁紙のファイルパス</summary>
+    string? BaseImagePath = null);
 
 public record PromptCalendarEvent(
     string Id,

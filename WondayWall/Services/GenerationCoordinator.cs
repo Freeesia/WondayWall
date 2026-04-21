@@ -6,10 +6,10 @@ using WondayWall.Utils;
 namespace WondayWall.Services;
 
 public class GenerationCoordinator(
+    AppConfigService configService,
     ContextService contextService,
     GoogleAiService googleAiService,
     WallpaperService wallpaperService,
-    AppConfigService appConfigService,
     HistoryService historyService,
     ILogger<GenerationCoordinator> logger)
 {
@@ -25,7 +25,7 @@ public class GenerationCoordinator(
         CancellationToken ct = default)
     {
         var effectiveNow = now ?? DateTime.Now;
-        var runsPerDay = ScheduleHelper.NormalizeRunsPerDay(appConfigService.Current.RunsPerDay);
+        var runsPerDay = ScheduleHelper.NormalizeRunsPerDay(configService.Current.RunsPerDay);
 
         return ExecuteWithGenerationMutexAsync(async () =>
         {
@@ -53,15 +53,31 @@ public class GenerationCoordinator(
         string? appliedImagePath = null;
         List<CalendarEventItem>? usedEvents = null;
         List<NewsTopicItem>? usedTopics = null;
+        var historyItems = LoadHistory();
 
         try
         {
             var contextResult = await contextService.BuildContextAsync(ct);
+            var promptContext = contextResult.PromptContext;
+
+            // UseCurrentWallpaperAsBase が有効なら直前の成功生成画像をベースとして設定
+            if (configService.Current.UseCurrentWallpaperAsBase)
+            {
+                var baseImagePath = historyItems
+                    .OrderByDescending(h => h.ExecutedAt)
+                    .FirstOrDefault(h => h.IsSuccess
+                                        && !h.IsSkipped
+                                        && h.AppliedImagePath != null
+                                        && File.Exists(h.AppliedImagePath))
+                    ?.AppliedImagePath;
+                if (baseImagePath != null)
+                    promptContext = promptContext with { BaseImagePath = baseImagePath };
+            }
 
             // スキップ条件チェック：直近の予定がなく、ニュースに変化がない場合はスキップ
             if (skipIfNoChanges
                 && contextResult.CalendarEvents.Count == 0
-                && !HasNewsChanged(contextResult.NewsTopics, historyService.Load()))
+                && !HasNewsChanged(contextResult.NewsTopics, historyItems))
             {
                 logger.LogInformation("変化がないため画像生成をスキップします");
                 isSuccess = true;
@@ -69,10 +85,10 @@ public class GenerationCoordinator(
             }
             else
             {
-                var imageInfo = await googleAiService.GenerateWallpaperAsync(contextResult.PromptContext, ct);
+                var imageInfo = await googleAiService.GenerateWallpaperAsync(promptContext, ct);
                 await wallpaperService.SetWallpaperAsync(
                     imageInfo.FilePath,
-                    appConfigService.Current.UpdateLockScreen,
+                    configService.Current.UpdateLockScreen,
                     ct);
 
                 isSuccess = true;

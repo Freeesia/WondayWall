@@ -77,8 +77,6 @@ public class ContextService(
     public async IAsyncEnumerable<CalendarEventItem> FetchCalendarEventsAsync(
         [EnumeratorCancellation] CancellationToken ct = default)
     {
-        var config = configService.Current;
-
         if (string.IsNullOrWhiteSpace(ClientId) ||
             string.IsNullOrWhiteSpace(ClientSecret))
             yield break;
@@ -97,11 +95,7 @@ public class ContextService(
         var now = DateTime.UtcNow;
         var end = now.AddDays(7);
 
-        var calendarIds = config.TargetCalendarIds.Count > 0
-            ? config.TargetCalendarIds
-            : ["primary"];
-
-        foreach (var calId in calendarIds)
+        foreach (var calId in configService.Current.TargetCalendarIds)
         {
             ct.ThrowIfCancellationRequested();
             Google.Apis.Calendar.v3.Data.Events result;
@@ -185,6 +179,7 @@ public class ContextService(
             {
                 Id = c.Id ?? string.Empty,
                 Summary = c.Summary ?? c.Id ?? string.Empty,
+                IsPrimary = c.Primary ?? false,
             };
         }
     }
