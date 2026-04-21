@@ -220,8 +220,6 @@ public partial class MainWindowViewModel : ObservableObject
             {
                 foreach (var calendar in AvailableCalendars)
                     calendar.IsSelected = calendar.Id == primaryCalendarId;
-
-                AppConfig.TargetCalendarIds = [primaryCalendarId];
             }
         }
 
