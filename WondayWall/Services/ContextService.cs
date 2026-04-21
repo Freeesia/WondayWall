@@ -88,28 +88,6 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
         var now = DateTime.UtcNow;
         var end = now.AddDays(7);
         var calendarIds = configService.Current.TargetCalendarIds;
-        if (calendarIds.Count == 0)
-        {
-            Google.Apis.Calendar.v3.Data.CalendarList calendarList;
-            try
-            {
-                var request = calSvc.CalendarList.List();
-                calendarList = await request.ExecuteAsync(ct);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "プライマリカレンダーの取得に失敗しました");
-                yield break;
-            }
-
-            var primaryCalendarId = calendarList.Items?
-                .FirstOrDefault(static c => c.Primary ?? false)?
-                .Id;
-            if (string.IsNullOrWhiteSpace(primaryCalendarId))
-                yield break;
-
-            calendarIds = [primaryCalendarId];
-        }
 
         foreach (var calId in calendarIds)
         {

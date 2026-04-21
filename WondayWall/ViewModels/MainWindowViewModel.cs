@@ -211,16 +211,11 @@ public partial class MainWindowViewModel : ObservableObject
                 RssSources.Add(rssUrl);
         }
 
-        if (IsCalendarConnected && AvailableCalendars.Count > 0)
+        if (IsCalendarConnected)
         {
-            var primaryCalendarId = AvailableCalendars
-                .FirstOrDefault(static c => c.IsPrimary)?
-                .Id;
-            if (!string.IsNullOrWhiteSpace(primaryCalendarId))
-            {
-                foreach (var calendar in AvailableCalendars)
-                    calendar.IsSelected = calendar.Id == primaryCalendarId;
-            }
+            var primaryCalendarId = AvailableCalendars.First(static c => c.IsPrimary).Id;
+            foreach (var calendar in AvailableCalendars)
+                calendar.IsSelected = calendar.Id == primaryCalendarId;
         }
 
         var previousRunsPerDay = SelectedRunsPerDay;
