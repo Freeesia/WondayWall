@@ -14,6 +14,8 @@ public class AppConfigService
 
     private AppConfig? _current;
 
+    public bool HasSavedConfig => File.Exists(ConfigFilePath);
+
     public AppConfig Current => _current ??= Load();
 
     public AppConfig Load()
