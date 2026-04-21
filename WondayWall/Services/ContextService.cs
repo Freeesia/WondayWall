@@ -87,9 +87,8 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
 
         var now = DateTime.UtcNow;
         var end = now.AddDays(7);
-        var calendarIds = configService.Current.TargetCalendarIds;
 
-        foreach (var calId in calendarIds)
+        foreach (var calId in configService.Current.TargetCalendarIds)
         {
             ct.ThrowIfCancellationRequested();
             Google.Apis.Calendar.v3.Data.Events result;

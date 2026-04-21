@@ -207,20 +207,14 @@ public partial class MainWindowViewModel : ObservableObject
                 return;
             }
 
-            if (!RssSources.Contains(rssUrl))
-                RssSources.Add(rssUrl);
+            RssSources.Add(rssUrl);
         }
 
         if (IsCalendarConnected)
         {
-            var primaryCalendarId = AvailableCalendars.First(static c => c.IsPrimary).Id;
-            foreach (var calendar in AvailableCalendars)
-                calendar.IsSelected = calendar.Id == primaryCalendarId;
+            var primaryCalendar = AvailableCalendars.FirstOrDefault(static c => c.IsPrimary);
+            primaryCalendar?.IsSelected = true;
         }
-
-        var previousRunsPerDay = SelectedRunsPerDay;
-        if (IsTaskSchedulerEnabled)
-            SelectedRunsPerDay = 1;
 
         try
         {
@@ -258,14 +252,10 @@ public partial class MainWindowViewModel : ObservableObject
         }
         catch (Exception ex) when (IsTaskSchedulerEnabled && ex is SecurityException or UnauthorizedAccessException)
         {
-            SelectedRunsPerDay = previousRunsPerDay;
             LastResultMessage = $"タスクスケジューラの設定に失敗しました。無効にして完了するか、再試行してください: {ex.Message}";
         }
         catch (Exception ex)
         {
-            if (IsTaskSchedulerEnabled)
-                SelectedRunsPerDay = previousRunsPerDay;
-
             LastResultMessage = $"初回セットアップを完了できませんでした: {ex.Message}";
         }
     }
