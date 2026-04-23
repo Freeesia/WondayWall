@@ -24,13 +24,6 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
         Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
     };
 
-    /// <summary>
-    /// ベース画像使用時のスタイル維持指示（テキストモデル・画像モデル共通）
-    /// </summary>
-    private const string BaseImageStyleInstruction =
-        "Preserve the overall composition, color palette, and artistic style of the base wallpaper. " +
-        "Incorporate the new themes and events subtly — avoid drastic visual changes.";
-
     public async Task<GeneratedImageInfo> GenerateWallpaperAsync(
         PromptContext context,
         CancellationToken ct = default)
@@ -107,7 +100,7 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
                 Treat the current prompt's events, news themes, and mood as the source of truth.
                 Remove or replace any subject, motif, decoration, or symbolic element from the base image that no longer matches the current prompt.
                 When the base image conflicts with the current prompt, prioritize the current prompt while preserving the base image's overall composition, color palette, and artistic style.
-                {{BaseImageStyleInstruction}}
+                Preserve the overall composition, color palette, and artistic style of the base wallpaper. Incorporate the new themes and events subtly — avoid drastic visual changes.
 
                 {{finalPrompt}}
                 """);
@@ -200,7 +193,8 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
         {
             parts.Add(
                 "A base wallpaper image will be supplied to the image model. " +
-                BaseImageStyleInstruction);
+                "Preserve the overall composition, color palette, and artistic style of the base wallpaper. " +
+                "Incorporate the new themes and events subtly — avoid drastic visual changes.");
         }
 
         if ((context.CalendarEvents ?? []).Count > 0)
