@@ -100,16 +100,17 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
             imageRequest.AddInlineData(Convert.ToBase64String(baseImageBytes), baseMimeType);
             // ベース画像を参照しつつ、現在のテーマに合わない要素を整理する指示を追加
             imageRequest.AddText(
-                "The current wallpaper is provided as the base image. " +
-                "Create a new wallpaper that evolves gradually from this base. " +
-                "Visually inspect the base wallpaper and compare it against the current prompt. " +
-                "Treat the current prompt's events, news themes, and mood as the source of truth. " +
-                "Remove or replace any subject, motif, decoration, or symbolic element from the base image " +
-                "that no longer matches the current prompt. " +
-                "When the base image conflicts with the current prompt, prioritize the current prompt while " +
-                "preserving the base image's overall composition, color palette, and artistic style. " +
-                BaseImageStyleInstruction + "\n\n" +
-                finalPrompt);
+                $$"""
+                The current wallpaper is provided as the base image.
+                Create a new wallpaper that evolves gradually from this base.
+                Visually inspect the base wallpaper and compare it against the current prompt.
+                Treat the current prompt's events, news themes, and mood as the source of truth.
+                Remove or replace any subject, motif, decoration, or symbolic element from the base image that no longer matches the current prompt.
+                When the base image conflicts with the current prompt, prioritize the current prompt while preserving the base image's overall composition, color palette, and artistic style.
+                {{BaseImageStyleInstruction}}
+
+                {{finalPrompt}}
+                """);
         }
         else
         {
