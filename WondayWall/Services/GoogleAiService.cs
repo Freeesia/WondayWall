@@ -79,8 +79,11 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
             .Take(3)
             .ToList();
         var finalPrompt = ogpUrls.Count > 0
-            ? $"{imagePrompt}\n\nReference images from the selected news topics are attached. " +
-              "Incorporate their visual themes, color palette, and subject matter into the wallpaper design."
+            ? $$"""
+              {{imagePrompt}}
+
+              Reference images from the selected news topics are attached. Incorporate their visual themes, color palette, and subject matter into the wallpaper design.
+              """
             : imagePrompt;
 
         var imageRequest = new GenerateContentRequest();
@@ -192,24 +195,37 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
         if (!string.IsNullOrEmpty(context.BaseImagePath) && File.Exists(context.BaseImagePath))
         {
             parts.Add(
-                "A base wallpaper image will be supplied to the image model. " +
-                "Preserve the overall composition, color palette, and artistic style of the base wallpaper. " +
-                "Incorporate the new themes and events subtly — avoid drastic visual changes.");
+                """
+                A base wallpaper image will be supplied to the image model.
+                Preserve the overall composition, color palette, and artistic style of the base wallpaper.
+                Incorporate the new themes and events subtly — avoid drastic visual changes.
+                """);
         }
 
         if ((context.CalendarEvents ?? []).Count > 0)
         {
-            parts.Add($"Calendar event candidates (JSON):\n{JsonSerializer.Serialize(context.CalendarEvents, JsonSerializerOptions)}");
+            parts.Add(
+                $$"""
+                Calendar event candidates (JSON):
+                {{JsonSerializer.Serialize(context.CalendarEvents, JsonSerializerOptions)}}
+                """);
         }
 
         if ((context.NewsTopics ?? []).Count > 0)
         {
-            parts.Add($"News topic candidates (JSON):\n{JsonSerializer.Serialize(context.NewsTopics, JsonSerializerOptions)}");
+            parts.Add(
+                $$"""
+                News topic candidates (JSON):
+                {{JsonSerializer.Serialize(context.NewsTopics, JsonSerializerOptions)}}
+                """);
         }
 
         if (!string.IsNullOrWhiteSpace(context.AdditionalConstraints))
         {
-            parts.Add($"Additional instructions: {context.AdditionalConstraints}");
+            parts.Add(
+                $$"""
+                Additional instructions: {{context.AdditionalConstraints}}
+                """);
         }
 
         return string.Join("\n\n", parts);
