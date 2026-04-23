@@ -31,17 +31,6 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
         "Preserve the overall composition, color palette, and artistic style of the base wallpaper. " +
         "Incorporate the new themes and events subtly — avoid drastic visual changes.";
 
-    /// <summary>
-    /// ベース画像を現在のテーマに合わせて整理するための画像モデル向け指示
-    /// </summary>
-    private const string BaseImageReconciliationInstruction =
-        "Visually inspect the base wallpaper and compare it against the current prompt. " +
-        "Treat the current prompt's events, news themes, and mood as the source of truth. " +
-        "Remove or replace any subject, motif, decoration, or symbolic element from the base image " +
-        "that no longer matches the current prompt. " +
-        "When the base image conflicts with the current prompt, prioritize the current prompt while " +
-        "preserving the base image's overall composition, color palette, and artistic style.";
-
     public async Task<GeneratedImageInfo> GenerateWallpaperAsync(
         PromptContext context,
         CancellationToken ct = default)
@@ -113,7 +102,12 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
             imageRequest.AddText(
                 "The current wallpaper is provided as the base image. " +
                 "Create a new wallpaper that evolves gradually from this base. " +
-                BaseImageReconciliationInstruction + " " +
+                "Visually inspect the base wallpaper and compare it against the current prompt. " +
+                "Treat the current prompt's events, news themes, and mood as the source of truth. " +
+                "Remove or replace any subject, motif, decoration, or symbolic element from the base image " +
+                "that no longer matches the current prompt. " +
+                "When the base image conflicts with the current prompt, prioritize the current prompt while " +
+                "preserving the base image's overall composition, color palette, and artistic style. " +
                 BaseImageStyleInstruction + "\n\n" +
                 finalPrompt);
         }
