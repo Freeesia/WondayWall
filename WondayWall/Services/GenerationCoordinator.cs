@@ -66,15 +66,22 @@ public class GenerationCoordinator(
             // UseCurrentWallpaperAsBase が有効なら直前の成功生成画像をベースとして設定
             if (configService.Current.UseCurrentWallpaperAsBase)
             {
-                var baseImagePath = historyItems
+                var lastSuccessHistory = historyItems
                     .OrderByDescending(h => h.ExecutedAt)
                     .FirstOrDefault(h => h.IsSuccess
                                         && !h.IsSkipped
                                         && h.AppliedImagePath != null
-                                        && File.Exists(h.AppliedImagePath))
-                    ?.AppliedImagePath;
-                if (baseImagePath != null)
-                    promptContext = promptContext with { BaseImagePath = baseImagePath };
+                                        && File.Exists(h.AppliedImagePath));
+                if (lastSuccessHistory?.AppliedImagePath != null)
+                {
+                    promptContext = promptContext with
+                    {
+                        BaseImagePath = lastSuccessHistory.AppliedImagePath,
+                        // 削除された要素を判定するために前回の生成コンテキストを渡す
+                        PreviousCalendarEvents = lastSuccessHistory.UsedCalendarEvents,
+                        PreviousNewsTopics = lastSuccessHistory.UsedNewsTopics,
+                    };
+                }
             }
 
             // スキップ条件チェック：直近の予定がなく、ニュースに変化がない場合はスキップ

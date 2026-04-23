@@ -1,5 +1,6 @@
 using System.IO;
 using System.Net.Http;
+using System.Text;
 using System.Text.Json;
 using GenerativeAI;
 using GenerativeAI.Types;
@@ -191,9 +192,46 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
 
         if (!string.IsNullOrEmpty(context.BaseImagePath) && File.Exists(context.BaseImagePath))
         {
-            parts.Add(
+            var sb = new StringBuilder();
+            sb.Append(
                 "A base wallpaper image will be supplied to the image model. " +
                 BaseImageStyleInstruction);
+
+            // 前回から削除されたイベント・ニューストピックを特定し、削除指示を追加
+            // カレンダーイベントは（タイトル＋開始日）の複合キーで照合（タイトル単独では同名の別イベントを誤検知する恐れがある）
+            var currentEventKeys = (context.CalendarEvents ?? [])
+                .Select(e => (e.Title, e.StartTime.Date))
+                .ToHashSet();
+            var removedEvents = (context.PreviousCalendarEvents ?? [])
+                .Where(e => !currentEventKeys.Contains((e.Title, e.StartTime.Date)))
+                .Select(e => e.Title)
+                .ToList();
+
+            // ニューストピックはURLがあればURLで、なければタイトルで照合
+            var currentNewsKeys = (context.NewsTopics ?? [])
+                .Select(n => n.Url ?? n.Title)
+                .Where(k => k != null)
+                .ToHashSet(StringComparer.Ordinal);
+            var removedNews = (context.PreviousNewsTopics ?? [])
+                .Where(n => !currentNewsKeys.Contains(n.Url ?? n.Title ?? string.Empty))
+                .Select(n => n.Title)
+                .ToList();
+
+            if (removedEvents.Count > 0 || removedNews.Count > 0)
+            {
+                sb.AppendLine();
+                sb.AppendLine(
+                    "The following elements from the previous wallpaper are NO LONGER present and MUST be removed from the new wallpaper:");
+                if (removedEvents.Count > 0)
+                    sb.AppendLine($"- Removed calendar events: {string.Join(", ", removedEvents.Select(t => $"\"{t}\""))}");
+                if (removedNews.Count > 0)
+                    sb.AppendLine($"- Removed news topics: {string.Join(", ", removedNews.Select(t => $"\"{t}\""))}");
+                sb.Append(
+                    "Ensure the imagePrompt explicitly instructs the image model to remove all visual elements associated with these removed items. " +
+                    "Do not let outdated themes linger in the composition.");
+            }
+
+            parts.Add(sb.ToString());
         }
 
         if ((context.CalendarEvents ?? []).Count > 0)
