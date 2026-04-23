@@ -222,10 +222,7 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
 
         if (!string.IsNullOrWhiteSpace(context.AdditionalConstraints))
         {
-            parts.Add(
-                $$"""
-                Additional instructions: {{context.AdditionalConstraints}}
-                """);
+            parts.Add($"Additional instructions: {context.AdditionalConstraints}");
         }
 
         return string.Join("\n\n", parts);
