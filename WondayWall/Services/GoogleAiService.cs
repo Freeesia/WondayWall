@@ -1,6 +1,5 @@
 using System.IO;
 using System.Net.Http;
-using System.Text;
 using System.Text.Json;
 using GenerativeAI;
 using GenerativeAI.Types;
@@ -31,6 +30,17 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
     private const string BaseImageStyleInstruction =
         "Preserve the overall composition, color palette, and artistic style of the base wallpaper. " +
         "Incorporate the new themes and events subtly — avoid drastic visual changes.";
+
+    /// <summary>
+    /// ベース画像を現在のテーマに合わせて整理するための画像モデル向け指示
+    /// </summary>
+    private const string BaseImageReconciliationInstruction =
+        "Visually inspect the base wallpaper and compare it against the current prompt. " +
+        "Treat the current prompt's events, news themes, and mood as the source of truth. " +
+        "Remove or replace any subject, motif, decoration, or symbolic element from the base image " +
+        "that no longer matches the current prompt. " +
+        "When the base image conflicts with the current prompt, prioritize the current prompt while " +
+        "preserving the base image's overall composition, color palette, and artistic style.";
 
     public async Task<GeneratedImageInfo> GenerateWallpaperAsync(
         PromptContext context,
@@ -99,10 +109,11 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
             var baseImageBytes = await File.ReadAllBytesAsync(context.BaseImagePath, ct);
             var baseMimeType = GetMimeTypeFromPath(context.BaseImagePath);
             imageRequest.AddInlineData(Convert.ToBase64String(baseImageBytes), baseMimeType);
-            // ベース画像への参照と「大きく変えすぎない」指示をプロンプトに追加
+            // ベース画像を参照しつつ、現在のテーマに合わない要素を整理する指示を追加
             imageRequest.AddText(
                 "The current wallpaper is provided as the base image. " +
                 "Create a new wallpaper that evolves gradually from this base. " +
+                BaseImageReconciliationInstruction + " " +
                 BaseImageStyleInstruction + "\n\n" +
                 finalPrompt);
         }
@@ -192,46 +203,9 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
 
         if (!string.IsNullOrEmpty(context.BaseImagePath) && File.Exists(context.BaseImagePath))
         {
-            var sb = new StringBuilder();
-            sb.Append(
+            parts.Add(
                 "A base wallpaper image will be supplied to the image model. " +
                 BaseImageStyleInstruction);
-
-            // 前回から削除されたイベント・ニューストピックを特定し、削除指示を追加
-            // カレンダーイベントは（タイトル＋開始日）の複合キーで照合（タイトル単独では同名の別イベントを誤検知する恐れがある）
-            var currentEventKeys = (context.CalendarEvents ?? [])
-                .Select(e => (e.Title, e.StartTime.Date))
-                .ToHashSet();
-            var removedEvents = (context.PreviousCalendarEvents ?? [])
-                .Where(e => !currentEventKeys.Contains((e.Title, e.StartTime.Date)))
-                .Select(e => e.Title)
-                .ToList();
-
-            // ニューストピックはURLがあればURLで、なければタイトルで照合
-            var currentNewsKeys = (context.NewsTopics ?? [])
-                .Select(n => n.Url ?? n.Title)
-                .Where(k => k != null)
-                .ToHashSet(StringComparer.Ordinal);
-            var removedNews = (context.PreviousNewsTopics ?? [])
-                .Where(n => !currentNewsKeys.Contains(n.Url ?? n.Title ?? string.Empty))
-                .Select(n => n.Title)
-                .ToList();
-
-            if (removedEvents.Count > 0 || removedNews.Count > 0)
-            {
-                sb.AppendLine();
-                sb.AppendLine(
-                    "The following elements from the previous wallpaper are NO LONGER present and MUST be removed from the new wallpaper:");
-                if (removedEvents.Count > 0)
-                    sb.AppendLine($"- Removed calendar events: {string.Join(", ", removedEvents.Select(t => $"\"{t}\""))}");
-                if (removedNews.Count > 0)
-                    sb.AppendLine($"- Removed news topics: {string.Join(", ", removedNews.Select(t => $"\"{t}\""))}");
-                sb.Append(
-                    "Ensure the imagePrompt explicitly instructs the image model to remove all visual elements associated with these removed items. " +
-                    "Do not let outdated themes linger in the composition.");
-            }
-
-            parts.Add(sb.ToString());
         }
 
         if ((context.CalendarEvents ?? []).Count > 0)

@@ -7,11 +7,7 @@ public record PromptContext(
     string AspectRatio = "16:9",
     string? AdditionalConstraints = null,
     /// <summary>ベースとして使用するこのアプリが生成した壁紙のファイルパス</summary>
-    string? BaseImagePath = null,
-    /// <summary>ベース壁紙生成時に使用したカレンダーイベント（削除要素判定用）</summary>
-    IReadOnlyList<CalendarEventItem>? PreviousCalendarEvents = null,
-    /// <summary>ベース壁紙生成時に使用したニューストピック（削除要素判定用）</summary>
-    IReadOnlyList<NewsTopicItem>? PreviousNewsTopics = null);
+    string? BaseImagePath = null);
 
 public record PromptCalendarEvent(
     string Id,
