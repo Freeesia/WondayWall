@@ -203,9 +203,12 @@ public class ContextService(
         string Title,
         string? Summary,
         string? Url,
-        DateTime PublishedAt,
-        string Key)
+        DateTime PublishedAt)
     {
+        public string Key { get; } = !string.IsNullOrWhiteSpace(Url)
+            ? Url.Trim()
+            : Title.Trim();
+
         public NewsTopicItem ToNewsTopicItem(string? summaryOverride = null, string? ogpImageUrl = null)
             => new(
                 Title,
@@ -249,20 +252,12 @@ public class ContextService(
         }
 
         return feed.Items
-            .Select(item =>
-            {
-                var title = item.Title?.Text ?? string.Empty;
-                var url = item.Links.FirstOrDefault()?.Uri.ToString();
-                var publishedAt = item.PublishDate.LocalDateTime;
-
-                return new RssItem(
-                    SourceRssUrl: rssUrl,
-                    Title: title,
-                    Summary: item.Summary?.Text == "None" ? null : item.Summary?.Text,
-                    Url: url,
-                    PublishedAt: publishedAt,
-                    Key: CreateNewsKey(rssUrl, item.Id, url, publishedAt, title));
-            })
+            .Select(item => new RssItem(
+                SourceRssUrl: rssUrl,
+                Title: item.Title?.Text ?? string.Empty,
+                Summary: item.Summary?.Text == "None" ? null : item.Summary?.Text,
+                Url: item.Links.FirstOrDefault()?.Uri.ToString(),
+                PublishedAt: item.PublishDate.LocalDateTime))
             .Where(item => item.PublishedAt >= weekAgo)
             .OrderByDescending(item => item.PublishedAt)
             .ToList();
@@ -406,13 +401,6 @@ public class ContextService(
             .OrderByDescending(item => item.PublishedAt)
             .ToList();
     }
-
-    private static string CreateNewsKey(string rssUrl, string? itemId, string? url, DateTime publishedAt, string title)
-        => !string.IsNullOrWhiteSpace(url)
-            ? url.Trim()
-            : !string.IsNullOrWhiteSpace(title)
-                ? title.Trim()
-                : $"{rssUrl.Trim()}|{itemId?.Trim()}|{publishedAt:O}";
 
     private static string GetProximityTag(DateTime startTime, DateTime today)
     {
