@@ -24,13 +24,6 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
         Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
     };
 
-    /// <summary>
-    /// ベース画像使用時のスタイル維持指示（テキストモデル・画像モデル共通）
-    /// </summary>
-    private const string BaseImageStyleInstruction =
-        "Preserve the overall composition, color palette, and artistic style of the base wallpaper. " +
-        "Incorporate the new themes and events subtly — avoid drastic visual changes.";
-
     public async Task<GeneratedImageInfo> GenerateWallpaperAsync(
         PromptContext context,
         CancellationToken ct = default)
@@ -86,8 +79,11 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
             .Take(3)
             .ToList();
         var finalPrompt = ogpUrls.Count > 0
-            ? $"{imagePrompt}\n\nReference images from the selected news topics are attached. " +
-              "Incorporate their visual themes, color palette, and subject matter into the wallpaper design."
+            ? $$"""
+              {{imagePrompt}}
+
+              Reference images from the selected news topics are attached. Incorporate their visual themes, color palette, and subject matter into the wallpaper design.
+              """
             : imagePrompt;
 
         var imageRequest = new GenerateContentRequest();
@@ -98,12 +94,19 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
             var baseImageBytes = await File.ReadAllBytesAsync(context.BaseImagePath, ct);
             var baseMimeType = GetMimeTypeFromPath(context.BaseImagePath);
             imageRequest.AddInlineData(Convert.ToBase64String(baseImageBytes), baseMimeType);
-            // ベース画像への参照と「大きく変えすぎない」指示をプロンプトに追加
+            // ベース画像を参照しつつ、現在のテーマに合わない要素を整理する指示を追加
             imageRequest.AddText(
-                "The current wallpaper is provided as the base image. " +
-                "Create a new wallpaper that evolves gradually from this base. " +
-                BaseImageStyleInstruction + "\n\n" +
-                finalPrompt);
+                $$"""
+                The current wallpaper is provided as the base image.
+                Create a new wallpaper that evolves gradually from this base.
+                Visually inspect the base wallpaper and compare it against the current prompt.
+                Treat the current prompt's events, news themes, and mood as the source of truth.
+                Remove or replace any subject, motif, decoration, or symbolic element from the base image that no longer matches the current prompt.
+                When the base image conflicts with the current prompt, prioritize the current prompt while preserving the base image's overall composition, color palette, and artistic style.
+                Preserve the overall composition, color palette, and artistic style of the base wallpaper. Incorporate the new themes and events subtly — avoid drastic visual changes.
+
+                {{finalPrompt}}
+                """);
         }
         else
         {
@@ -192,18 +195,29 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
         if (!string.IsNullOrEmpty(context.BaseImagePath) && File.Exists(context.BaseImagePath))
         {
             parts.Add(
-                "A base wallpaper image will be supplied to the image model. " +
-                BaseImageStyleInstruction);
+                """
+                A base wallpaper image will be supplied to the image model.
+                Preserve the overall composition, color palette, and artistic style of the base wallpaper.
+                Incorporate the new themes and events subtly — avoid drastic visual changes.
+                """);
         }
 
         if ((context.CalendarEvents ?? []).Count > 0)
         {
-            parts.Add($"Calendar event candidates (JSON):\n{JsonSerializer.Serialize(context.CalendarEvents, JsonSerializerOptions)}");
+            parts.Add(
+                $$"""
+                Calendar event candidates (JSON):
+                {{JsonSerializer.Serialize(context.CalendarEvents, JsonSerializerOptions)}}
+                """);
         }
 
         if ((context.NewsTopics ?? []).Count > 0)
         {
-            parts.Add($"News topic candidates (JSON):\n{JsonSerializer.Serialize(context.NewsTopics, JsonSerializerOptions)}");
+            parts.Add(
+                $$"""
+                News topic candidates (JSON):
+                {{JsonSerializer.Serialize(context.NewsTopics, JsonSerializerOptions)}}
+                """);
         }
 
         if (!string.IsNullOrWhiteSpace(context.AdditionalConstraints))
