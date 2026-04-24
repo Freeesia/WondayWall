@@ -204,8 +204,7 @@ public class ContextService(
         string? Summary,
         string? Url,
         DateTime PublishedAt,
-        string? DuplicateKey,
-        string StableId)
+        string Key)
     {
         public NewsTopicItem ToNewsTopicItem(string? summaryOverride = null, string? ogpImageUrl = null)
             => new(
@@ -250,19 +249,20 @@ public class ContextService(
         }
 
         return feed.Items
-            .Select(item => new RssItem(
-                SourceRssUrl: rssUrl,
-                Title: item.Title?.Text ?? string.Empty,
-                Summary: item.Summary?.Text == "None" ? null : item.Summary?.Text,
-                Url: item.Links.FirstOrDefault()?.Uri.ToString(),
-                PublishedAt: item.PublishDate.LocalDateTime,
-                DuplicateKey: CreateDuplicateKey(item.Links.FirstOrDefault()?.Uri.ToString(), item.Title?.Text),
-                StableId: CreateStableId(
-                    rssUrl,
-                    item.Id,
-                    item.Links.FirstOrDefault()?.Uri.ToString(),
-                    item.PublishDate.LocalDateTime,
-                    item.Title?.Text)))
+            .Select(item =>
+            {
+                var title = item.Title?.Text ?? string.Empty;
+                var url = item.Links.FirstOrDefault()?.Uri.ToString();
+                var publishedAt = item.PublishDate.LocalDateTime;
+
+                return new RssItem(
+                    SourceRssUrl: rssUrl,
+                    Title: title,
+                    Summary: item.Summary?.Text == "None" ? null : item.Summary?.Text,
+                    Url: url,
+                    PublishedAt: publishedAt,
+                    Key: CreateNewsKey(rssUrl, item.Id, url, publishedAt, title));
+            })
             .Where(item => item.PublishedAt >= weekAgo)
             .OrderByDescending(item => item.PublishedAt)
             .ToList();
@@ -361,14 +361,23 @@ public class ContextService(
         if (recentNews.Count == 0)
             return [];
 
-        var selectedNews = new List<RssItem>(MaxPromptNewsCount);
+        var selected = new List<RssItem>(MaxPromptNewsCount);
         var selectedKeys = new HashSet<string>(StringComparer.Ordinal);
+
+        bool TryAdd(RssItem item)
+        {
+            if (selected.Count >= MaxPromptNewsCount || !selectedKeys.Add(item.Key))
+                return false;
+
+            selected.Add(item);
+            return true;
+        }
 
         if (lastGeneratedAt is DateTime lastGenerated)
         {
             var recentSinceLastGeneration = recentNews
                 .Where(item => item.PublishedAt > lastGenerated)
-                .DistinctBy(GetSelectionKey)
+                .DistinctBy(item => item.Key)
                 .ToList();
 
             if (recentSinceLastGeneration.Count > MaxRecentNewsCountSinceLastGeneration)
@@ -383,70 +392,27 @@ public class ContextService(
                 .OrderByDescending(item => item.PublishedAt)
                 .ToList();
 
-            AddSelectedNews(selectedNews, selectedKeys, recentSinceLastGeneration);
+            foreach (var item in recentSinceLastGeneration)
+                TryAdd(item);
         }
 
-        var representativeNews = recentNews
-            .GroupBy(item => item.SourceRssUrl)
-            .Select(group => group.FirstOrDefault(item => !selectedKeys.Contains(GetSelectionKey(item))))
-            .Where(item => item is not null)
-            .Select(item => item!)
-            .OrderByDescending(item => item.PublishedAt)
-            .ToList();
+        foreach (var item in recentNews.GroupBy(item => item.SourceRssUrl).Select(group => group.First()))
+            TryAdd(item);
 
-        AddSelectedNews(selectedNews, selectedKeys, representativeNews);
+        foreach (var item in recentNews)
+            TryAdd(item);
 
-        var remainingNews = recentNews
-            .Where(item => !selectedKeys.Contains(GetSelectionKey(item)))
-            .OrderByDescending(item => item.PublishedAt);
-
-        AddSelectedNews(selectedNews, selectedKeys, remainingNews);
-
-        return selectedNews
+        return selected
             .OrderByDescending(item => item.PublishedAt)
             .ToList();
     }
 
-    private static void AddSelectedNews(
-        List<RssItem> selectedNews,
-        HashSet<string> selectedKeys,
-        IEnumerable<RssItem> candidates)
-    {
-        foreach (var item in candidates)
-        {
-            if (selectedNews.Count >= MaxPromptNewsCount)
-                break;
-
-            var selectionKey = GetSelectionKey(item);
-            if (!selectedKeys.Add(selectionKey))
-                continue;
-
-            selectedNews.Add(item);
-        }
-    }
-
-    private static string GetSelectionKey(RssItem item)
-        => item.DuplicateKey ?? item.StableId;
-
-    private static string? CreateDuplicateKey(string? url, string? title)
-    {
-        if (!string.IsNullOrWhiteSpace(url))
-            return url.Trim();
-
-        if (!string.IsNullOrWhiteSpace(title))
-            return title.Trim();
-
-        return null;
-    }
-
-    private static string CreateStableId(string rssUrl, string? itemId, string? url, DateTime publishedAt, string? title)
-        => string.Join(
-            "|",
-            rssUrl.Trim(),
-            itemId?.Trim() ?? string.Empty,
-            url?.Trim() ?? string.Empty,
-            publishedAt.ToString("O", CultureInfo.InvariantCulture),
-            title?.Trim() ?? string.Empty);
+    private static string CreateNewsKey(string rssUrl, string? itemId, string? url, DateTime publishedAt, string title)
+        => !string.IsNullOrWhiteSpace(url)
+            ? url.Trim()
+            : !string.IsNullOrWhiteSpace(title)
+                ? title.Trim()
+                : $"{rssUrl.Trim()}|{itemId?.Trim()}|{publishedAt:O}";
 
     private static string GetProximityTag(DateTime startTime, DateTime today)
     {
