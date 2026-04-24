@@ -2,7 +2,6 @@ using System.IO;
 using System.Net.Http;
 using System.Runtime.CompilerServices;
 using System.Globalization;
-using System.Security.Cryptography;
 using System.Text;
 using System.ServiceModel.Syndication;
 using System.Xml;
@@ -369,9 +368,19 @@ public class ContextService(
         {
             var recentSinceLastGeneration = recentNews
                 .Where(item => item.PublishedAt > lastGenerated)
-                .OrderBy(item => ComputeStableSelectionOrder(item, lastGenerated))
-                .ThenByDescending(item => item.PublishedAt)
-                .Take(MaxRecentNewsCountSinceLastGeneration)
+                .DistinctBy(GetSelectionKey)
+                .ToList();
+
+            if (recentSinceLastGeneration.Count > MaxRecentNewsCountSinceLastGeneration)
+            {
+                recentSinceLastGeneration = recentSinceLastGeneration
+                    .OrderBy(_ => Random.Shared.Next())
+                    .Take(MaxRecentNewsCountSinceLastGeneration)
+                    .ToList();
+            }
+
+            recentSinceLastGeneration = recentSinceLastGeneration
+                .OrderByDescending(item => item.PublishedAt)
                 .ToList();
 
             AddSelectedNews(selectedNews, selectedKeys, recentSinceLastGeneration);
@@ -418,16 +427,6 @@ public class ContextService(
 
     private static string GetSelectionKey(RssItem item)
         => item.DuplicateKey ?? item.StableId;
-
-    /// <summary>
-    /// 同じ候補集合なら同じ3件になるように疑似乱択する。
-    /// スキップ判定がランダム差分で揺れないようにするため。
-    /// </summary>
-    private static string ComputeStableSelectionOrder(RssItem item, DateTime lastGeneratedAt)
-    {
-        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes($"{lastGeneratedAt:O}|{GetSelectionKey(item)}"));
-        return Convert.ToHexString(bytes);
-    }
 
     private static string? CreateDuplicateKey(string? url, string? title)
     {

@@ -42,9 +42,6 @@ public class GenerationCoordinator(
         }, ct);
     }
 
-    public List<HistoryItem> LoadHistory()
-        => historyService.Load();
-
     private async Task<HistoryItem> RunCoreAsync(bool skipIfNoChanges, CancellationToken ct)
     {
         bool isSuccess = false;
