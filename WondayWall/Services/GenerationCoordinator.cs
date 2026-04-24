@@ -50,7 +50,7 @@ public class GenerationCoordinator(
         string? appliedImagePath = null;
         List<CalendarEventItem>? usedEvents = null;
         List<NewsTopicItem>? usedTopics = null;
-        var historyItems = LoadHistory();
+        var historyItems = historyService.Load();
 
         try
         {
