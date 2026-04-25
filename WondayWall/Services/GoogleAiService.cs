@@ -13,12 +13,12 @@ namespace WondayWall.Services;
 
 public class GoogleAiService(AppConfigService configService, IHttpClientFactory httpClientFactory, ILogger<GoogleAiService> logger)
 {
+    internal const string PromptHttpClientName = "GoogleAiPrompt";
+    internal const string ImageHttpClientName = "GoogleAiImage";
+
     private readonly HttpClient httpClient = httpClientFactory.CreateClient("WondayWall");
-    private readonly HttpClient googleAiHttpClient = new(new GoogleAiErrorMessageHandler());
-    private const string GoogleAiApiKeyPageUrl = "https://aistudio.google.com/app/api-keys";
-    private const string PaidTierRequiredMessage =
-        "無料枠または課金未設定の Google AI API キーでは、この画像生成機能を利用できません。Google AI Studio で課金設定済みのプロジェクト/APIキーを確認してください: "
-        + GoogleAiApiKeyPageUrl;
+    private readonly HttpClient googleAiPromptHttpClient = httpClientFactory.CreateClient(PromptHttpClientName);
+    private readonly HttpClient googleAiImageHttpClient = httpClientFactory.CreateClient(ImageHttpClientName);
     private static readonly string FixedImageSavePath = Path.Combine(
         System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData),
         "WondayWall", "wallpapers");
@@ -43,7 +43,7 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
         var textModel = new GenerativeModelEx(
             config.GoogleAiApiKey,
             "gemini-3-flash-preview",
-            httpClient: googleAiHttpClient,
+            httpClient: googleAiPromptHttpClient,
             logger: logger)
         {
             UseGoogleSearch = true,
@@ -80,7 +80,7 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
             config.GoogleAiApiKey,
             "gemini-3.1-flash-image-preview",
             genConfig,
-            httpClient: googleAiHttpClient,
+            httpClient: googleAiImageHttpClient,
             logger: logger)
         {
             UseGoogleSearch = true,
@@ -278,52 +278,76 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
         public required List<string> SelectedNewsIds { get; set; }
     }
 
-    private sealed class GoogleAiErrorMessageHandler() : DelegatingHandler(new HttpClientHandler())
+}
+
+internal sealed class GoogleAiPromptErrorMessageHandler()
+    : GoogleAiErrorMessageHandler(treatResourceExhaustedAsPaidTierRequired: true);
+
+internal sealed class GoogleAiImageErrorMessageHandler()
+    : GoogleAiErrorMessageHandler(treatResourceExhaustedAsPaidTierRequired: false);
+
+internal abstract class GoogleAiErrorMessageHandler(bool treatResourceExhaustedAsPaidTierRequired) : DelegatingHandler
+{
+    private const string GoogleAiApiKeyPageUrl = "https://aistudio.google.com/app/api-keys";
+    private const string PaidTierRequiredMessage =
+        "無料枠または課金未設定の Google AI API キーでは、この画像生成機能を利用できません。Google AI Studio で課金設定済みのプロジェクト/APIキーを確認してください: "
+        + GoogleAiApiKeyPageUrl;
+    private static readonly JsonSerializerOptions GoogleApiErrorJsonSerializerOptions = new()
     {
-        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        PropertyNameCaseInsensitive = true,
+    };
+
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        var response = await base.SendAsync(request, cancellationToken);
+        if (!ShouldInspect(response.StatusCode) || response.Content == null)
+            return response;
+
+        var originalContent = response.Content;
+        var contentBytes = await originalContent.ReadAsByteArrayAsync(cancellationToken);
+        var replacementContent = new ByteArrayContent(contentBytes);
+        foreach (var header in originalContent.Headers)
+            replacementContent.Headers.TryAddWithoutValidation(header.Key, header.Value);
+        response.Content = replacementContent;
+        originalContent.Dispose();
+
+        if (!IsPaidTierRequiredError(contentBytes))
+            return response;
+
+        response.Dispose();
+        throw new InvalidOperationException(PaidTierRequiredMessage);
+    }
+
+    private bool ShouldInspect(HttpStatusCode statusCode)
+        => statusCode == HttpStatusCode.BadRequest
+            || (treatResourceExhaustedAsPaidTierRequired && statusCode == HttpStatusCode.TooManyRequests);
+
+    private bool IsPaidTierRequiredError(byte[] contentBytes)
+    {
+        try
         {
-            var response = await base.SendAsync(request, cancellationToken);
-            if (response.StatusCode != HttpStatusCode.BadRequest || response.Content == null)
-                return response;
-
-            var originalContent = response.Content;
-            var contentBytes = await originalContent.ReadAsByteArrayAsync(cancellationToken);
-            var replacementContent = new ByteArrayContent(contentBytes);
-            foreach (var header in originalContent.Headers)
-                replacementContent.Headers.TryAddWithoutValidation(header.Key, header.Value);
-            response.Content = replacementContent;
-            originalContent.Dispose();
-
-            if (!IsFailedPreconditionError(contentBytes))
-                return response;
-
-            response.Dispose();
-            throw new InvalidOperationException(PaidTierRequiredMessage);
+            var apiError = JsonSerializer.Deserialize<GoogleApiErrorEnvelope>(
+                contentBytes,
+                GoogleApiErrorJsonSerializerOptions);
+            return apiError?.Error is { Code: 400, Status: "FAILED_PRECONDITION" }
+                || (treatResourceExhaustedAsPaidTierRequired
+                    && apiError?.Error is { Code: 429, Status: "RESOURCE_EXHAUSTED" });
         }
-
-        private static bool IsFailedPreconditionError(byte[] contentBytes)
+        catch (JsonException)
         {
-            try
-            {
-                var apiError = JsonSerializer.Deserialize<GoogleApiErrorEnvelope>(contentBytes, JsonSerializerOptions);
-                return apiError?.Error is { Code: 400, Status: "FAILED_PRECONDITION" };
-            }
-            catch (JsonException)
-            {
-                return false;
-            }
+            return false;
         }
     }
+}
 
-    private sealed class GoogleApiErrorEnvelope
-    {
-        public GoogleApiError? Error { get; init; }
-    }
+internal sealed class GoogleApiErrorEnvelope
+{
+    public GoogleApiError? Error { get; init; }
+}
 
-    private sealed class GoogleApiError
-    {
-        public int Code { get; init; }
+internal sealed class GoogleApiError
+{
+    public int Code { get; init; }
 
-        public string? Status { get; init; }
-    }
+    public string? Status { get; init; }
 }
