@@ -52,10 +52,10 @@ WondayWall.exe check-google-ai   # Gemini API 接続確認
 
 | 種別 | パス |
 |------|------|
-| 設定ファイル | `%AppData%\WondayWall\appsettings.json` |
-| 生成履歴 | `%AppData%\WondayWall\history.json` |
-| 生成画像 | `%AppData%\WondayWall\images\` |
-| OAuth トークン | `%AppData%\WondayWall\calendar-token\` |
+| 設定ファイル | `%LocalAppData%\WondayWall\config.json` |
+| 生成履歴 | `%LocalAppData%\WondayWall\history.json` |
+| 生成画像 | `%LocalAppData%\WondayWall\wallpapers\` |
+| OAuth トークン | `%LocalAppData%\WondayWall\calendar-token\` |
 
 ## スケジュール
 

@@ -28,7 +28,9 @@ else
 {
     if (!PInvoke.AttachConsole(PInvoke.ATTACH_PARENT_PROCESS))
     {
+#if DEBUG // デバッグビルドの場合はログ見たいのでコンソールを割り当てる
         PInvoke.AllocConsole();
+#endif
     }
 
     var cafApp = ConsoleApp.Create()
@@ -45,6 +47,7 @@ static void ConfigureCommonServices(IServiceCollection services)
     services.AddHttpClient("WondayWall", c => c.Timeout = TimeSpan.FromSeconds(30));
     services.AddSingleton<WallpaperService>();
     services.AddSingleton<AppConfigService>();
+    services.AddSingleton<HistoryService>();
     services.AddSingleton<ContextService>();
     services.AddSingleton<GoogleAiService>();
     services.AddSingleton<GenerationCoordinator>();

@@ -10,11 +10,11 @@ public class GenerationCoordinator(
     ContextService contextService,
     GoogleAiService googleAiService,
     WallpaperService wallpaperService,
+    HistoryService historyService,
     ILogger<GenerationCoordinator> logger)
 {
     private const string GenerationMutexName = @"Local\WondayWall.Generation";
     private static readonly TimeSpan GenerationMutexWaitInterval = TimeSpan.FromMilliseconds(250);
-    private static readonly string HistoryFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "WondayWall", "history.json");
 
     public Task<HistoryItem> RunAsync(bool skipIfNoChanges = false, CancellationToken ct = default)
         => ExecuteWithGenerationMutexAsync(() => RunCoreAsync(skipIfNoChanges, ct), ct);
@@ -29,7 +29,7 @@ public class GenerationCoordinator(
 
         return ExecuteWithGenerationMutexAsync(async () =>
         {
-            var scheduledSlot = GetPendingScheduledSlot(effectiveNow, LoadHistory(), runsPerDay);
+            var scheduledSlot = GetPendingScheduledSlot(effectiveNow, historyService.Load(), runsPerDay);
             if (scheduledSlot is null)
                 return null;
 
@@ -42,12 +42,6 @@ public class GenerationCoordinator(
         }, ct);
     }
 
-    public List<HistoryItem> LoadHistory()
-        => JsonFileHelper.Load<List<HistoryItem>>(HistoryFilePath) ?? [];
-
-    private void AppendHistory(HistoryItem item, List<HistoryItem> history)
-        => JsonFileHelper.Save(HistoryFilePath, history.Prepend(item).Take(100));
-
     private async Task<HistoryItem> RunCoreAsync(bool skipIfNoChanges, CancellationToken ct)
     {
         bool isSuccess = false;
@@ -56,7 +50,7 @@ public class GenerationCoordinator(
         string? appliedImagePath = null;
         List<CalendarEventItem>? usedEvents = null;
         List<NewsTopicItem>? usedTopics = null;
-        var historyItems = LoadHistory();
+        var historyItems = historyService.Load();
 
         try
         {
@@ -116,7 +110,7 @@ public class GenerationCoordinator(
 
         try
         {
-            AppendHistory(historyItem, historyItems);
+            historyService.Append(historyItem);
         }
         catch (Exception ex)
         {
@@ -129,7 +123,7 @@ public class GenerationCoordinator(
 
     // GUI と CLI が別プロセスで同時起動し得るため、OS 全体で共有する Mutex で直列化する。
     private static Task<T> ExecuteWithGenerationMutexAsync<T>(Func<Task<T>> action, CancellationToken ct)
-        => Task.Run(async () =>
+        => Task.Run(() =>
             {
                 using var mutex = new Mutex(false, GenerationMutexName);
                 var hasHandle = false;
@@ -150,7 +144,8 @@ public class GenerationCoordinator(
                         }
                     }
 
-                    return await action();
+                    // Mutex はスレッド所有権を持つため、取得したスレッドで処理完了まで待ってから解放する。
+                    return action().GetAwaiter().GetResult();
                 }
                 finally
                 {

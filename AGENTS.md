@@ -43,7 +43,7 @@ Program.cs
 
 | サービス | 責務 |
 |---------|------|
-| `AppConfigService` | JSON 設定の読み書き（`%AppData%/WondayWall/appsettings.json`） |
+| `AppConfigService` | JSON 設定の読み書き（`%LocalAppData%/WondayWall/config.json`） |
 | `ContextService` | Google Calendar + RSS フィードからプロンプトコンテキストを構築 |
 | `GoogleAiService` | Gemini API で壁紙画像を生成・保存 |
 | `WallpaperService` | Win32 API で壁紙を適用 |
@@ -73,7 +73,7 @@ Program.cs
 
 ### 設定・データ保存
 
-- 設定・履歴・OAuth トークン・生成画像はすべて `%AppData%/WondayWall/` 以下に保存。
+- 設定・履歴・OAuth トークン・生成画像はすべて `%LocalAppData%/WondayWall/` 以下に保存。
 - 履歴は `history.json`（JSON ファイル、DB は使わない）。
 
 ### 非同期
@@ -84,6 +84,6 @@ Program.cs
 ## よくある落とし穴
 
 - **`StartupObject` の削除禁止**: `<StartupObject>WondayWall.Program</StartupObject>` を削除すると WPF デフォルトエントリーポイントになり CLI モードが壊れる。
-- **OAuth トークンキャッシュ**: `%AppData%/WondayWall/calendar-token/` に保存。クレデンシャル変更後は手動削除が必要。
-- **プロンプトサイズ**: カレンダー・ニュースは各5件に絞って送信。それ以上に増やす場合は GenAI API の制限を確認。
+- **OAuth トークンキャッシュ**: `%LocalAppData%/WondayWall/calendar-token/` に保存。クレデンシャル変更後は手動削除が必要。
+- **プロンプトサイズ**: カレンダーは5件、ニュースは最大10件に絞って送信。それ以上に増やす場合は GenAI API の制限を確認。
 - **`IsGenerating` フラグ**: 生成中はボタンを無効化する設計。`CanExecuteChanged` を忘れずに呼ぶ。
