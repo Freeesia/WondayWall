@@ -129,7 +129,7 @@ public class GenerationCoordinator(
 
     // GUI と CLI が別プロセスで同時起動し得るため、OS 全体で共有する Mutex で直列化する。
     private static Task<T> ExecuteWithGenerationMutexAsync<T>(Func<Task<T>> action, CancellationToken ct)
-        => Task.Run(async () =>
+        => Task.Run(() =>
             {
                 using var mutex = new Mutex(false, GenerationMutexName);
                 var hasHandle = false;
@@ -150,7 +150,8 @@ public class GenerationCoordinator(
                         }
                     }
 
-                    return await action();
+                    // Mutex はスレッド所有権を持つため、取得したスレッドで処理完了まで待ってから解放する。
+                    return action().GetAwaiter().GetResult();
                 }
                 finally
                 {
