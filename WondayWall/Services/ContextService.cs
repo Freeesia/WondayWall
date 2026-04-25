@@ -242,8 +242,8 @@ public class ContextService(AppConfigService configService, HistoryService histo
         return feed.Items
             .Select(item => new RssItem(
                 SourceRssUrl: rssUrl,
-                Title: item.Title?.Text ?? string.Empty,
-                Summary: item.Summary?.Text == "None" ? null : item.Summary?.Text,
+                Title: item.Title?.Text.Trim() ?? string.Empty,
+                Summary: item.Summary?.Text == "None" ? null : item.Summary?.Text.Trim(),
                 Url: item.Links.FirstOrDefault()?.Uri.ToString(),
                 PublishedAt: item.PublishDate.LocalDateTime))
             .Where(item => item.PublishedAt >= weekAgo)
@@ -321,7 +321,7 @@ public class ContextService(AppConfigService configService, HistoryService histo
 
                 if (ogp.Metadata.TryGetValue("og:description", out var descriptionMetadata))
                 {
-                    summary ??= descriptionMetadata.FirstOrDefault()?.Value;
+                    summary ??= descriptionMetadata.FirstOrDefault()?.Value.Trim();
                 }
             }
             catch
