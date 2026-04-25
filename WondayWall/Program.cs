@@ -43,6 +43,7 @@ static void ConfigureCommonServices(IServiceCollection services)
 {
     services.AddLogging(b => b.AddConsole());
     services.AddHttpClient("WondayWall", c => c.Timeout = TimeSpan.FromSeconds(30));
+    services.AddHttpClient("Gemini", c => c.Timeout = TimeSpan.FromMinutes(10));
     services.AddSingleton<WallpaperService>();
     services.AddSingleton<AppConfigService>();
     services.AddSingleton<HistoryService>();

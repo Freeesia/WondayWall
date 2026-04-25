@@ -17,7 +17,7 @@ public class GenerationCoordinator(
     private static readonly TimeSpan GenerationMutexWaitInterval = TimeSpan.FromMilliseconds(250);
 
     public Task<HistoryItem> RunAsync(bool skipIfNoChanges = false, CancellationToken ct = default)
-        => ExecuteWithGenerationMutexAsync(() => RunCoreAsync(skipIfNoChanges, ct), ct);
+        => ExecuteWithGenerationMutexAsync(() => RunCoreAsync(GoogleAiServiceTier.Standard, skipIfNoChanges, ct), ct);
 
     public Task<HistoryItem?> RunScheduledAsync(
         bool skipIfNoChanges = false,
@@ -38,11 +38,11 @@ public class GenerationCoordinator(
                 runsPerDay,
                 scheduledSlot.Value);
 
-            return await RunCoreAsync(skipIfNoChanges, ct);
+            return await RunCoreAsync(GoogleAiServiceTier.Flex, skipIfNoChanges, ct);
         }, ct);
     }
 
-    private async Task<HistoryItem> RunCoreAsync(bool skipIfNoChanges, CancellationToken ct)
+    private async Task<HistoryItem> RunCoreAsync(GoogleAiServiceTier serviceTier, bool skipIfNoChanges, CancellationToken ct)
     {
         bool isSuccess = false;
         bool isSkipped = false;
@@ -50,6 +50,7 @@ public class GenerationCoordinator(
         string? appliedImagePath = null;
         List<CalendarEventItem>? usedEvents = null;
         List<NewsTopicItem>? usedTopics = null;
+        var usedServiceTier = serviceTier;
         var historyItems = historyService.Load();
 
         try
@@ -82,7 +83,8 @@ public class GenerationCoordinator(
             }
             else
             {
-                var imageInfo = await googleAiService.GenerateWallpaperAsync(promptContext, ct);
+                var imageInfo = await googleAiService.GenerateWallpaperAsync(promptContext, serviceTier, ct);
+                usedServiceTier = imageInfo.ServiceTier;
                 await wallpaperService.SetWallpaperAsync(
                     imageInfo.FilePath,
                     configService.Current.UpdateLockScreen,
@@ -106,6 +108,7 @@ public class GenerationCoordinator(
             AppliedImagePath: appliedImagePath,
             UsedCalendarEvents: usedEvents,
             UsedNewsTopics: usedTopics,
+            ServiceTier: usedServiceTier,
             IsSkipped: isSkipped);
 
         try
