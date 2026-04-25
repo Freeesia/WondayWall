@@ -1,8 +1,8 @@
 using System.IO;
-using System.Net;
 using System.Net.Http;
 using System.Text.Json;
 using GenerativeAI;
+using GenerativeAI.Exceptions;
 using GenerativeAI.Types;
 using Microsoft.Extensions.Logging;
 using WondayWall.ComponentModel;
@@ -14,6 +14,10 @@ namespace WondayWall.Services;
 public class GoogleAiService(AppConfigService configService, IHttpClientFactory httpClientFactory, ILogger<GoogleAiService> logger)
 {
     internal const string GoogleAiHttpClientName = "GoogleAi";
+    private const string GoogleAiApiKeyPageUrl = "https://aistudio.google.com/app/api-keys";
+    private const string PaidTierRequiredMessage =
+        "無料枠または課金未設定の Google AI API キーでは、この画像生成機能を利用できません。Google AI Studio で課金設定済みのプロジェクト/APIキーを確認してください: "
+        + GoogleAiApiKeyPageUrl;
 
     private readonly HttpClient httpClient = httpClientFactory.CreateClient("WondayWall");
     private readonly HttpClient googleAiHttpClient = httpClientFactory.CreateClient(GoogleAiHttpClientName);
@@ -52,7 +56,16 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
         promptRequest.UseJsonMode<PromptSelectionResponse>(JsonSerializerOptions);
         promptRequest.AddText(contextPrompt);
 
-        var promptSelection = await textModel.GenerateObjectAsync<PromptSelectionResponse>(promptRequest, ct);
+        PromptSelectionResponse? promptSelection;
+        try
+        {
+            promptSelection = await textModel.GenerateObjectAsync<PromptSelectionResponse>(promptRequest, ct);
+        }
+        catch (ApiException ex) when (IsPaidTierRequiredError(ex))
+        {
+            throw new InvalidOperationException(PaidTierRequiredMessage, ex);
+        }
+
         if (promptSelection == null || string.IsNullOrWhiteSpace(promptSelection.ImagePrompt))
             throw new InvalidOperationException("Google AI returned an invalid structured prompt response.");
 
@@ -142,7 +155,15 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
             }
         }
 
-        var response = await imageModel.GenerateContentAsync(imageRequest, cancellationToken: ct);
+        GenerateContentResponse response;
+        try
+        {
+            response = await imageModel.GenerateContentAsync(imageRequest, cancellationToken: ct);
+        }
+        catch (ApiException ex) when (IsPaidTierRequiredError(ex))
+        {
+            throw new InvalidOperationException(PaidTierRequiredMessage, ex);
+        }
 
         var imageBytes = ExtractImageBytes(response);
 
@@ -276,53 +297,7 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
         public required List<string> SelectedNewsIds { get; set; }
     }
 
-}
-
-internal sealed class GoogleAiErrorMessageHandler : DelegatingHandler
-{
-    private const string GoogleAiApiKeyPageUrl = "https://aistudio.google.com/app/api-keys";
-    private const string PaidTierRequiredMessage =
-        "無料枠または課金未設定の Google AI API キーでは、この画像生成機能を利用できません。Google AI Studio で課金設定済みのプロジェクト/APIキーを確認してください: "
-        + GoogleAiApiKeyPageUrl;
-
-    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-    {
-        var response = await base.SendAsync(request, cancellationToken);
-        if (response.Content == null
-            || response.StatusCode is not (HttpStatusCode.BadRequest or HttpStatusCode.TooManyRequests))
-            return response;
-
-        var originalContent = response.Content;
-        var content = await originalContent.ReadAsStringAsync(cancellationToken);
-        response.Content = new StringContent(
-            content,
-            System.Text.Encoding.UTF8,
-            originalContent.Headers.ContentType?.MediaType ?? "application/json");
-        originalContent.Dispose();
-
-        if (!IsPaidTierRequiredError(content))
-            return response;
-
-        response.Dispose();
-        throw new InvalidOperationException(PaidTierRequiredMessage);
-    }
-
-    private static bool IsPaidTierRequiredError(string content)
-    {
-        try
-        {
-            using var document = JsonDocument.Parse(content);
-            return document.RootElement.TryGetProperty("error", out var error)
-                && error.TryGetProperty("code", out var code)
-                && error.TryGetProperty("status", out var status)
-                && code.TryGetInt32(out var errorCode)
-                && status.ValueKind == JsonValueKind.String
-                && (errorCode, status.GetString()) is (400, "FAILED_PRECONDITION")
-                    or (429, "RESOURCE_EXHAUSTED");
-        }
-        catch (JsonException)
-        {
-            return false;
-        }
-    }
+    private static bool IsPaidTierRequiredError(ApiException ex)
+        => ex is { ErrorCode: 400, ErrorStatus: "FAILED_PRECONDITION" }
+            or { ErrorCode: 429, ErrorStatus: "RESOURCE_EXHAUSTED" };
 }
