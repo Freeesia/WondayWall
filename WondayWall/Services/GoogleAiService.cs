@@ -284,61 +284,45 @@ internal sealed class GoogleAiErrorMessageHandler : DelegatingHandler
     private const string PaidTierRequiredMessage =
         "無料枠または課金未設定の Google AI API キーでは、この画像生成機能を利用できません。Google AI Studio で課金設定済みのプロジェクト/APIキーを確認してください: "
         + GoogleAiApiKeyPageUrl;
-    private static readonly JsonSerializerOptions GoogleApiErrorJsonSerializerOptions = new()
-    {
-        PropertyNameCaseInsensitive = true,
-    };
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         var response = await base.SendAsync(request, cancellationToken);
-        if (!ShouldInspect(response.StatusCode) || response.Content == null)
+        if (response.Content == null
+            || response.StatusCode is not (HttpStatusCode.BadRequest or HttpStatusCode.TooManyRequests))
             return response;
 
         var originalContent = response.Content;
-        var contentBytes = await originalContent.ReadAsByteArrayAsync(cancellationToken);
-        var replacementContent = new ByteArrayContent(contentBytes);
-        foreach (var header in originalContent.Headers)
-            replacementContent.Headers.TryAddWithoutValidation(header.Key, header.Value);
-        response.Content = replacementContent;
+        var content = await originalContent.ReadAsStringAsync(cancellationToken);
+        response.Content = new StringContent(
+            content,
+            System.Text.Encoding.UTF8,
+            originalContent.Headers.ContentType?.MediaType ?? "application/json");
         originalContent.Dispose();
 
-        if (!IsPaidTierRequiredError(contentBytes))
+        if (!IsPaidTierRequiredError(content))
             return response;
 
         response.Dispose();
         throw new InvalidOperationException(PaidTierRequiredMessage);
     }
 
-    private bool ShouldInspect(HttpStatusCode statusCode)
-        => statusCode == HttpStatusCode.BadRequest
-            || statusCode == HttpStatusCode.TooManyRequests;
-
-    private bool IsPaidTierRequiredError(byte[] contentBytes)
+    private static bool IsPaidTierRequiredError(string content)
     {
         try
         {
-            var apiError = JsonSerializer.Deserialize<GoogleApiErrorEnvelope>(
-                contentBytes,
-                GoogleApiErrorJsonSerializerOptions);
-            return apiError?.Error is { Code: 400, Status: "FAILED_PRECONDITION" }
-                || apiError?.Error is { Code: 429, Status: "RESOURCE_EXHAUSTED" };
+            using var document = JsonDocument.Parse(content);
+            return document.RootElement.TryGetProperty("error", out var error)
+                && error.TryGetProperty("code", out var code)
+                && error.TryGetProperty("status", out var status)
+                && code.TryGetInt32(out var errorCode)
+                && status.ValueKind == JsonValueKind.String
+                && (errorCode, status.GetString()) is (400, "FAILED_PRECONDITION")
+                    or (429, "RESOURCE_EXHAUSTED");
         }
         catch (JsonException)
         {
             return false;
         }
     }
-}
-
-internal sealed class GoogleApiErrorEnvelope
-{
-    public GoogleApiError? Error { get; init; }
-}
-
-internal sealed class GoogleApiError
-{
-    public int Code { get; init; }
-
-    public string? Status { get; init; }
 }
