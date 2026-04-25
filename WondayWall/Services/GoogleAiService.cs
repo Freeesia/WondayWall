@@ -8,6 +8,8 @@ using System.Text.Json.Nodes;
 using GenerativeAI;
 using GenerativeAI.Types;
 using Microsoft.Extensions.Logging;
+using Polly;
+using Polly.Retry;
 using WondayWall.ComponentModel;
 using WondayWall.Models;
 using WondayWall.Utils;
@@ -330,25 +332,31 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
         string operationName,
         CancellationToken ct)
     {
-        for (var attempt = 1; ; attempt++)
-        {
-            try
+        var retryPipeline = new ResiliencePipelineBuilder<T>()
+            .AddRetry(new RetryStrategyOptions<T>
             {
-                return await action();
-            }
-            catch (Exception ex) when (attempt < MaxFlexAttempts && IsRetryableFlexFailure(ex, ct))
-            {
-                var delay = GetFlexRetryDelay(attempt);
-                logger.LogWarning(
-                    ex,
-                    "{OperationName} の Flex 呼び出しに失敗しました ({Attempt}/{MaxAttempts})。{DelaySeconds} 秒後に再試行します。",
-                    operationName,
-                    attempt,
-                    MaxFlexAttempts,
-                    delay.TotalSeconds);
-                await Task.Delay(delay, ct);
-            }
-        }
+                MaxRetryAttempts = MaxFlexAttempts - 1,
+                DelayGenerator = args => new ValueTask<TimeSpan?>(GetFlexRetryDelay(args.AttemptNumber + 1)),
+                ShouldHandle = new PredicateBuilder<T>()
+                    .Handle<HttpRequestException>(ex => IsRetryableStatusCode(ex.StatusCode))
+                    .Handle<TaskCanceledException>(_ => !ct.IsCancellationRequested)
+                    .Handle<TimeoutException>(_ => !ct.IsCancellationRequested),
+                OnRetry = args =>
+                {
+                    var failedAttempt = args.AttemptNumber + 1;
+                    logger.LogWarning(
+                        args.Outcome.Exception,
+                        "{OperationName} の Flex 呼び出しに失敗しました ({Attempt}/{MaxAttempts})。{DelaySeconds} 秒後に再試行します。",
+                        operationName,
+                        failedAttempt,
+                        MaxFlexAttempts,
+                        args.RetryDelay.TotalSeconds);
+                    return default;
+                },
+            })
+            .Build();
+
+        return await retryPipeline.ExecuteAsync(async token => await action(), ct);
     }
 
     private static GenerateContentRequest CloneGenerateContentRequest(GenerateContentRequest request)
@@ -370,14 +378,15 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
         if (ex is TaskCanceledException or TimeoutException)
             return true;
 
-        return ex is HttpRequestException
-        {
-            StatusCode: HttpStatusCode.TooManyRequests
-                        or HttpStatusCode.InternalServerError
-                        or HttpStatusCode.ServiceUnavailable
-                        or HttpStatusCode.GatewayTimeout
-        };
+        return ex is HttpRequestException httpException
+               && IsRetryableStatusCode(httpException.StatusCode);
     }
+
+    private static bool IsRetryableStatusCode(HttpStatusCode? statusCode)
+        => statusCode is HttpStatusCode.TooManyRequests
+                         or HttpStatusCode.InternalServerError
+                         or HttpStatusCode.ServiceUnavailable
+                         or HttpStatusCode.GatewayTimeout;
 
     private static TimeSpan GetFlexRetryDelay(int attempt)
         => attempt switch
