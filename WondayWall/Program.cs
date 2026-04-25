@@ -45,12 +45,9 @@ static void ConfigureCommonServices(IServiceCollection services)
 {
     services.AddLogging(b => b.AddConsole());
     services.AddHttpClient("WondayWall", c => c.Timeout = TimeSpan.FromSeconds(30));
-    services.AddTransient<GoogleAiPromptErrorMessageHandler>();
-    services.AddTransient<GoogleAiImageErrorMessageHandler>();
-    services.AddHttpClient(GoogleAiService.PromptHttpClientName)
-        .AddHttpMessageHandler<GoogleAiPromptErrorMessageHandler>();
-    services.AddHttpClient(GoogleAiService.ImageHttpClientName)
-        .AddHttpMessageHandler<GoogleAiImageErrorMessageHandler>();
+    services.AddTransient<GoogleAiErrorMessageHandler>();
+    services.AddHttpClient(GoogleAiService.GoogleAiHttpClientName)
+        .AddHttpMessageHandler<GoogleAiErrorMessageHandler>();
     services.AddSingleton<WallpaperService>();
     services.AddSingleton<AppConfigService>();
     services.AddSingleton<HistoryService>();

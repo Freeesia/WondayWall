@@ -13,12 +13,10 @@ namespace WondayWall.Services;
 
 public class GoogleAiService(AppConfigService configService, IHttpClientFactory httpClientFactory, ILogger<GoogleAiService> logger)
 {
-    internal const string PromptHttpClientName = "GoogleAiPrompt";
-    internal const string ImageHttpClientName = "GoogleAiImage";
+    internal const string GoogleAiHttpClientName = "GoogleAi";
 
     private readonly HttpClient httpClient = httpClientFactory.CreateClient("WondayWall");
-    private readonly HttpClient googleAiPromptHttpClient = httpClientFactory.CreateClient(PromptHttpClientName);
-    private readonly HttpClient googleAiImageHttpClient = httpClientFactory.CreateClient(ImageHttpClientName);
+    private readonly HttpClient googleAiHttpClient = httpClientFactory.CreateClient(GoogleAiHttpClientName);
     private static readonly string FixedImageSavePath = Path.Combine(
         System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData),
         "WondayWall", "wallpapers");
@@ -43,7 +41,7 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
         var textModel = new GenerativeModelEx(
             config.GoogleAiApiKey,
             "gemini-3-flash-preview",
-            httpClient: googleAiPromptHttpClient,
+            httpClient: googleAiHttpClient,
             logger: logger)
         {
             UseGoogleSearch = true,
@@ -80,7 +78,7 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
             config.GoogleAiApiKey,
             "gemini-3.1-flash-image-preview",
             genConfig,
-            httpClient: googleAiImageHttpClient,
+            httpClient: googleAiHttpClient,
             logger: logger)
         {
             UseGoogleSearch = true,
@@ -280,13 +278,7 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
 
 }
 
-internal sealed class GoogleAiPromptErrorMessageHandler()
-    : GoogleAiErrorMessageHandler(treatResourceExhaustedAsPaidTierRequired: true);
-
-internal sealed class GoogleAiImageErrorMessageHandler()
-    : GoogleAiErrorMessageHandler(treatResourceExhaustedAsPaidTierRequired: false);
-
-internal abstract class GoogleAiErrorMessageHandler(bool treatResourceExhaustedAsPaidTierRequired) : DelegatingHandler
+internal sealed class GoogleAiErrorMessageHandler : DelegatingHandler
 {
     private const string GoogleAiApiKeyPageUrl = "https://aistudio.google.com/app/api-keys";
     private const string PaidTierRequiredMessage =
@@ -320,7 +312,7 @@ internal abstract class GoogleAiErrorMessageHandler(bool treatResourceExhaustedA
 
     private bool ShouldInspect(HttpStatusCode statusCode)
         => statusCode == HttpStatusCode.BadRequest
-            || (treatResourceExhaustedAsPaidTierRequired && statusCode == HttpStatusCode.TooManyRequests);
+            || statusCode == HttpStatusCode.TooManyRequests;
 
     private bool IsPaidTierRequiredError(byte[] contentBytes)
     {
@@ -330,8 +322,7 @@ internal abstract class GoogleAiErrorMessageHandler(bool treatResourceExhaustedA
                 contentBytes,
                 GoogleApiErrorJsonSerializerOptions);
             return apiError?.Error is { Code: 400, Status: "FAILED_PRECONDITION" }
-                || (treatResourceExhaustedAsPaidTierRequired
-                    && apiError?.Error is { Code: 429, Status: "RESOURCE_EXHAUSTED" });
+                || apiError?.Error is { Code: 429, Status: "RESOURCE_EXHAUSTED" };
         }
         catch (JsonException)
         {
