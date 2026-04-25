@@ -9,6 +9,7 @@ public class GenerationCoordinator(
     AppConfigService configService,
     ContextService contextService,
     GoogleAiService googleAiService,
+    UpscaleService upscaleService,
     WallpaperService wallpaperService,
     HistoryService historyService,
     ILogger<GenerationCoordinator> logger)
@@ -48,25 +49,34 @@ public class GenerationCoordinator(
         bool isSkipped = false;
         string? errorSummary = null;
         string? appliedImagePath = null;
+        bool wasUpscaled = false;
+        string? originalGeneratedImagePath = null;
+        string? requestedUpscaleMode = null;
+        string? actualUpscaleMethod = null;
         List<CalendarEventItem>? usedEvents = null;
         List<NewsTopicItem>? usedTopics = null;
         var historyItems = historyService.Load();
+        var config = configService.Current;
 
         try
         {
-            var contextResult = await contextService.BuildContextAsync(ct);
+            var useUpscale = config.EnableUpscaleWallpaper;
+            var displayInfo = DisplayHelper.GetDisplayInfo(useUpscale);
+            var contextResult = await contextService.BuildContextAsync(displayInfo, ct);
             var promptContext = contextResult.PromptContext;
 
             // UseCurrentWallpaperAsBase が有効なら直前の成功生成画像をベースとして設定
-            if (configService.Current.UseCurrentWallpaperAsBase)
+            if (config.UseCurrentWallpaperAsBase)
             {
-                var baseImagePath = historyItems
+                var baseHistory = historyItems
                     .OrderByDescending(h => h.ExecutedAt)
                     .FirstOrDefault(h => h.IsSuccess
                                         && !h.IsSkipped
-                                        && h.AppliedImagePath != null
-                                        && File.Exists(h.AppliedImagePath))
-                    ?.AppliedImagePath;
+                                        && ((h.OriginalGeneratedImagePath != null && File.Exists(h.OriginalGeneratedImagePath))
+                                            || (h.AppliedImagePath != null && File.Exists(h.AppliedImagePath))));
+                var baseImagePath = baseHistory?.OriginalGeneratedImagePath != null && File.Exists(baseHistory.OriginalGeneratedImagePath)
+                    ? baseHistory.OriginalGeneratedImagePath
+                    : baseHistory?.AppliedImagePath;
                 if (baseImagePath != null)
                     promptContext = promptContext with { BaseImagePath = baseImagePath };
             }
@@ -82,14 +92,26 @@ public class GenerationCoordinator(
             }
             else
             {
-                var imageInfo = await googleAiService.GenerateWallpaperAsync(promptContext, ct);
+                var imageInfo = await googleAiService.GenerateWallpaperAsync(promptContext, displayInfo, ct);
+                var wallpaperImagePath = imageInfo.FilePath;
+
+                if (useUpscale)
+                {
+                    requestedUpscaleMode = UpscaleModeValues.Normalize(config.UpscaleMode);
+                    var upscaleResult = await upscaleService.Upscale2xAsync(imageInfo.FilePath, requestedUpscaleMode, ct);
+                    wallpaperImagePath = upscaleResult.FilePath;
+                    wasUpscaled = true;
+                    originalGeneratedImagePath = imageInfo.FilePath;
+                    actualUpscaleMethod = upscaleResult.ActualMethod;
+                }
+
                 await wallpaperService.SetWallpaperAsync(
-                    imageInfo.FilePath,
-                    configService.Current.UpdateLockScreen,
+                    wallpaperImagePath,
+                    config.UpdateLockScreen,
                     ct);
 
                 isSuccess = true;
-                appliedImagePath = imageInfo.FilePath;
+                appliedImagePath = wallpaperImagePath;
                 usedEvents = contextResult.CalendarEvents;
                 usedTopics = contextResult.NewsTopics;
             }
@@ -106,7 +128,11 @@ public class GenerationCoordinator(
             AppliedImagePath: appliedImagePath,
             UsedCalendarEvents: usedEvents,
             UsedNewsTopics: usedTopics,
-            IsSkipped: isSkipped);
+            IsSkipped: isSkipped,
+            WasUpscaled: wasUpscaled,
+            OriginalGeneratedImagePath: originalGeneratedImagePath,
+            RequestedUpscaleMode: requestedUpscaleMode,
+            ActualUpscaleMethod: actualUpscaleMethod);
 
         try
         {

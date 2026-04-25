@@ -10,6 +10,10 @@ public class AppConfig
     public int RunsPerDay { get; set; } = 1;
     /// <summary>直前に生成した壁紙をベースにして新しい壁紙を生成するかどうか</summary>
     public bool UseCurrentWallpaperAsBase { get; set; } = false;
+    /// <summary>生成サイズを1段下げ、生成後に2倍アップスケールする</summary>
+    public bool EnableUpscaleWallpaper { get; set; } = false;
+    /// <summary>アップスケール方式</summary>
+    public string UpscaleMode { get; set; } = UpscaleModeValues.RealESRGAN;
     /// <summary>タスクスケジューラ実行時、変化がなければ生成をスキップする</summary>
     public bool SkipGenerationWhenNoChanges { get; set; } = false;
     /// <summary>デスクトップ壁紙に加えてロック画面も更新する</summary>

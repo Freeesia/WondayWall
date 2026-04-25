@@ -61,6 +61,11 @@ public partial class MainWindowViewModel : ObservableObject
     public ObservableCollection<string> RssSources { get; } = [];
     public ObservableCollection<AvailableCalendar> AvailableCalendars { get; } = [];
     public IReadOnlyList<int> AvailableRunsPerDayOptions => ScheduleHelper.SupportedRunsPerDay;
+    public IReadOnlyList<UpscaleModeOption> AvailableUpscaleModeOptions { get; } =
+    [
+        new(UpscaleModeValues.RealESRGAN, "Real-ESRGAN（利用不可時は Lanczos）"),
+        new(UpscaleModeValues.Lanczos, "Lanczos"),
+    ];
     public string TaskSchedulerScheduleDescription => ScheduleHelper.FormatScheduleDescription(SelectedRunsPerDay);
 
     public MainWindowViewModel(
@@ -407,6 +412,7 @@ public partial class MainWindowViewModel : ObservableObject
     private void ApplyCurrentSelectionsToConfig()
     {
         AppConfig.RunsPerDay = ScheduleHelper.NormalizeRunsPerDay(SelectedRunsPerDay);
+        AppConfig.UpscaleMode = UpscaleModeValues.Normalize(AppConfig.UpscaleMode);
         AppConfig.RssSources = [.. RssSources];
         if (AvailableCalendars.Count > 0)
         {
@@ -438,3 +444,5 @@ public partial class MainWindowViewModel : ObservableObject
         OnPropertyChanged(nameof(TaskSchedulerScheduleDescription));
     }
 }
+
+public sealed record UpscaleModeOption(string Value, string DisplayName);

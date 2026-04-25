@@ -27,6 +27,12 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
     public async Task<GeneratedImageInfo> GenerateWallpaperAsync(
         PromptContext context,
         CancellationToken ct = default)
+        => await GenerateWallpaperAsync(context, displayInfo: null, ct);
+
+    public async Task<GeneratedImageInfo> GenerateWallpaperAsync(
+        PromptContext context,
+        DisplaySizeInfo? displayInfo,
+        CancellationToken ct = default)
     {
         var config = configService.Current;
 
@@ -56,7 +62,7 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
         var imagePrompt = promptSelection.ImagePrompt.Trim();
 
         // ステップ2: 画像モデルでアスペクト比・サイズを指定して壁紙を生成
-        var displayInfo = DisplayHelper.GetDisplayInfo();
+        displayInfo ??= DisplayHelper.GetDisplayInfo();
         var genConfig = new GenerationConfig
         {
             ResponseModalities = [Modality.IMAGE],
