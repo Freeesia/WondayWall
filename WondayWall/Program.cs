@@ -28,7 +28,9 @@ else
 {
     if (!PInvoke.AttachConsole(PInvoke.ATTACH_PARENT_PROCESS))
     {
+#if DEBUG // デバッグビルドの場合はログ見たいのでコンソールを割り当てる
         PInvoke.AllocConsole();
+#endif
     }
 
     var cafApp = ConsoleApp.Create()

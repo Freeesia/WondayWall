@@ -33,6 +33,6 @@
 ## 対象になりやすい領域
 
 - Google API キーや OAuth トークンの取り扱い
-- `%AppData%/WondayWall/` 配下の設定や履歴の保存
+- `%LocalAppData%/WondayWall/` 配下の設定や履歴の保存
 - 生成画像やローカルファイルの扱い
 - インストーラーや更新導線

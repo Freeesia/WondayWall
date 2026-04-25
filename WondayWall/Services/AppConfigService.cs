@@ -7,7 +7,7 @@ namespace WondayWall.Services;
 public class AppConfigService
 {
     private static readonly string ConfigDirectory =
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "WondayWall");
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WondayWall");
 
     private static readonly string ConfigFilePath =
         Path.Combine(ConfigDirectory, "config.json");
