@@ -19,6 +19,7 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
     private const string TextModelName = "gemini-3-flash-preview";
     private const string ImageModelName = "gemini-3.1-flash-image-preview";
     private const int FlexServerTimeoutSeconds = 600;
+    private const int MaxFlexAttempts = 3;
 
     private readonly HttpClient ogpHttpClient = httpClientFactory.CreateClient("WondayWall");
     private readonly HttpClient geminiHttpClient = httpClientFactory.CreateClient("Gemini");
@@ -38,32 +39,66 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
         GoogleAiServiceTier serviceTier,
         CancellationToken ct = default)
     {
-        if (serviceTier != GoogleAiServiceTier.Flex)
-            return await GenerateWallpaperCoreAsync(context, GoogleAiServiceTier.Standard, ct);
-
-        try
-        {
-            return await GenerateWallpaperCoreAsync(context, GoogleAiServiceTier.Flex, ct);
-        }
-        catch (Exception ex) when (!ct.IsCancellationRequested)
-        {
-            logger.LogWarning(ex, "Flex モードの Google AI 生成に失敗したため Standard モードで再試行します。");
-            return await GenerateWallpaperCoreAsync(context, GoogleAiServiceTier.Standard, ct);
-        }
-    }
-
-    private async Task<GeneratedImageInfo> GenerateWallpaperCoreAsync(
-        PromptContext context,
-        GoogleAiServiceTier serviceTier,
-        CancellationToken ct)
-    {
         var config = configService.Current;
 
         if (string.IsNullOrWhiteSpace(config.GoogleAiApiKey))
             throw new InvalidOperationException("Google AI API key is not configured.");
 
+        var promptResult = await GeneratePromptSelectionWithFallbackAsync(
+            context,
+            serviceTier,
+            config.GoogleAiApiKey,
+            ct);
+        var imageRequest = await BuildImageRequestAsync(
+            context,
+            promptResult.PromptSelection,
+            promptResult.ImagePrompt,
+            ct);
+        var imageServiceTier = serviceTier == GoogleAiServiceTier.Flex
+                               && promptResult.ServiceTier == GoogleAiServiceTier.Flex
+            ? GoogleAiServiceTier.Flex
+            : GoogleAiServiceTier.Standard;
+
+        return await GenerateImageWithFallbackAsync(
+            context,
+            promptResult.ImagePrompt,
+            imageRequest,
+            imageServiceTier,
+            config.GoogleAiApiKey,
+            ct);
+    }
+
+    private async Task<PromptSelectionResult> GeneratePromptSelectionWithFallbackAsync(
+        PromptContext context,
+        GoogleAiServiceTier serviceTier,
+        string apiKey,
+        CancellationToken ct)
+    {
+        if (serviceTier != GoogleAiServiceTier.Flex)
+            return await GeneratePromptSelectionAsync(context, GoogleAiServiceTier.Standard, apiKey, ct);
+
+        try
+        {
+            return await ExecuteFlexWithRetriesAsync(
+                () => GeneratePromptSelectionAsync(context, GoogleAiServiceTier.Flex, apiKey, ct),
+                "画像プロンプト生成",
+                ct);
+        }
+        catch (Exception ex) when (IsRetryableFlexFailure(ex, ct))
+        {
+            logger.LogWarning(ex, "画像プロンプト生成の Flex 呼び出しが規定回数失敗したため Standard モードで再試行します。");
+            return await GeneratePromptSelectionAsync(context, GoogleAiServiceTier.Standard, apiKey, ct);
+        }
+    }
+
+    private async Task<PromptSelectionResult> GeneratePromptSelectionAsync(
+        PromptContext context,
+        GoogleAiServiceTier serviceTier,
+        string apiKey,
+        CancellationToken ct)
+    {
         // ステップ1: テキストモデルで詳細な画像プロンプトを生成（Google検索グラウンディングを有効化）
-        var textModel = new GenerativeModelEx(config.GoogleAiApiKey, TextModelName, httpClient: geminiHttpClient)
+        var textModel = new GenerativeModelEx(apiKey, TextModelName, httpClient: geminiHttpClient)
         {
             UseGoogleSearch = true,
             UseJsonMode = true,
@@ -73,7 +108,7 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
         promptRequest.UseJsonMode<PromptSelectionResponse>(JsonSerializerOptions);
         promptRequest.AddText(contextPrompt);
 
-        var promptResponse = await GenerateContentAsync(textModel, promptRequest, serviceTier, config.GoogleAiApiKey, ct);
+        var promptResponse = await GenerateContentAsync(textModel, promptRequest, serviceTier, apiKey, ct);
         var promptSelection = promptResponse.ToObject<PromptSelectionResponse>(JsonSerializerOptions);
         if (promptSelection == null || string.IsNullOrWhiteSpace(promptSelection.ImagePrompt))
             throw new InvalidOperationException("Google AI returned an invalid structured prompt response.");
@@ -85,6 +120,62 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
             .ToList();
         var imagePrompt = promptSelection.ImagePrompt.Trim();
 
+        return new PromptSelectionResult(promptSelection, imagePrompt, serviceTier);
+    }
+
+    private async Task<GeneratedImageInfo> GenerateImageWithFallbackAsync(
+        PromptContext context,
+        string imagePrompt,
+        GenerateContentRequest imageRequest,
+        GoogleAiServiceTier serviceTier,
+        string apiKey,
+        CancellationToken ct)
+    {
+        if (serviceTier != GoogleAiServiceTier.Flex)
+        {
+            return await GenerateImageAsync(
+                context,
+                imagePrompt,
+                CloneGenerateContentRequest(imageRequest),
+                GoogleAiServiceTier.Standard,
+                apiKey,
+                ct);
+        }
+
+        try
+        {
+            return await ExecuteFlexWithRetriesAsync(
+                () => GenerateImageAsync(
+                    context,
+                    imagePrompt,
+                    CloneGenerateContentRequest(imageRequest),
+                    GoogleAiServiceTier.Flex,
+                    apiKey,
+                    ct),
+                "画像生成",
+                ct);
+        }
+        catch (Exception ex) when (IsRetryableFlexFailure(ex, ct))
+        {
+            logger.LogWarning(ex, "画像生成の Flex 呼び出しが規定回数失敗したため、生成済みプロンプトを使って Standard モードで再試行します。");
+            return await GenerateImageAsync(
+                context,
+                imagePrompt,
+                CloneGenerateContentRequest(imageRequest),
+                GoogleAiServiceTier.Standard,
+                apiKey,
+                ct);
+        }
+    }
+
+    private async Task<GeneratedImageInfo> GenerateImageAsync(
+        PromptContext context,
+        string imagePrompt,
+        GenerateContentRequest imageRequest,
+        GoogleAiServiceTier serviceTier,
+        string apiKey,
+        CancellationToken ct)
+    {
         // ステップ2: 画像モデルでアスペクト比・サイズを指定して壁紙を生成
         var displayInfo = DisplayHelper.GetDisplayInfo();
         var genConfig = new GenerationConfig
@@ -96,11 +187,35 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
                 ImageSize = displayInfo.ImageSize,
             }
         };
-        var imageModel = new GenerativeModelEx(config.GoogleAiApiKey, ImageModelName, genConfig, httpClient: geminiHttpClient)
+        var imageModel = new GenerativeModelEx(apiKey, ImageModelName, genConfig, httpClient: geminiHttpClient)
         {
             UseGoogleSearch = true,
         };
 
+        var response = await GenerateContentAsync(imageModel, imageRequest, serviceTier, apiKey, ct);
+
+        var imageBytes = ExtractImageBytes(response);
+
+        if (imageBytes == null || imageBytes.Length == 0)
+            throw new InvalidOperationException("No image data returned from Google AI.");
+
+        var filePath = FileNameHelper.GetImageFilePath(FixedImageSavePath);
+        await File.WriteAllBytesAsync(filePath, imageBytes, ct);
+
+        return new GeneratedImageInfo(
+            FilePath: filePath,
+            GeneratedAt: DateTime.Now,
+            UsedPrompt: imagePrompt,
+            ServiceTier: serviceTier,
+            SourceContext: context);
+    }
+
+    private async Task<GenerateContentRequest> BuildImageRequestAsync(
+        PromptContext context,
+        PromptSelectionResponse promptSelection,
+        string imagePrompt,
+        CancellationToken ct)
+    {
         // テキストモデルが採用したニュースだけ、そのOGP画像を参照画像として添付する
         var selectedNewsIds = promptSelection.SelectedNewsIds.ToHashSet(StringComparer.Ordinal);
         var ogpUrls = (context.NewsTopics ?? [])
@@ -159,22 +274,7 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
             }
         }
 
-        var response = await GenerateContentAsync(imageModel, imageRequest, serviceTier, config.GoogleAiApiKey, ct);
-
-        var imageBytes = ExtractImageBytes(response);
-
-        if (imageBytes == null || imageBytes.Length == 0)
-            throw new InvalidOperationException("No image data returned from Google AI.");
-
-        var filePath = FileNameHelper.GetImageFilePath(FixedImageSavePath);
-        await File.WriteAllBytesAsync(filePath, imageBytes, ct);
-
-        return new GeneratedImageInfo(
-            FilePath: filePath,
-            GeneratedAt: DateTime.Now,
-            UsedPrompt: imagePrompt,
-            ServiceTier: serviceTier,
-            SourceContext: context);
+        return imageRequest;
     }
 
     private async Task<GenerateContentResponse> GenerateContentAsync(
@@ -224,6 +324,68 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
             TypesSerializerContext.Default.GenerateContentResponse)
             ?? throw new InvalidOperationException("Google AI returned an empty response.");
     }
+
+    private async Task<T> ExecuteFlexWithRetriesAsync<T>(
+        Func<Task<T>> action,
+        string operationName,
+        CancellationToken ct)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                return await action();
+            }
+            catch (Exception ex) when (attempt < MaxFlexAttempts && IsRetryableFlexFailure(ex, ct))
+            {
+                var delay = GetFlexRetryDelay(attempt);
+                logger.LogWarning(
+                    ex,
+                    "{OperationName} の Flex 呼び出しに失敗しました ({Attempt}/{MaxAttempts})。{DelaySeconds} 秒後に再試行します。",
+                    operationName,
+                    attempt,
+                    MaxFlexAttempts,
+                    delay.TotalSeconds);
+                await Task.Delay(delay, ct);
+            }
+        }
+    }
+
+    private static GenerateContentRequest CloneGenerateContentRequest(GenerateContentRequest request)
+    {
+        var json = JsonSerializer.Serialize(
+            request,
+            TypesSerializerContext.Default.GenerateContentRequest);
+        return JsonSerializer.Deserialize(
+            json,
+            TypesSerializerContext.Default.GenerateContentRequest)
+            ?? throw new InvalidOperationException("Failed to clone Google AI request.");
+    }
+
+    private static bool IsRetryableFlexFailure(Exception ex, CancellationToken ct)
+    {
+        if (ct.IsCancellationRequested)
+            return false;
+
+        if (ex is TaskCanceledException or TimeoutException)
+            return true;
+
+        return ex is HttpRequestException
+        {
+            StatusCode: HttpStatusCode.TooManyRequests
+                        or HttpStatusCode.InternalServerError
+                        or HttpStatusCode.ServiceUnavailable
+                        or HttpStatusCode.GatewayTimeout
+        };
+    }
+
+    private static TimeSpan GetFlexRetryDelay(int attempt)
+        => attempt switch
+        {
+            1 => TimeSpan.FromSeconds(2),
+            2 => TimeSpan.FromSeconds(5),
+            _ => TimeSpan.FromSeconds(10),
+        };
 
     private static string BuildGenerateContentUrl(string? model, string apiKey)
     {
@@ -363,4 +525,9 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
 
         public required List<string> SelectedNewsIds { get; set; }
     }
+
+    private sealed record PromptSelectionResult(
+        PromptSelectionResponse PromptSelection,
+        string ImagePrompt,
+        GoogleAiServiceTier ServiceTier);
 }
