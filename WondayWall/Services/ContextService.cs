@@ -18,8 +18,10 @@ using WondayWall.Utils;
 
 namespace WondayWall.Services;
 
-public class ContextService(AppConfigService configService, IHttpClientFactory httpClientFactory, ILogger<ContextService> logger)
+public class ContextService(AppConfigService configService, HistoryService historyService, IHttpClientFactory httpClientFactory, ILogger<ContextService> logger)
 {
+    private const int MaxPromptNewsCount = 10;
+    private const int MaxRecentNewsCountSinceLastGeneration = 3;
     private readonly HttpClient httpClient = httpClientFactory.CreateClient("WondayWall");
     private const string ClientId = "1032289774423-97qnlp8qkh7vca159jvq1ohggcn4qaqm.apps.googleusercontent.com";
 
@@ -67,8 +69,7 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
     }
 
     /// <summary>Googleカレンダーのイベントを非同期ストリームで返す（直近1週間先まで）</summary>
-    public async IAsyncEnumerable<CalendarEventItem> FetchCalendarEventsAsync(
-        [EnumeratorCancellation] CancellationToken ct = default)
+    public async IAsyncEnumerable<CalendarEventItem> FetchCalendarEventsAsync([EnumeratorCancellation] CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(ClientId) ||
             string.IsNullOrWhiteSpace(ClientSecret))
@@ -134,8 +135,7 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
     }
 
     /// <summary>利用可能なGoogleカレンダー一覧を非同期ストリームで返す</summary>
-    public async IAsyncEnumerable<AvailableCalendar> FetchAvailableCalendarsAsync(
-        [EnumeratorCancellation] CancellationToken ct = default)
+    public async IAsyncEnumerable<AvailableCalendar> FetchAvailableCalendarsAsync([EnumeratorCancellation] CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(ClientId) ||
             string.IsNullOrWhiteSpace(ClientSecret))
@@ -178,70 +178,53 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
     }
 
     /// <summary>
-    /// RSSフィードのニューストピックをOGP情報付きで非同期ストリームで返す。
-    /// 全ソースを並列でフェッチし、公開日時の新しい順（直近1週間以内）に返す。
-    /// OGPは各アイテムをyieldする直前に順次取得する（不要な取得を防ぐため）。
+    /// RSSフィードのニューストピックを非同期ストリームで返す。
+    /// UI表示と接続確認用途のため、直近1週間の取得結果一覧をそのまま返す。
     /// </summary>
-    public async IAsyncEnumerable<NewsTopicItem> FetchNewsAsync(
-        [EnumeratorCancellation] CancellationToken ct = default)
+    public async IAsyncEnumerable<NewsTopicItem> FetchNewsAsync([EnumeratorCancellation] CancellationToken ct = default)
     {
-        var config = configService.Current;
-
-        if (config.RssSources.Count == 0)
-            yield break;
-
-        // 全RSSソースを並列でフェッチ（OGPなし）
-        var fetchTasks = config.RssSources
-            .Select(rssUrl => FetchFromRssSourceAsync(rssUrl, ct))
-            .ToList();
-        var allResults = await Task.WhenAll(fetchTasks);
-
-        var weekAgo = DateTime.Now.AddDays(-7);
-
-        // 公開日時の新しい順にソート
-        var sortedRawItems = allResults
-            .SelectMany(items => items)
-            .Where(i => i.PublishedAt >= weekAgo)
-            .OrderByDescending(item => item.PublishedAt);
-
-        // 各アイテムをyieldする直前にOGPを順次フェッチ
-        foreach (var (title, summary, url, publishedAt) in sortedRawItems)
+        var recentNews = await FetchRecentRssItemsAsync(configService.Current.RssSources, ct);
+        foreach (var item in recentNews)
         {
             ct.ThrowIfCancellationRequested();
-
-            string? imageUrl = null;
-            string? description = null;
-            if (!string.IsNullOrEmpty(url))
-            {
-                try
-                {
-                    var ogp = await OpenGraph.ParseUrlAsync(url, cancellationToken: ct);
-                    if (ogp.Image != null)
-                        imageUrl = ogp.Image.OriginalString;
-
-                    // RSSにサマリーがなければOGPの説明をフォールバックとして使用
-                    if (ogp.Metadata.TryGetValue("og:description", out var descMeta))
-                        description = descMeta.FirstOrDefault()?.Value;
-                }
-                catch
-                {
-                    // OGP取得失敗は無視
-                }
-            }
-
-            yield return new NewsTopicItem(
-                Title: title,
-                Summary: !string.IsNullOrEmpty(summary) ? summary : description,
-                Url: url,
-                PublishedAt: publishedAt,
-                OgpImageUrl: imageUrl);
+            yield return item.ToNewsTopicItem();
         }
     }
 
-    private record RssItem(string Title, string? Summary, string? Url, DateTime PublishedAt);
+    private record RssItem(string SourceRssUrl, string Title, string? Summary, string? Url, DateTime PublishedAt)
+    {
+        public string Key { get; } = !string.IsNullOrWhiteSpace(Url)
+            ? Url.Trim()
+            : Title.Trim();
+
+        public NewsTopicItem ToNewsTopicItem(string? summaryOverride = null, string? ogpImageUrl = null)
+            => new(
+                Title,
+                summaryOverride ?? Summary,
+                Url,
+                PublishedAt,
+                ogpImageUrl);
+    }
+
+    private async Task<List<RssItem>> FetchRecentRssItemsAsync(IReadOnlyList<string> rssSources, CancellationToken ct)
+    {
+        if (rssSources.Count == 0)
+            return [];
+
+        var weekAgo = DateTime.Now.AddDays(-7);
+        var fetchTasks = rssSources
+            .Select(rssUrl => FetchFromRssSourceAsync(rssUrl, weekAgo, ct))
+            .ToList();
+        var allResults = await Task.WhenAll(fetchTasks);
+
+        return allResults
+            .SelectMany(items => items)
+            .OrderByDescending(item => item.PublishedAt)
+            .ToList();
+    }
 
     /// <summary>1つのRSSソースから7日フィルター済みの生アイテムを返す（OGPなし）</summary>
-    private async Task<IReadOnlyList<RssItem>> FetchFromRssSourceAsync(string rssUrl, CancellationToken ct)
+    private async Task<IReadOnlyList<RssItem>> FetchFromRssSourceAsync(string rssUrl, DateTime weekAgo, CancellationToken ct)
     {
         SyndicationFeed feed;
         try
@@ -258,10 +241,13 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
 
         return feed.Items
             .Select(item => new RssItem(
-                item.Title?.Text ?? string.Empty,
-                item.Summary?.Text == "None" ? null : item.Summary?.Text,
-                item.Links.FirstOrDefault()?.Uri.ToString(),
-                item.PublishDate.LocalDateTime))
+                SourceRssUrl: rssUrl,
+                Title: item.Title?.Text.Trim() ?? string.Empty,
+                Summary: item.Summary?.Text == "None" ? null : item.Summary?.Text.Trim(),
+                Url: item.Links.FirstOrDefault()?.Uri.ToString(),
+                PublishedAt: item.PublishDate.LocalDateTime))
+            .Where(item => item.PublishedAt >= weekAgo)
+            .OrderByDescending(item => item.PublishedAt)
             .ToList();
     }
 
@@ -276,19 +262,20 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
             .ConfigureAwait(false);
 
         // ニューストピックを収集
-        var news = await FetchNewsAsync(ct)
-            .Take(5)
-            .ToListAsync(ct)
-            .ConfigureAwait(false);
-
-        var today = DateTime.Today;
+        var news = await BuildPromptNewsAsync(ct).ConfigureAwait(false);
 
         var displayInfo = DisplayHelper.GetDisplayInfo();
-        var context = new PromptContext(
+
+        return new(new(
             CalendarEvents: events.Select((eventItem, index) => new PromptCalendarEvent(
                 Id: $"event-{index + 1}",
                 Title: eventItem.Title,
-                ProximityTag: GetProximityTag(eventItem.StartTime, today),
+                ProximityTag: (eventItem.StartTime.Date - DateTime.Today).Days switch
+                {
+                    <= 0 => "today",
+                    1 => "tomorrow",
+                    var days => $"in {days} days",
+                },
                 StartTime: eventItem.StartTime,
                 EndTime: eventItem.EndTime,
                 Location: eventItem.Location,
@@ -304,17 +291,99 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
                 .ToList(),
             ImageSize: displayInfo.Size,
             AspectRatio: displayInfo.AspectRatio,
-            AdditionalConstraints: string.IsNullOrWhiteSpace(config.UserPrompt)
-                ? null
-                : config.UserPrompt);
-
-        return new ContextBuildResult(context, events, news);
+            AdditionalConstraints: config.UserPrompt), events, news);
     }
 
-    private static string GetProximityTag(DateTime startTime, DateTime today)
+    private async Task<List<NewsTopicItem>> BuildPromptNewsAsync(CancellationToken ct)
     {
-        var daysUntil = (startTime.Date - today).Days;
-        return daysUntil <= 0 ? "today" : daysUntil == 1 ? "tomorrow" : $"in {daysUntil} days";
+        var recentNews = await FetchRecentRssItemsAsync(configService.Current.RssSources, ct);
+        var lastGeneratedAt = historyService.GetLastSuccessfulGenerated()?.ExecutedAt;
+        var selectedNews = SelectPromptNewsItems(recentNews, lastGeneratedAt);
+        var enrichedNews = new List<NewsTopicItem>(selectedNews.Count);
+
+        foreach (var item in selectedNews.OrderByDescending(item => item.PublishedAt))
+        {
+            ct.ThrowIfCancellationRequested();
+
+            string? summary = item.Summary;
+            string? ogpImageUrl = null;
+
+            if (string.IsNullOrWhiteSpace(item.Url))
+            {
+                enrichedNews.Add(item.ToNewsTopicItem(summary, ogpImageUrl));
+                continue;
+            }
+            try
+            {
+                var ogp = await OpenGraph.ParseUrlAsync(item.Url, cancellationToken: ct);
+                if (ogp.Image != null)
+                    ogpImageUrl = ogp.Image.OriginalString;
+
+                if (ogp.Metadata.TryGetValue("og:description", out var descriptionMetadata))
+                {
+                    summary ??= descriptionMetadata.FirstOrDefault()?.Value.Trim();
+                }
+            }
+            catch
+            {
+                // OGP取得失敗は無視
+            }
+
+            enrichedNews.Add(item.ToNewsTopicItem(summary, ogpImageUrl));
+        }
+
+        return enrichedNews;
+    }
+
+    private static List<RssItem> SelectPromptNewsItems(IReadOnlyList<RssItem> recentNews, DateTime? lastGeneratedAt)
+    {
+        if (recentNews.Count == 0)
+            return [];
+
+        var selected = new List<RssItem>(MaxPromptNewsCount);
+        var selectedKeys = new HashSet<string>(StringComparer.Ordinal);
+
+        bool TryAdd(RssItem item)
+        {
+            if (selected.Count >= MaxPromptNewsCount || !selectedKeys.Add(item.Key))
+                return false;
+
+            selected.Add(item);
+            return true;
+        }
+
+        if (lastGeneratedAt is DateTime lastGenerated)
+        {
+            var recentSinceLastGeneration = recentNews
+                .Where(item => item.PublishedAt > lastGenerated)
+                .DistinctBy(item => item.Key)
+                .ToList();
+
+            if (recentSinceLastGeneration.Count > MaxRecentNewsCountSinceLastGeneration)
+            {
+                recentSinceLastGeneration = recentSinceLastGeneration
+                    .OrderBy(_ => Random.Shared.Next())
+                    .Take(MaxRecentNewsCountSinceLastGeneration)
+                    .ToList();
+            }
+
+            recentSinceLastGeneration = recentSinceLastGeneration
+                .OrderByDescending(item => item.PublishedAt)
+                .ToList();
+
+            foreach (var item in recentSinceLastGeneration)
+                TryAdd(item);
+        }
+
+        foreach (var item in recentNews.GroupBy(item => item.SourceRssUrl).Select(group => group.First()))
+            TryAdd(item);
+
+        foreach (var item in recentNews)
+            TryAdd(item);
+
+        return selected
+            .OrderByDescending(item => item.PublishedAt)
+            .ToList();
     }
 
     private async Task<CalendarService> GetCalendarServiceAsync(CancellationToken ct = default)
@@ -330,10 +399,7 @@ public class ContextService(AppConfigService configService, IHttpClientFactory h
         return await GetCalendarServiceAsync(dataStore, existingToken, ct);
     }
 
-    private async Task<CalendarService> GetCalendarServiceAsync(
-        FileDataStore dataStore,
-        TokenResponse existingToken,
-        CancellationToken ct = default)
+    private async Task<CalendarService> GetCalendarServiceAsync(FileDataStore dataStore, TokenResponse existingToken, CancellationToken ct = default)
     {
         if (_calendarService != null)
             return _calendarService;

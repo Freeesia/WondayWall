@@ -14,6 +14,7 @@ namespace WondayWall.ViewModels;
 public partial class MainWindowViewModel : ObservableObject
 {
     private readonly AppConfigService _configService;
+    private readonly HistoryService _historyService;
     private readonly ContextService _contextService;
     private readonly GenerationCoordinator _coordinator;
     private readonly TaskSchedulerService _taskSchedulerService;
@@ -64,12 +65,14 @@ public partial class MainWindowViewModel : ObservableObject
 
     public MainWindowViewModel(
         AppConfigService configService,
+        HistoryService historyService,
         ContextService contextService,
         GenerationCoordinator coordinator,
         TaskSchedulerService taskSchedulerService,
         ILogger<MainWindowViewModel> logger)
     {
         _configService = configService;
+        _historyService = historyService;
         _contextService = contextService;
         _coordinator = coordinator;
         _taskSchedulerService = taskSchedulerService;
@@ -384,7 +387,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     private void LoadHistory()
     {
-        var items = _coordinator.LoadHistory();
+        var items = _historyService.Load();
         History.Clear();
         foreach (var item in items)
             History.Add(item);
