@@ -1,4 +1,5 @@
 using System.IO;
+using System.Net;
 using System.Net.Http;
 using System.Text.Json;
 using GenerativeAI;
@@ -13,6 +14,11 @@ namespace WondayWall.Services;
 public class GoogleAiService(AppConfigService configService, IHttpClientFactory httpClientFactory, ILogger<GoogleAiService> logger)
 {
     private readonly HttpClient httpClient = httpClientFactory.CreateClient("WondayWall");
+    private readonly HttpClient googleAiHttpClient = new(new GoogleAiErrorMessageHandler());
+    private const string GoogleAiApiKeyPageUrl = "https://aistudio.google.com/app/api-keys";
+    private const string PaidTierRequiredMessage =
+        "無料枠または課金未設定の Google AI API キーでは、この画像生成機能を利用できません。Google AI Studio で課金設定済みのプロジェクト/APIキーを確認してください: "
+        + GoogleAiApiKeyPageUrl;
     private static readonly string FixedImageSavePath = Path.Combine(
         System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData),
         "WondayWall", "wallpapers");
@@ -34,7 +40,11 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
             throw new InvalidOperationException("Google AI API key is not configured.");
 
         // ステップ1: テキストモデルで詳細な画像プロンプトを生成（Google検索グラウンディングを有効化）
-        var textModel = new GenerativeModelEx(config.GoogleAiApiKey, "gemini-3-flash-preview")
+        var textModel = new GenerativeModelEx(
+            config.GoogleAiApiKey,
+            "gemini-3-flash-preview",
+            httpClient: googleAiHttpClient,
+            logger: logger)
         {
             UseGoogleSearch = true,
             UseJsonMode = true,
@@ -66,7 +76,12 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
                 ImageSize = displayInfo.ImageSize,
             }
         };
-        var imageModel = new GenerativeModel(config.GoogleAiApiKey, "gemini-3.1-flash-image-preview", genConfig)
+        var imageModel = new GenerativeModel(
+            config.GoogleAiApiKey,
+            "gemini-3.1-flash-image-preview",
+            genConfig,
+            httpClient: googleAiHttpClient,
+            logger: logger)
         {
             UseGoogleSearch = true,
         };
@@ -261,5 +276,54 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
         public required string ImagePrompt { get; init; }
 
         public required List<string> SelectedNewsIds { get; set; }
+    }
+
+    private sealed class GoogleAiErrorMessageHandler() : DelegatingHandler(new HttpClientHandler())
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var response = await base.SendAsync(request, cancellationToken);
+            if (response.StatusCode != HttpStatusCode.BadRequest || response.Content == null)
+                return response;
+
+            var originalContent = response.Content;
+            var contentBytes = await originalContent.ReadAsByteArrayAsync(cancellationToken);
+            var replacementContent = new ByteArrayContent(contentBytes);
+            foreach (var header in originalContent.Headers)
+                replacementContent.Headers.TryAddWithoutValidation(header.Key, header.Value);
+            response.Content = replacementContent;
+            originalContent.Dispose();
+
+            if (!IsFailedPreconditionError(contentBytes))
+                return response;
+
+            response.Dispose();
+            throw new InvalidOperationException(PaidTierRequiredMessage);
+        }
+
+        private static bool IsFailedPreconditionError(byte[] contentBytes)
+        {
+            try
+            {
+                var apiError = JsonSerializer.Deserialize<GoogleApiErrorEnvelope>(contentBytes, JsonSerializerOptions);
+                return apiError?.Error is { Code: 400, Status: "FAILED_PRECONDITION" };
+            }
+            catch (JsonException)
+            {
+                return false;
+            }
+        }
+    }
+
+    private sealed class GoogleApiErrorEnvelope
+    {
+        public GoogleApiError? Error { get; init; }
+    }
+
+    private sealed class GoogleApiError
+    {
+        public int Code { get; init; }
+
+        public string? Status { get; init; }
     }
 }
