@@ -56,16 +56,12 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
             promptResult.PromptSelection,
             promptResult.ImagePrompt,
             ct);
-        var imageServiceTier = serviceTier == GoogleAiServiceTier.Flex
-                               && promptResult.ServiceTier == GoogleAiServiceTier.Flex
-            ? GoogleAiServiceTier.Flex
-            : GoogleAiServiceTier.Standard;
 
         return await GenerateImageWithFallbackAsync(
             context,
             promptResult.ImagePrompt,
             imageRequest,
-            imageServiceTier,
+            promptResult.ServiceTier,
             config.GoogleAiApiKey,
             ct);
     }
@@ -100,10 +96,7 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
         CancellationToken ct)
     {
         // ステップ1: テキストモデルで詳細な画像プロンプトを生成（Google検索グラウンディングを有効化）
-        var textModel = new GenerativeModelEx(apiKey, TextModelName, httpClient: geminiHttpClient)
-        {
-            UseJsonMode = true,
-        };
+        var textModel = new GenerativeModelEx(apiKey, TextModelName, httpClient: geminiHttpClient);
         var contextPrompt = BuildTextModelPrompt(context);
         var promptRequest = new GenerateContentRequest();
         promptRequest.UseJsonMode<PromptSelectionResponse>(JsonSerializerOptions);
@@ -179,18 +172,6 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
         CancellationToken ct)
     {
         // ステップ2: 画像モデルでアスペクト比・サイズを指定して壁紙を生成
-        var displayInfo = DisplayHelper.GetDisplayInfo();
-        var genConfig = new GenerationConfig
-        {
-            ResponseModalities = [Modality.IMAGE],
-            ImageConfig = new ImageConfig
-            {
-                AspectRatio = displayInfo.AspectRatio,
-                ImageSize = displayInfo.ImageSize,
-            }
-        };
-        imageRequest.GenerationConfig = genConfig;
-        AddGoogleSearchTool(imageRequest);
         var imageModel = new GenerativeModelEx(apiKey, ImageModelName, httpClient: geminiHttpClient);
 
         var response = await GenerateContentAsync(imageModel, imageRequest, serviceTier, apiKey, ct);
@@ -274,6 +255,18 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
                 logger.LogWarning(ex, "OGP画像のダウンロードに失敗しました [{ImgUrl}]", imgUrl);
             }
         }
+
+        var displayInfo = DisplayHelper.GetDisplayInfo();
+        imageRequest.GenerationConfig = new GenerationConfig
+        {
+            ResponseModalities = [Modality.IMAGE],
+            ImageConfig = new ImageConfig
+            {
+                AspectRatio = displayInfo.AspectRatio,
+                ImageSize = displayInfo.ImageSize,
+            }
+        };
+        AddGoogleSearchTool(imageRequest);
 
         return imageRequest;
     }
