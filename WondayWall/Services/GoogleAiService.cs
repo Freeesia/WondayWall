@@ -14,7 +14,7 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
 {
     private readonly HttpClient httpClient = httpClientFactory.CreateClient("WondayWall");
     private static readonly string FixedImageSavePath = Path.Combine(
-        System.Environment.GetFolderPath(System.Environment.SpecialFolder.ApplicationData),
+        System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData),
         "WondayWall", "wallpapers");
     private static readonly JsonSerializerOptions JsonSerializerOptions = new()
     {
