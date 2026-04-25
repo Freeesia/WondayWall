@@ -45,6 +45,7 @@ static void ConfigureCommonServices(IServiceCollection services)
     services.AddHttpClient("WondayWall", c => c.Timeout = TimeSpan.FromSeconds(30));
     services.AddSingleton<WallpaperService>();
     services.AddSingleton<AppConfigService>();
+    services.AddSingleton<HistoryService>();
     services.AddSingleton<ContextService>();
     services.AddSingleton<GoogleAiService>();
     services.AddSingleton<GenerationCoordinator>();
