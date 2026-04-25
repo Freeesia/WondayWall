@@ -1,7 +1,10 @@
+using WondayWall.ComponentModel;
+
 namespace WondayWall.Models;
 
 public class AppConfig
 {
+    [CredentialSecret]
     public string GoogleAiApiKey { get; set; } = string.Empty;
     public List<string> TargetCalendarIds { get; set; } = [];
     public List<string> RssSources { get; set; } = [];

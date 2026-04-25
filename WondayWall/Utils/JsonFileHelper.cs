@@ -1,16 +1,29 @@
+using System.Text.Encodings.Web;
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using System.IO;
+using WondayWall.ComponentModel;
 
 namespace WondayWall.Utils;
 
 public static class JsonFileHelper
 {
+    private static readonly DefaultJsonTypeInfoResolver TypeInfoResolver = CreateTypeInfoResolver();
+
     private static readonly JsonSerializerOptions Options = new()
     {
         WriteIndented = true,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        TypeInfoResolver = TypeInfoResolver,
     };
+
+    private static DefaultJsonTypeInfoResolver CreateTypeInfoResolver()
+    {
+        var resolver = new DefaultJsonTypeInfoResolver();
+        resolver.Modifiers.Add(CredentialSecretJsonConverter.Apply);
+        return resolver;
+    }
 
     public static T? Load<T>(string filePath) where T : class
     {
