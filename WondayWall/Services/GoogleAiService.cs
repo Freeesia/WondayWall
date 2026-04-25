@@ -102,13 +102,13 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
         // ステップ1: テキストモデルで詳細な画像プロンプトを生成（Google検索グラウンディングを有効化）
         var textModel = new GenerativeModelEx(apiKey, TextModelName, httpClient: geminiHttpClient)
         {
-            UseGoogleSearch = true,
             UseJsonMode = true,
         };
         var contextPrompt = BuildTextModelPrompt(context);
         var promptRequest = new GenerateContentRequest();
         promptRequest.UseJsonMode<PromptSelectionResponse>(JsonSerializerOptions);
         promptRequest.AddText(contextPrompt);
+        AddGoogleSearchTool(promptRequest);
 
         var promptResponse = await GenerateContentAsync(textModel, promptRequest, serviceTier, apiKey, ct);
         var promptSelection = promptResponse.ToObject<PromptSelectionResponse>(JsonSerializerOptions);
@@ -189,10 +189,9 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
                 ImageSize = displayInfo.ImageSize,
             }
         };
-        var imageModel = new GenerativeModelEx(apiKey, ImageModelName, genConfig, httpClient: geminiHttpClient)
-        {
-            UseGoogleSearch = true,
-        };
+        imageRequest.GenerationConfig = genConfig;
+        AddGoogleSearchTool(imageRequest);
+        var imageModel = new GenerativeModelEx(apiKey, ImageModelName, httpClient: geminiHttpClient);
 
         var response = await GenerateContentAsync(imageModel, imageRequest, serviceTier, apiKey, ct);
 
@@ -289,8 +288,6 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
         if (serviceTier == GoogleAiServiceTier.Standard)
             return await model.GenerateContentAsync(request, cancellationToken: ct);
 
-        model.PrepareRequestForGenerateContent(request);
-
         var requestNode = JsonSerializer.SerializeToNode(
             request,
             TypesSerializerContext.Default.GenerateContentRequest);
@@ -368,6 +365,18 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
             json,
             TypesSerializerContext.Default.GenerateContentRequest)
             ?? throw new InvalidOperationException("Failed to clone Google AI request.");
+    }
+
+    private static void AddGoogleSearchTool(GenerateContentRequest request)
+    {
+        request.Tools ??= [];
+        if (request.Tools.Any(static tool => tool.GoogleSearch != null))
+            return;
+
+        request.Tools.Add(new Tool
+        {
+            GoogleSearch = new GoogleSearchTool(),
+        });
     }
 
     private static bool IsRetryableFlexFailure(Exception ex, CancellationToken ct)

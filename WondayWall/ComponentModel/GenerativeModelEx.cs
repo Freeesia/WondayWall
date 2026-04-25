@@ -8,12 +8,6 @@ namespace WondayWall.ComponentModel;
 internal class GenerativeModelEx(string apiKey, string? model, GenerationConfig? config = null, ICollection<SafetySetting>? safetySettings = null, string? systemInstruction = null, HttpClient? httpClient = null, ILogger? logger = null)
     : GenerativeModel(apiKey, model, config, safetySettings, systemInstruction, httpClient, logger)
 {
-    public void PrepareRequestForGenerateContent(GenerateContentRequest request)
-    {
-        ValidateGenerateContentRequest(request);
-        PrepareRequest(request);
-    }
-
     protected override void ValidateGenerateContentRequest(GenerateContentRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
