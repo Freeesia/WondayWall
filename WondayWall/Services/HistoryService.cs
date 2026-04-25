@@ -9,7 +9,7 @@ public class HistoryService
     private const int MaxHistoryItems = 100;
 
     private static readonly string HistoryFilePath =
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "WondayWall", "history.json");
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WondayWall", "history.json");
 
     public List<HistoryItem> Load()
         => JsonFileHelper.Load<List<HistoryItem>>(HistoryFilePath) ?? [];
