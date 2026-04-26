@@ -154,13 +154,13 @@ public class GoogleAiService(
             throw new InvalidOperationException(PaidTierRequiredMessage, ex);
         }
 
-        var imageBytes = ExtractImageBytes(response);
+        var imageData = ExtractImageBytes(response);
 
-        if (imageBytes == null || imageBytes.Length == 0)
+        if (imageData == null || imageData.Value.Bytes.Length == 0)
             throw new InvalidOperationException("No image data returned from Google AI.");
 
-        var filePath = FileNameHelper.GetImageFilePath(FixedImageSavePath);
-        await File.WriteAllBytesAsync(filePath, imageBytes, ct).ConfigureAwait(false);
+        var filePath = FileNameHelper.GetImageFilePath(FixedImageSavePath, extension: imageData.Value.Extension);
+        await File.WriteAllBytesAsync(filePath, imageData.Value.Bytes, ct).ConfigureAwait(false);
 
         return new(filePath, DateTime.Now, imagePrompt, serviceTier, context);
     }
@@ -334,16 +334,20 @@ public class GoogleAiService(
         return string.Join("\n\n", parts);
     }
 
-    private static byte[]? ExtractImageBytes(GenerateContentResponse response)
+    private static (byte[] Bytes, string Extension)? ExtractImageBytes(GenerateContentResponse response)
     {
         foreach (var candidate in response.Candidates ?? [])
         {
             foreach (var part in candidate.Content?.Parts ?? [])
             {
-                if (part.InlineData?.MimeType?.StartsWith("image/") == true &&
+                if (part.InlineData?.MimeType?.StartsWith("image/", StringComparison.OrdinalIgnoreCase) == true &&
                     part.InlineData.Data != null)
                 {
-                    return Convert.FromBase64String(part.InlineData.Data);
+                    var extension = part.InlineData.MimeType["image/".Length..].Trim().ToLowerInvariant();
+                    if (extension.Length == 0)
+                        continue;
+
+                    return (Convert.FromBase64String(part.InlineData.Data), extension);
                 }
             }
         }
