@@ -611,11 +611,22 @@
                             TextWrapping="Wrap" />
 
                         <Button
-                            Width="180"
+                            Width="240"
                             HorizontalAlignment="Right"
                             Classes="accent"
-                            Command="{Binding CompleteSetupCommand}"
-                            Content="セットアップを完了" />
+                            Command="{Binding CompleteSetupCommand}">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Margin="0,0,8,0" VerticalAlignment="Center" Symbol="Image" />
+                                <TextBlock VerticalAlignment="Center" Text="壁紙を生成して開始" />
+                                <ProgressBar
+                                    Width="56"
+                                    Height="4"
+                                    Margin="8,0,0,0"
+                                    VerticalAlignment="Center"
+                                    IsIndeterminate="True"
+                                    IsVisible="{Binding IsGenerating}" />
+                            </StackPanel>
+                        </Button>
                     </StackPanel>
                 </Border>
             </ScrollViewer>
