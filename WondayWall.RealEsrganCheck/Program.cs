@@ -15,7 +15,7 @@ if (args[0] is "-h" or "--help")
     return 0;
 }
 
-var inputPath = Path.GetFullPath(args[0]);
+var inputPath = ResolveInputPath(args[0]);
 if (!File.Exists(inputPath))
 {
     Console.Error.WriteLine($"Input image was not found: {inputPath}");
@@ -86,4 +86,26 @@ static void PrintUsage()
 {
     Console.WriteLine("Usage:");
     Console.WriteLine("  dotnet run --project WondayWall.RealEsrganCheck -- <input-image-path>");
+    Console.WriteLine("  dotnet run --project WondayWall.RealEsrganCheck --launch-profile RealESRGAN-RepoImage");
+}
+
+static string ResolveInputPath(string inputPath)
+{
+    if (Path.IsPathFullyQualified(inputPath))
+        return Path.GetFullPath(inputPath);
+
+    var currentDirectoryPath = Path.GetFullPath(inputPath);
+    if (File.Exists(currentDirectoryPath))
+        return currentDirectoryPath;
+
+    var directory = new DirectoryInfo(AppContext.BaseDirectory);
+    while (directory is not null)
+    {
+        if (File.Exists(Path.Combine(directory.FullName, "WondayWall.RealEsrganCheck.csproj")))
+            return Path.GetFullPath(Path.Combine(directory.FullName, inputPath));
+
+        directory = directory.Parent;
+    }
+
+    return currentDirectoryPath;
 }

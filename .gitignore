@@ -20,3 +20,7 @@ WondayWall.Wix/generated/
 # パッケージ出力
 publish/
 artifacts/
+
+# Real-ESRGAN 動作確認用のローカル画像
+WondayWall.RealEsrganCheck/Input/*
+!WondayWall.RealEsrganCheck/Input/.gitkeep

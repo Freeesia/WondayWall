@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json.schemastore.org/launchsettings.json",
+  "profiles": {
+    "RealESRGAN-RepoImage": {
+      "commandName": "Project",
+      "commandLineArgs": "Input\\input.png"
+    }
+  }
+}
