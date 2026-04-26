@@ -13,14 +13,12 @@ namespace WondayWall.Services;
 
 public class GoogleAiService(AppConfigService configService, IHttpClientFactory httpClientFactory, ILogger<GoogleAiService> logger)
 {
-    internal const string GoogleAiHttpClientName = "GoogleAi";
     private const string GoogleAiApiKeyPageUrl = "https://aistudio.google.com/app/api-keys";
     private const string PaidTierRequiredMessage =
         "無料枠または課金未設定の Google AI API キーでは、この画像生成機能を利用できません。Google AI Studio で課金設定済みのプロジェクト/APIキーを確認してください: "
         + GoogleAiApiKeyPageUrl;
 
     private readonly HttpClient httpClient = httpClientFactory.CreateClient("WondayWall");
-    private readonly HttpClient googleAiHttpClient = httpClientFactory.CreateClient(GoogleAiHttpClientName);
     private static readonly string FixedImageSavePath = Path.Combine(
         System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData),
         "WondayWall", "wallpapers");
@@ -45,7 +43,7 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
         var textModel = new GenerativeModelEx(
             config.GoogleAiApiKey,
             "gemini-3-flash-preview",
-            httpClient: googleAiHttpClient,
+            httpClient: httpClient,
             logger: logger)
         {
             UseGoogleSearch = true,
@@ -91,7 +89,7 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
             config.GoogleAiApiKey,
             "gemini-3.1-flash-image-preview",
             genConfig,
-            httpClient: googleAiHttpClient,
+            httpClient: httpClient,
             logger: logger)
         {
             UseGoogleSearch = true,
