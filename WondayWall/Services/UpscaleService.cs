@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.IO;
 using Cysharp.Diagnostics;
 using Microsoft.Extensions.Logging;
@@ -46,33 +45,11 @@ public class UpscaleService(ToolDownloadService toolDownloadService, ILogger<Ups
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         timeoutCts.CancelAfter(RealEsrganTimeout);
 
-        var processStartInfo = new ProcessStartInfo
-        {
-            FileName = tool.ExecutablePath,
-            WorkingDirectory = tool.WorkingDirectory,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-        };
-
-        var args = processStartInfo.ArgumentList;
-        args.Add("-i");
-        args.Add(inputPath);
-        args.Add("-o");
-        args.Add(outputPath);
-        args.Add("-s");
-        args.Add("2");
-        args.Add("-n");
-        args.Add("realesrgan-x4plus");
-        args.Add("-m");
-        args.Add(tool.ModelsDirectory);
-        args.Add("-f");
-        args.Add("png");
+        var arguments = $"-i \"{inputPath}\" -o \"{outputPath}\" -s 2 -n realesrgan-x4plus -m \"{tool.ModelsDirectory}\" -f png";
 
         try
         {
-            _ = await ProcessX.StartAsync(processStartInfo).ToTask(timeoutCts.Token);
+            _ = await ProcessX.StartAsync(tool.ExecutablePath, arguments, tool.WorkingDirectory).ToTask(timeoutCts.Token);
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
