@@ -22,15 +22,14 @@ public class GoogleAiService(
     ILogger<GoogleAiService> logger,
     ResiliencePipelineProvider<string> resiliencePipelineProvider)
 {
-    internal const string FlexRetryPipelineName = "GoogleAiFlexRetry";
-    internal const int MaxFlexAttempts = 3;
+    internal const string GoogleAiRetryPipelineName = "GoogleAiRetry";
     private const string TextModelName = "gemini-3-flash-preview";
     private const string ImageModelName = "gemini-3.1-flash-image-preview";
     private const int FlexServerTimeoutSeconds = 600;
 
     private readonly HttpClient ogpHttpClient = httpClientFactory.CreateClient("WondayWall");
     private readonly HttpClient geminiHttpClient = httpClientFactory.CreateClient("Gemini");
-    private readonly ResiliencePipeline flexRetryPipeline = resiliencePipelineProvider.GetPipeline(FlexRetryPipelineName);
+    private readonly ResiliencePipeline googleAiRetryPipeline = resiliencePipelineProvider.GetPipeline(GoogleAiRetryPipelineName);
     private static readonly string FixedImageSavePath = Path.Combine(
         System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData),
         "WondayWall", "wallpapers");
@@ -83,11 +82,9 @@ public class GoogleAiService(
 
         try
         {
-            return await ExecuteFlexWithRetriesAsync(
-                token => GeneratePromptSelectionAsync(context, GoogleAiServiceTier.Flex, apiKey, token),
-                ct);
+            return await GeneratePromptSelectionAsync(context, GoogleAiServiceTier.Flex, apiKey, ct);
         }
-        catch (Exception ex) when (IsRetryableFlexFailure(ex, ct))
+        catch (Exception ex) when (!ct.IsCancellationRequested)
         {
             logger.LogWarning(ex, "画像プロンプト生成の Flex 呼び出しが規定回数失敗したため Standard モードで再試行します。");
             return await GeneratePromptSelectionAsync(context, GoogleAiServiceTier.Standard, apiKey, ct);
@@ -144,17 +141,15 @@ public class GoogleAiService(
 
         try
         {
-            return await ExecuteFlexWithRetriesAsync(
-                token => GenerateImageAsync(
-                    context,
-                    imagePrompt,
-                    CloneGenerateContentRequest(imageRequest),
-                    GoogleAiServiceTier.Flex,
-                    apiKey,
-                    token),
+            return await GenerateImageAsync(
+                context,
+                imagePrompt,
+                CloneGenerateContentRequest(imageRequest),
+                GoogleAiServiceTier.Flex,
+                apiKey,
                 ct);
         }
-        catch (Exception ex) when (IsRetryableFlexFailure(ex, ct))
+        catch (Exception ex) when (!ct.IsCancellationRequested)
         {
             logger.LogWarning(ex, "画像生成の Flex 呼び出しが規定回数失敗したため、生成済みプロンプトを使って Standard モードで再試行します。");
             return await GenerateImageAsync(
@@ -281,6 +276,16 @@ public class GoogleAiService(
         GoogleAiServiceTier serviceTier,
         string apiKey,
         CancellationToken ct)
+        => await googleAiRetryPipeline.ExecuteAsync(
+            token => GenerateContentCoreAsync(model, request, serviceTier, apiKey, token),
+            ct);
+
+    private async ValueTask<GenerateContentResponse> GenerateContentCoreAsync(
+        GenerativeModelEx model,
+        GenerateContentRequest request,
+        GoogleAiServiceTier serviceTier,
+        string apiKey,
+        CancellationToken ct)
     {
         if (serviceTier == GoogleAiServiceTier.Standard)
             return await model.GenerateContentAsync(request, cancellationToken: ct);
@@ -321,9 +326,6 @@ public class GoogleAiService(
             ?? throw new InvalidOperationException("Google AI returned an empty response.");
     }
 
-    private async Task<T> ExecuteFlexWithRetriesAsync<T>(Func<CancellationToken, Task<T>> action, CancellationToken ct)
-        => await flexRetryPipeline.ExecuteAsync(async token => await action(token), ct);
-
     private static GenerateContentRequest CloneGenerateContentRequest(GenerateContentRequest request)
     {
         var json = JsonSerializer.Serialize(
@@ -346,32 +348,6 @@ public class GoogleAiService(
             GoogleSearch = new GoogleSearchTool(),
         });
     }
-
-    internal static bool IsRetryableFlexFailure(Exception ex, CancellationToken ct)
-    {
-        if (ct.IsCancellationRequested)
-            return false;
-
-        if (ex is TaskCanceledException or TimeoutException)
-            return true;
-
-        return ex is HttpRequestException httpException
-               && IsRetryableStatusCode(httpException.StatusCode);
-    }
-
-    private static bool IsRetryableStatusCode(HttpStatusCode? statusCode)
-        => statusCode is HttpStatusCode.TooManyRequests
-                         or HttpStatusCode.InternalServerError
-                         or HttpStatusCode.ServiceUnavailable
-                         or HttpStatusCode.GatewayTimeout;
-
-    internal static TimeSpan GetFlexRetryDelay(int attempt)
-        => attempt switch
-        {
-            1 => TimeSpan.FromSeconds(2),
-            2 => TimeSpan.FromSeconds(5),
-            _ => TimeSpan.FromSeconds(10),
-        };
 
     private static string BuildGenerateContentUrl(string? model, string apiKey)
     {
