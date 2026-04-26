@@ -54,21 +54,18 @@ internal class GenerativeModelEx(
         return response;
     }
 
-    private sealed class ServiceTierGenerateContentRequest(GenerateContentRequest request)
+    private sealed class ServiceTierGenerateContentRequest : GenerateContentRequest
     {
-        public List<Content>? Contents { get; init; } = request.Contents;
-
-        public List<Tool>? Tools { get; init; } = request.Tools;
-
-        public ToolConfig? ToolConfig { get; init; } = request.ToolConfig;
-
-        public List<SafetySetting>? SafetySettings { get; init; } = request.SafetySettings;
-
-        public Content? SystemInstruction { get; init; } = request.SystemInstruction;
-
-        public GenerationConfig? GenerationConfig { get; init; } = request.GenerationConfig;
-
-        public string? CachedContent { get; init; } = request.CachedContent;
+        public ServiceTierGenerateContentRequest(GenerateContentRequest request)
+        {
+            Contents = request.Contents;
+            Tools = request.Tools;
+            ToolConfig = request.ToolConfig;
+            SafetySettings = request.SafetySettings;
+            SystemInstruction = request.SystemInstruction;
+            GenerationConfig = request.GenerationConfig;
+            CachedContent = request.CachedContent;
+        }
 
         [JsonPropertyName("service_tier")]
         public string ServiceTier { get; init; } = "flex";

@@ -51,15 +51,16 @@ public class GoogleAiService(
             serviceTier,
             config.GoogleAiApiKey,
             ct);
+        var imagePrompt = promptResult.PromptSelection.ImagePrompt;
         var imageRequest = await BuildImageRequestAsync(
             context,
             promptResult.PromptSelection,
-            promptResult.ImagePrompt,
+            imagePrompt,
             ct);
 
         return await GenerateImageWithFallbackAsync(
             context,
-            promptResult.ImagePrompt,
+            imagePrompt,
             imageRequest,
             promptResult.ServiceTier,
             config.GoogleAiApiKey,
@@ -119,9 +120,9 @@ public class GoogleAiService(
             .Select(id => id.Trim())
             .Distinct(StringComparer.Ordinal)
             .ToList();
-        var imagePrompt = promptSelection.ImagePrompt.Trim();
+        promptSelection.ImagePrompt = promptSelection.ImagePrompt.Trim();
 
-        return new PromptSelectionResult(promptSelection, imagePrompt, serviceTier);
+        return new PromptSelectionResult(promptSelection, serviceTier);
     }
 
     private async Task<GeneratedImageInfo> GenerateImageWithFallbackAsync(
@@ -137,7 +138,7 @@ public class GoogleAiService(
             return await GenerateImageAsync(
                 context,
                 imagePrompt,
-                CloneGenerateContentRequest(imageRequest),
+                imageRequest,
                 GoogleAiServiceTier.Standard,
                 apiKey,
                 ct);
@@ -148,7 +149,7 @@ public class GoogleAiService(
             return await GenerateImageAsync(
                 context,
                 imagePrompt,
-                CloneGenerateContentRequest(imageRequest),
+                imageRequest,
                 GoogleAiServiceTier.Flex,
                 apiKey,
                 ct);
@@ -159,7 +160,7 @@ public class GoogleAiService(
             return await GenerateImageAsync(
                 context,
                 imagePrompt,
-                CloneGenerateContentRequest(imageRequest),
+                imageRequest,
                 GoogleAiServiceTier.Standard,
                 apiKey,
                 ct);
@@ -280,17 +281,6 @@ public class GoogleAiService(
         AddGoogleSearchTool(imageRequest);
 
         return imageRequest;
-    }
-
-    private static GenerateContentRequest CloneGenerateContentRequest(GenerateContentRequest request)
-    {
-        var json = JsonSerializer.Serialize(
-            request,
-            TypesSerializerContext.Default.GenerateContentRequest);
-        return JsonSerializer.Deserialize(
-            json,
-            TypesSerializerContext.Default.GenerateContentRequest)
-            ?? throw new InvalidOperationException("Failed to clone Google AI request.");
     }
 
     private static void AddGoogleSearchTool(GenerateContentRequest request)
@@ -417,14 +407,13 @@ public class GoogleAiService(
 
     private sealed class PromptSelectionResponse
     {
-        public required string ImagePrompt { get; init; }
+        public required string ImagePrompt { get; set; }
 
         public required List<string> SelectedNewsIds { get; set; }
     }
 
     private sealed record PromptSelectionResult(
         PromptSelectionResponse PromptSelection,
-        string ImagePrompt,
         GoogleAiServiceTier ServiceTier);
 
     private static bool IsPaidTierRequiredError(ApiException ex)

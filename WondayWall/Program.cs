@@ -51,8 +51,8 @@ static void ConfigureCommonServices(IServiceCollection services)
             "Gemini",
             c =>
             {
-                c.Timeout = TimeSpan.FromMinutes(10);
-                c.DefaultRequestHeaders.TryAddWithoutValidation("X-Server-Timeout", "600");
+                c.Timeout = TimeSpan.FromMinutes(30);
+                c.DefaultRequestHeaders.TryAddWithoutValidation("X-Server-Timeout", "1800");
             })
         .AddResilienceHandler("GoogleAiRetry", static builder => builder.AddRetry(new HttpRetryStrategyOptions()));
     services.AddSingleton<WallpaperService>();
