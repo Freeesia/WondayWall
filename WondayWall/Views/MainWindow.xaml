@@ -363,9 +363,14 @@
                                             <ui:CardControl.Icon>
                                                 <ui:SymbolIcon Symbol="Password24" />
                                             </ui:CardControl.Icon>
-                                            <ui:PasswordBox
-                                                Width="320"
-                                                Password="{Binding AppConfig.GoogleAiApiKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                            <StackPanel>
+                                                <ui:PasswordBox
+                                                    Width="320"
+                                                    Password="{Binding AppConfig.GoogleAiApiKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                                <TextBlock Margin="0,8,0,0">
+                                                    <Hyperlink NavigateUri="https://aistudio.google.com/app/api-keys" RequestNavigate="ApiKeyLink_RequestNavigate">APIキー取得ページを開く</Hyperlink>
+                                                </TextBlock>
+                                            </StackPanel>
                                         </ui:CardControl>
                                         <ui:CardControl Header="ユーザープロンプト（追加の指示）">
                                             <ui:CardControl.Icon>
@@ -493,6 +498,9 @@
                                         Width="420"
                                         Margin="0,8,0,0"
                                         Password="{Binding AppConfig.GoogleAiApiKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                    <TextBlock Margin="0,8,0,0">
+                                        <Hyperlink NavigateUri="https://aistudio.google.com/app/api-keys" RequestNavigate="ApiKeyLink_RequestNavigate">APIキー取得ページを開く</Hyperlink>
+                                    </TextBlock>
                                 </StackPanel>
                             </ui:CardControl>
 
