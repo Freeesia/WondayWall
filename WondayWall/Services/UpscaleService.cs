@@ -22,9 +22,7 @@ public class UpscaleService(ToolDownloadService toolDownloadService, ILogger<Ups
 
         try
         {
-            var tool = await toolDownloadService.EnsureRealEsrganAsync(ct);
-            if (tool is not null)
-                return await UpscaleWithRealEsrganAsync(inputPath, tool, ct);
+            return await Upscale2xWithRealEsrganOnlyAsync(inputPath, ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -32,6 +30,17 @@ public class UpscaleService(ToolDownloadService toolDownloadService, ILogger<Ups
         }
 
         return await UpscaleWithLanczosAsync(inputPath, ct);
+    }
+
+    public async Task<UpscaleResult> Upscale2xWithRealEsrganOnlyAsync(
+        string inputPath,
+        CancellationToken ct = default)
+    {
+        var tool = await toolDownloadService.EnsureRealEsrganAsync(ct);
+        if (tool is null)
+            throw new InvalidOperationException("Real-ESRGAN-ncnn-vulkan を利用できません。");
+
+        return await UpscaleWithRealEsrganAsync(inputPath, tool, ct);
     }
 
     private async Task<UpscaleResult> UpscaleWithRealEsrganAsync(
