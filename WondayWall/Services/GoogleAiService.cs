@@ -1,16 +1,10 @@
-using System.Globalization;
 using System.IO;
-using System.Net;
 using System.Net.Http;
-using System.Text;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using GenerativeAI;
 using GenerativeAI.Exceptions;
 using GenerativeAI.Types;
 using Microsoft.Extensions.Logging;
-using Polly;
-using Polly.Registry;
 using WondayWall.ComponentModel;
 using WondayWall.Models;
 using WondayWall.Utils;
@@ -20,21 +14,17 @@ namespace WondayWall.Services;
 public class GoogleAiService(
     AppConfigService configService,
     IHttpClientFactory httpClientFactory,
-    ILogger<GoogleAiService> logger,
-    ResiliencePipelineProvider<string> resiliencePipelineProvider)
+    ILogger<GoogleAiService> logger)
 {
-    internal const string GoogleAiRetryPipelineName = "GoogleAiRetry";
     private const string GoogleAiApiKeyPageUrl = "https://aistudio.google.com/app/api-keys";
     private const string PaidTierRequiredMessage =
         "無料枠または課金未設定の Google AI API キーでは、この画像生成機能を利用できません。Google AI Studio で課金設定済みのプロジェクト/APIキーを確認してください: "
         + GoogleAiApiKeyPageUrl;
     private const string TextModelName = "gemini-3-flash-preview";
     private const string ImageModelName = "gemini-3.1-flash-image-preview";
-    private const int FlexServerTimeoutSeconds = 600;
 
     private readonly HttpClient ogpHttpClient = httpClientFactory.CreateClient("WondayWall");
     private readonly HttpClient geminiHttpClient = httpClientFactory.CreateClient("Gemini");
-    private readonly ResiliencePipeline googleAiRetryPipeline = resiliencePipelineProvider.GetPipeline(GoogleAiRetryPipelineName);
     private static readonly string FixedImageSavePath = Path.Combine(
         System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData),
         "WondayWall", "wallpapers");
@@ -103,14 +93,22 @@ public class GoogleAiService(
         CancellationToken ct)
     {
         // ステップ1: テキストモデルで詳細な画像プロンプトを生成（Google検索グラウンディングを有効化）
-        var textModel = new GenerativeModelEx(apiKey, TextModelName, httpClient: geminiHttpClient);
+        var textModel = new GenerativeModelEx(apiKey, TextModelName, httpClient: geminiHttpClient, serviceTier: serviceTier);
         var contextPrompt = BuildTextModelPrompt(context);
         var promptRequest = new GenerateContentRequest();
         promptRequest.UseJsonMode<PromptSelectionResponse>(JsonSerializerOptions);
         promptRequest.AddText(contextPrompt);
         AddGoogleSearchTool(promptRequest);
 
-        var promptResponse = await GenerateContentAsync(textModel, promptRequest, serviceTier, apiKey, ct);
+        GenerateContentResponse promptResponse;
+        try
+        {
+            promptResponse = await textModel.GenerateContentAsync(promptRequest, ct);
+        }
+        catch (ApiException ex) when (IsPaidTierRequiredError(ex))
+        {
+            throw new InvalidOperationException(PaidTierRequiredMessage, ex);
+        }
         var promptSelection = promptResponse.ToObject<PromptSelectionResponse>(JsonSerializerOptions);
 
         if (promptSelection == null || string.IsNullOrWhiteSpace(promptSelection.ImagePrompt))
@@ -177,9 +175,17 @@ public class GoogleAiService(
         CancellationToken ct)
     {
         // ステップ2: 画像モデルでアスペクト比・サイズを指定して壁紙を生成
-        var imageModel = new GenerativeModelEx(apiKey, ImageModelName, httpClient: geminiHttpClient);
+        var imageModel = new GenerativeModelEx(apiKey, ImageModelName, httpClient: geminiHttpClient, serviceTier: serviceTier);
 
-        var response = await GenerateContentAsync(imageModel, imageRequest, serviceTier, apiKey, ct);
+        GenerateContentResponse response;
+        try
+        {
+            response = await imageModel.GenerateContentAsync(imageRequest, ct);
+        }
+        catch (ApiException ex) when (IsPaidTierRequiredError(ex))
+        {
+            throw new InvalidOperationException(PaidTierRequiredMessage, ex);
+        }
 
         var imageBytes = ExtractImageBytes(response);
 
@@ -276,71 +282,6 @@ public class GoogleAiService(
         return imageRequest;
     }
 
-    private async Task<GenerateContentResponse> GenerateContentAsync(
-        GenerativeModelEx model,
-        GenerateContentRequest request,
-        GoogleAiServiceTier serviceTier,
-        string apiKey,
-        CancellationToken ct)
-        => await googleAiRetryPipeline.ExecuteAsync(
-            token => GenerateContentCoreAsync(model, request, serviceTier, apiKey, token),
-            ct);
-
-    private async ValueTask<GenerateContentResponse> GenerateContentCoreAsync(
-        GenerativeModelEx model,
-        GenerateContentRequest request,
-        GoogleAiServiceTier serviceTier,
-        string apiKey,
-        CancellationToken ct)
-    {
-        if (serviceTier == GoogleAiServiceTier.Standard)
-        {
-            try
-            {
-                return await model.GenerateContentAsync(request, cancellationToken: ct);
-            }
-            catch (ApiException ex) when (IsPaidTierRequiredError(ex))
-            {
-                throw new InvalidOperationException(PaidTierRequiredMessage, ex);
-            }
-        }
-
-        var requestNode = JsonSerializer.SerializeToNode(
-            request,
-            TypesSerializerContext.Default.GenerateContentRequest);
-        if (requestNode is not JsonObject requestObject)
-            throw new InvalidOperationException("Failed to build Google AI request JSON.");
-
-        requestObject["service_tier"] = "flex";
-
-        using var httpRequest = new HttpRequestMessage(
-            HttpMethod.Post,
-            BuildGenerateContentUrl(model.Model, apiKey));
-        httpRequest.Headers.TryAddWithoutValidation(
-            "X-Server-Timeout",
-            FlexServerTimeoutSeconds.ToString(CultureInfo.InvariantCulture));
-        httpRequest.Content = new StringContent(
-            requestObject.ToJsonString(JsonSerializerOptions),
-            Encoding.UTF8,
-            "application/json");
-
-        using var response = await geminiHttpClient.SendAsync(
-            httpRequest,
-            HttpCompletionOption.ResponseHeadersRead,
-            ct);
-        var responseJson = await response.Content.ReadAsStringAsync(ct);
-        if (!response.IsSuccessStatusCode)
-            throw new HttpRequestException(
-                BuildGoogleAiErrorMessage(response.StatusCode, response.ReasonPhrase, responseJson),
-                inner: null,
-                response.StatusCode);
-
-        return JsonSerializer.Deserialize(
-            responseJson,
-            TypesSerializerContext.Default.GenerateContentResponse)
-            ?? throw new InvalidOperationException("Google AI returned an empty response.");
-    }
-
     private static GenerateContentRequest CloneGenerateContentRequest(GenerateContentRequest request)
     {
         var json = JsonSerializer.Serialize(
@@ -362,28 +303,6 @@ public class GoogleAiService(
         {
             GoogleSearch = new GoogleSearchTool(),
         });
-    }
-
-    private static string BuildGenerateContentUrl(string? model, string apiKey)
-    {
-        if (string.IsNullOrWhiteSpace(model))
-            throw new InvalidOperationException("Google AI model is not configured.");
-
-        var normalizedModel = model.StartsWith("models/", StringComparison.Ordinal)
-            ? model
-            : $"models/{model}";
-        return $"https://generativelanguage.googleapis.com/v1beta/{normalizedModel}:generateContent?key={Uri.EscapeDataString(apiKey)}";
-    }
-
-    private static string BuildGoogleAiErrorMessage(HttpStatusCode statusCode, string? reasonPhrase, string responseBody)
-    {
-        var trimmedBody = string.IsNullOrWhiteSpace(responseBody)
-            ? "No response body."
-            : responseBody.Trim();
-        if (trimmedBody.Length > 500)
-            trimmedBody = $"{trimmedBody[..500]}...";
-
-        return $"Google AI request failed ({(int)statusCode} {reasonPhrase}): {trimmedBody}";
     }
 
     /// <summary>

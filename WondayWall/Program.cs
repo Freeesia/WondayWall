@@ -1,6 +1,7 @@
 using ConsoleAppFramework;
 using Kamishibai;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Polly;
@@ -46,11 +47,14 @@ static void ConfigureCommonServices(IServiceCollection services)
 {
     services.AddLogging(b => b.AddConsole());
     services.AddHttpClient("WondayWall", c => c.Timeout = TimeSpan.FromSeconds(30));
-    services.AddHttpClient("Gemini", c => c.Timeout = TimeSpan.FromMinutes(10));
-    services.AddResiliencePipeline(GoogleAiService.GoogleAiRetryPipelineName, static builder =>
-    {
-        builder.AddRetry(new());
-    });
+    services.AddHttpClient(
+            "Gemini",
+            c =>
+            {
+                c.Timeout = TimeSpan.FromMinutes(10);
+                c.DefaultRequestHeaders.TryAddWithoutValidation("X-Server-Timeout", "600");
+            })
+        .AddResilienceHandler("GoogleAiRetry", static builder => builder.AddRetry(new HttpRetryStrategyOptions()));
     services.AddSingleton<WallpaperService>();
     services.AddSingleton<AppConfigService>();
     services.AddSingleton<HistoryService>();
