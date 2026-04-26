@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using System.Windows.Input;
+using System.Windows.Navigation;
 using WondayWall.Models;
 using WondayWall.ViewModels;
 using Wpf.Ui.Appearance;
@@ -23,5 +25,15 @@ public partial class MainWindow : FluentWindow
             return;
 
         viewModel.OpenHistoryImageCommand.Execute(historyItem);
+    }
+
+    private void ApiKeyLink_RequestNavigate(object sender, RequestNavigateEventArgs e)
+    {
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = e.Uri.AbsoluteUri,
+            UseShellExecute = true,
+        });
+        e.Handled = true;
     }
 }
