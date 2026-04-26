@@ -587,11 +587,22 @@
                                 TextWrapping="Wrap" />
 
                             <ui:Button
-                                Width="180"
+                                Width="240"
                                 HorizontalAlignment="Right"
                                 Appearance="Primary"
                                 Command="{Binding CompleteSetupCommand}"
-                                Content="セットアップを完了" />
+                                Icon="{ui:SymbolIcon Symbol=Image24}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock VerticalAlignment="Center" Text="壁紙を生成して開始" />
+                                    <ui:ProgressRing
+                                        Width="24"
+                                        Height="24"
+                                        Margin="8,0,0,0"
+                                        VerticalAlignment="Center"
+                                        IsIndeterminate="True"
+                                        Visibility="{Binding IsGenerating, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                </StackPanel>
+                            </ui:Button>
                         </StackPanel>
                     </Border>
                 </ScrollViewer>

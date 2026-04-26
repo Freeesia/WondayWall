@@ -156,6 +156,12 @@ public partial class MainWindowViewModel : ObservableObject
 
     private bool CanGenerate() => !IsGenerating;
 
+    partial void OnIsGeneratingChanged(bool value)
+    {
+        GenerateCommand.NotifyCanExecuteChanged();
+        CompleteSetupCommand.NotifyCanExecuteChanged();
+    }
+
     [RelayCommand]
     private void Save()
     {
@@ -186,11 +192,12 @@ public partial class MainWindowViewModel : ObservableObject
         }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanGenerate))]
     private async Task CompleteSetup(CancellationToken ct = default)
     {
         LastResultMessage = string.Empty;
         const string setupCompletedMessage = "初回セットアップが完了しました。";
+        const string setupSavedMessage = "初回設定を保存しました。壁紙を生成しています...";
 
         var apiKey = AppConfig.GoogleAiApiKey.Trim();
         if (string.IsNullOrWhiteSpace(apiKey))
@@ -210,7 +217,8 @@ public partial class MainWindowViewModel : ObservableObject
                 return;
             }
 
-            RssSources.Add(rssUrl);
+            if (!RssSources.Contains(rssUrl))
+                RssSources.Add(rssUrl);
         }
 
         if (IsCalendarConnected)
@@ -219,10 +227,11 @@ public partial class MainWindowViewModel : ObservableObject
             primaryCalendar?.IsSelected = true;
         }
 
+        IsGenerating = true;
+
         try
         {
-            SaveSettings(IsTaskSchedulerEnabled, setupCompletedMessage);
-            ShowSetupWizard = false;
+            SaveSettings(IsTaskSchedulerEnabled, setupSavedMessage);
             NewRssSourceUrl = string.Empty;
 
             if (IsCalendarConnected && AvailableCalendars.Count > 0)
@@ -251,7 +260,18 @@ public partial class MainWindowViewModel : ObservableObject
                 }
             }
 
-            LastResultMessage = setupCompletedMessage;
+            var result = await _coordinator.RunAsync(skipIfNoChanges: false, ct: ct);
+            LoadHistory();
+
+            if (result.IsSuccess && result.AppliedImagePath != null)
+            {
+                LastImagePreviewPath = result.AppliedImagePath;
+                LastResultMessage = $"{setupCompletedMessage} 壁紙: {result.AppliedImagePath}";
+                ShowSetupWizard = false;
+                return;
+            }
+
+            LastResultMessage = $"壁紙生成に失敗しました: {result.ErrorSummary ?? "画像パスを取得できませんでした。"}";
         }
         catch (Exception ex) when (IsTaskSchedulerEnabled && ex is SecurityException or UnauthorizedAccessException)
         {
@@ -260,6 +280,10 @@ public partial class MainWindowViewModel : ObservableObject
         catch (Exception ex)
         {
             LastResultMessage = $"初回セットアップを完了できませんでした: {ex.Message}";
+        }
+        finally
+        {
+            IsGenerating = false;
         }
     }
 
