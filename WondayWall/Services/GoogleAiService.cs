@@ -43,8 +43,7 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
         var textModel = new GenerativeModelEx(
             config.GoogleAiApiKey,
             "gemini-3-flash-preview",
-            httpClient: httpClient,
-            logger: logger)
+            httpClient: httpClient)
         {
             UseGoogleSearch = true,
             UseJsonMode = true,
@@ -89,8 +88,7 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
             config.GoogleAiApiKey,
             "gemini-3.1-flash-image-preview",
             genConfig,
-            httpClient: httpClient,
-            logger: logger)
+            httpClient: httpClient)
         {
             UseGoogleSearch = true,
         };
