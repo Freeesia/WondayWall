@@ -40,10 +40,7 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
             throw new InvalidOperationException("Google AI API key is not configured.");
 
         // ステップ1: テキストモデルで詳細な画像プロンプトを生成（Google検索グラウンディングを有効化）
-        var textModel = new GenerativeModelEx(
-            config.GoogleAiApiKey,
-            "gemini-3-flash-preview",
-            httpClient: httpClient)
+        var textModel = new GenerativeModelEx(config.GoogleAiApiKey, "gemini-3-flash-preview")
         {
             UseGoogleSearch = true,
             UseJsonMode = true,
@@ -84,11 +81,7 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
                 ImageSize = displayInfo.ImageSize,
             }
         };
-        var imageModel = new GenerativeModel(
-            config.GoogleAiApiKey,
-            "gemini-3.1-flash-image-preview",
-            genConfig,
-            httpClient: httpClient)
+        var imageModel = new GenerativeModel(config.GoogleAiApiKey, "gemini-3.1-flash-image-preview", genConfig)
         {
             UseGoogleSearch = true,
         };
