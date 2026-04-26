@@ -9,22 +9,28 @@ using GenerativeAI;
 using GenerativeAI.Types;
 using Microsoft.Extensions.Logging;
 using Polly;
-using Polly.Retry;
+using Polly.Registry;
 using WondayWall.ComponentModel;
 using WondayWall.Models;
 using WondayWall.Utils;
 
 namespace WondayWall.Services;
 
-public class GoogleAiService(AppConfigService configService, IHttpClientFactory httpClientFactory, ILogger<GoogleAiService> logger)
+public class GoogleAiService(
+    AppConfigService configService,
+    IHttpClientFactory httpClientFactory,
+    ILogger<GoogleAiService> logger,
+    ResiliencePipelineProvider<string> resiliencePipelineProvider)
 {
+    internal const string FlexRetryPipelineName = "GoogleAiFlexRetry";
+    internal const int MaxFlexAttempts = 3;
     private const string TextModelName = "gemini-3-flash-preview";
     private const string ImageModelName = "gemini-3.1-flash-image-preview";
     private const int FlexServerTimeoutSeconds = 600;
-    private const int MaxFlexAttempts = 3;
 
     private readonly HttpClient ogpHttpClient = httpClientFactory.CreateClient("WondayWall");
     private readonly HttpClient geminiHttpClient = httpClientFactory.CreateClient("Gemini");
+    private readonly ResiliencePipeline flexRetryPipeline = resiliencePipelineProvider.GetPipeline(FlexRetryPipelineName);
     private static readonly string FixedImageSavePath = Path.Combine(
         System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData),
         "WondayWall", "wallpapers");
@@ -78,8 +84,7 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
         try
         {
             return await ExecuteFlexWithRetriesAsync(
-                () => GeneratePromptSelectionAsync(context, GoogleAiServiceTier.Flex, apiKey, ct),
-                "画像プロンプト生成",
+                token => GeneratePromptSelectionAsync(context, GoogleAiServiceTier.Flex, apiKey, token),
                 ct);
         }
         catch (Exception ex) when (IsRetryableFlexFailure(ex, ct))
@@ -140,14 +145,13 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
         try
         {
             return await ExecuteFlexWithRetriesAsync(
-                () => GenerateImageAsync(
+                token => GenerateImageAsync(
                     context,
                     imagePrompt,
                     CloneGenerateContentRequest(imageRequest),
                     GoogleAiServiceTier.Flex,
                     apiKey,
-                    ct),
-                "画像生成",
+                    token),
                 ct);
         }
         catch (Exception ex) when (IsRetryableFlexFailure(ex, ct))
@@ -317,37 +321,8 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
             ?? throw new InvalidOperationException("Google AI returned an empty response.");
     }
 
-    private async Task<T> ExecuteFlexWithRetriesAsync<T>(
-        Func<Task<T>> action,
-        string operationName,
-        CancellationToken ct)
-    {
-        var retryPipeline = new ResiliencePipelineBuilder<T>()
-            .AddRetry(new RetryStrategyOptions<T>
-            {
-                MaxRetryAttempts = MaxFlexAttempts - 1,
-                DelayGenerator = args => new ValueTask<TimeSpan?>(GetFlexRetryDelay(args.AttemptNumber + 1)),
-                ShouldHandle = new PredicateBuilder<T>()
-                    .Handle<HttpRequestException>(ex => IsRetryableStatusCode(ex.StatusCode))
-                    .Handle<TaskCanceledException>(_ => !ct.IsCancellationRequested)
-                    .Handle<TimeoutException>(_ => !ct.IsCancellationRequested),
-                OnRetry = args =>
-                {
-                    var failedAttempt = args.AttemptNumber + 1;
-                    logger.LogWarning(
-                        args.Outcome.Exception,
-                        "{OperationName} の Flex 呼び出しに失敗しました ({Attempt}/{MaxAttempts})。{DelaySeconds} 秒後に再試行します。",
-                        operationName,
-                        failedAttempt,
-                        MaxFlexAttempts,
-                        args.RetryDelay.TotalSeconds);
-                    return default;
-                },
-            })
-            .Build();
-
-        return await retryPipeline.ExecuteAsync(async token => await action(), ct);
-    }
+    private async Task<T> ExecuteFlexWithRetriesAsync<T>(Func<CancellationToken, Task<T>> action, CancellationToken ct)
+        => await flexRetryPipeline.ExecuteAsync(async token => await action(token), ct);
 
     private static GenerateContentRequest CloneGenerateContentRequest(GenerateContentRequest request)
     {
@@ -372,7 +347,7 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
         });
     }
 
-    private static bool IsRetryableFlexFailure(Exception ex, CancellationToken ct)
+    internal static bool IsRetryableFlexFailure(Exception ex, CancellationToken ct)
     {
         if (ct.IsCancellationRequested)
             return false;
@@ -390,7 +365,7 @@ public class GoogleAiService(AppConfigService configService, IHttpClientFactory 
                          or HttpStatusCode.ServiceUnavailable
                          or HttpStatusCode.GatewayTimeout;
 
-    private static TimeSpan GetFlexRetryDelay(int attempt)
+    internal static TimeSpan GetFlexRetryDelay(int attempt)
         => attempt switch
         {
             1 => TimeSpan.FromSeconds(2),

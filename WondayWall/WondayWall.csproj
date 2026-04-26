@@ -39,6 +39,6 @@
     <PackageReference Include="TaskScheduler" Version="2.*" />
     <PackageReference Include="Microsoft.Windows.CsWin32" Version="0.3.*" PrivateAssets="all" />
     <PackageReference Include="OpenGraph-Net" Version="4.0.1" />
-    <PackageReference Include="Polly" Version="8.6.6" />
+    <PackageReference Include="Polly.Extensions" Version="8.6.6" />
   </ItemGroup>
 </Project>
