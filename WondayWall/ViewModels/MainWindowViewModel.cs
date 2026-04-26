@@ -27,7 +27,11 @@ public partial class MainWindowViewModel : ObservableObject
     public partial string CalendarStatus { get; set; } = "Not connected";
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ConnectCalendarButtonText))]
     public partial bool IsCalendarConnected { get; set; }
+
+    /// <summary>IsCalendarConnected の状態に応じたカレンダー接続ボタンのテキスト</summary>
+    public string ConnectCalendarButtonText => IsCalendarConnected ? "再取得する" : "接続する";
 
     [ObservableProperty]
     public partial string LastResultMessage { get; set; } = "No generation yet";

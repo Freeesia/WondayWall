@@ -1,0 +1,624 @@
+<Window
+    x:Class="WondayWall.Views.MainWindow"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:models="using:WondayWall.Models"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
+    xmlns:utils="using:WondayWall.Utils"
+    xmlns:vm="using:WondayWall.ViewModels"
+    x:DataType="vm:MainWindowViewModel"
+    Title="WondayWall"
+    Width="820"
+    Height="760"
+    Icon="avares://WondayWall/Assets/AppIcon.ico"
+    WindowStartupLocation="CenterScreen">
+
+    <Window.Resources>
+        <utils:UrlToFaviconConverter x:Key="UrlToFaviconConverter" />
+    </Window.Resources>
+
+    <Grid>
+        <TabControl Margin="8">
+
+            <!--  ホームタブ  -->
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <ui:SymbolIcon Margin="0,0,8,0" Symbol="Home" />
+                        <TextBlock Text="ホーム" />
+                    </StackPanel>
+                </TabItem.Header>
+                <ScrollViewer Margin="0,0,0,8">
+                    <DockPanel>
+
+                        <!--  現在の壁紙カード  -->
+                        <Border Classes="card" DockPanel.Dock="Top" Margin="0,0,0,8">
+                            <DockPanel>
+                                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+                                    <ui:SymbolIcon Margin="0,0,8,0" VerticalAlignment="Center" Symbol="Image" />
+                                    <TextBlock FontWeight="SemiBold" VerticalAlignment="Center" Text="現在の壁紙" />
+                                </StackPanel>
+                                <Image
+                                    MaxHeight="300"
+                                    Source="{ReflectionBinding LastImagePreviewPath}"
+                                    Stretch="Uniform" />
+                            </DockPanel>
+                        </Border>
+
+                        <!--  最終実行結果カード  -->
+                        <Border Classes="card" DockPanel.Dock="Top" Margin="0,0,0,8">
+                            <DockPanel>
+                                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+                                    <ui:SymbolIcon Margin="0,0,8,0" VerticalAlignment="Center" Symbol="Help" />
+                                    <TextBlock FontWeight="SemiBold" VerticalAlignment="Center" Text="最終実行結果" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding LastResultMessage}" TextWrapping="Wrap" />
+                            </DockPanel>
+                        </Border>
+
+                        <!--  壁紙生成ボタン  -->
+                        <Button
+                            Height="40"
+                            Margin="8,0,8,4"
+                            HorizontalAlignment="Right"
+                            Classes="accent"
+                            Command="{Binding GenerateCommand}"
+                            DockPanel.Dock="Top">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Margin="0,0,8,0" VerticalAlignment="Center" Symbol="Edit" />
+                                <TextBlock VerticalAlignment="Center" Text="壁紙を今すぐ生成" />
+                                <ProgressBar
+                                    Width="80"
+                                    Height="4"
+                                    Margin="8,0,0,0"
+                                    VerticalAlignment="Center"
+                                    IsIndeterminate="True"
+                                    IsVisible="{Binding IsGenerating}" />
+                            </StackPanel>
+                        </Button>
+
+                        <TextBlock
+                            Margin="0,8,0,4"
+                            DockPanel.Dock="Top"
+                            FontSize="16"
+                            FontWeight="SemiBold"
+                            Text="実行履歴" />
+
+                        <!--  実行履歴 DataGrid  -->
+                        <DataGrid
+                            x:Name="HistoryDataGrid"
+                            MinHeight="200"
+                            AutoGenerateColumns="False"
+                            DoubleTapped="HistoryDataGrid_OnDoubleTapped"
+                            IsReadOnly="True"
+                            ItemsSource="{Binding History}">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn
+                                    Width="160"
+                                    Binding="{ReflectionBinding ExecutedAt, StringFormat='{}{0:yyyy/MM/dd HH:mm}'}"
+                                    Header="実行日時" />
+                                <DataGridTextColumn
+                                    Width="60"
+                                    Binding="{ReflectionBinding IsSuccess}"
+                                    Header="成功" />
+                                <DataGridTextColumn
+                                    Width="60"
+                                    Binding="{ReflectionBinding UsedCalendarEvents.Count, FallbackValue=0}"
+                                    Header="予定" />
+                                <DataGridTextColumn
+                                    Width="60"
+                                    Binding="{ReflectionBinding UsedNewsTopics.Count, FallbackValue=0}"
+                                    Header="ニュース" />
+                                <DataGridTextColumn
+                                    Width="280"
+                                    Binding="{ReflectionBinding ErrorSummary}"
+                                    Header="メッセージ" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!--  データタブ  -->
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <ui:SymbolIcon Margin="0,0,8,0" Symbol="List" />
+                        <TextBlock Text="データ" />
+                    </StackPanel>
+                </TabItem.Header>
+                <DockPanel>
+                    <Button
+                        Margin="0,8,0,0"
+                        HorizontalAlignment="Right"
+                        Classes="accent"
+                        Command="{Binding SaveCommand}"
+                        Content="設定を保存"
+                        DockPanel.Dock="Bottom" />
+
+                    <ScrollViewer Margin="0,0,0,8">
+                        <StackPanel>
+
+                            <!--  カレンダーグループ  -->
+                            <HeaderedContentControl Margin="0,0,0,8" Header="Googleカレンダー">
+                                <StackPanel Margin="4">
+
+                                    <!--  接続状態カード  -->
+                                    <Border Classes="card" Margin="0,0,0,8">
+                                        <Grid ColumnDefinitions="Auto,*,Auto">
+                                            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                                <ui:SymbolIcon
+                                                    Margin="0,0,8,0"
+                                                    IsVisible="{Binding !IsCalendarConnected}"
+                                                    Symbol="Dismiss" />
+                                                <ui:SymbolIcon
+                                                    Margin="0,0,8,0"
+                                                    IsVisible="{Binding IsCalendarConnected}"
+                                                    Symbol="Link" />
+                                            </StackPanel>
+                                            <TextBlock
+                                                Grid.Column="1"
+                                                VerticalAlignment="Center"
+                                                Text="{Binding CalendarStatus}"
+                                                TextWrapping="Wrap" />
+                                            <Button
+                                                Grid.Column="2"
+                                                Command="{Binding ConnectCalendarCommand}"
+                                                Content="{Binding ConnectCalendarButtonText}" />
+                                        </Grid>
+                                    </Border>
+
+                                    <TextBlock
+                                        Margin="0,0,0,4"
+                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                        Text="参照するカレンダー" />
+
+                                    <ListBox MaxHeight="120" ItemsSource="{Binding AvailableCalendars}">
+                                        <ListBox.ItemContainerTheme>
+                                            <ControlTheme BasedOn="{StaticResource {x:Type ListBoxItem}}" TargetType="ListBoxItem">
+                                                <Setter Property="Padding" Value="0" />
+                                            </ControlTheme>
+                                        </ListBox.ItemContainerTheme>
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate x:DataType="models:AvailableCalendar">
+                                                <CheckBox Content="{Binding Summary}" IsChecked="{Binding IsSelected}" />
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+
+                                    <TextBlock
+                                        Margin="0,4,0,4"
+                                        FontWeight="SemiBold"
+                                        Text="直近のカレンダーイベント" />
+
+                                    <DataGrid
+                                        MaxHeight="160"
+                                        AutoGenerateColumns="False"
+                                        IsReadOnly="True"
+                                        ItemsSource="{Binding RecentEvents}">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn
+                                                Width="250"
+                                                Binding="{ReflectionBinding Title}"
+                                                Header="タイトル" />
+                                            <DataGridTextColumn
+                                                Width="160"
+                                                Binding="{ReflectionBinding StartTime, StringFormat='{}{0:yyyy/MM/dd HH:mm}'}"
+                                                Header="開始日時" />
+                                            <DataGridTextColumn
+                                                Width="150"
+                                                Binding="{ReflectionBinding Location}"
+                                                Header="場所" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </StackPanel>
+                            </HeaderedContentControl>
+
+                            <!--  ニュースグループ  -->
+                            <HeaderedContentControl Header="ニュース">
+                                <StackPanel Margin="4">
+                                    <TextBlock
+                                        Margin="0,0,0,4"
+                                        FontWeight="SemiBold"
+                                        Text="RSSソース" />
+
+                                    <ListBox
+                                        MaxHeight="120"
+                                        Margin="0,0,0,8"
+                                        ItemsSource="{Binding RssSources}"
+                                        SelectedItem="{Binding SelectedRssSource}">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate x:DataType="x:String">
+                                                <TextBlock VerticalAlignment="Center" Text="{Binding}" />
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+
+                                    <Grid Margin="0,0,0,4" ColumnDefinitions="*,Auto,Auto">
+                                        <TextBox
+                                            Grid.Column="0"
+                                            Text="{Binding NewRssSourceUrl}"
+                                            PlaceholderText="https://example.com/feed.xml" />
+                                        <Button
+                                            Grid.Column="1"
+                                            Margin="4,0,0,0"
+                                            Classes="accent"
+                                            Command="{Binding AddRssSourceCommand}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <ui:SymbolIcon Margin="0,0,4,0" Symbol="Add" />
+                                                <TextBlock Text="追加" />
+                                            </StackPanel>
+                                        </Button>
+                                        <Button
+                                            Grid.Column="2"
+                                            Margin="4,0,0,0"
+                                            Command="{Binding RemoveRssSourceCommand}"
+                                            CommandParameter="{Binding SelectedRssSource}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <ui:SymbolIcon Margin="0,0,4,0" Symbol="Delete" />
+                                                <TextBlock Text="選択中を削除" />
+                                            </StackPanel>
+                                        </Button>
+                                    </Grid>
+
+                                    <DockPanel>
+                                        <Button
+                                            MinWidth="40"
+                                            Command="{Binding FetchNewsCommand}"
+                                            DockPanel.Dock="Right"
+                                            ToolTip.Tip="ニュース取得">
+                                            <ui:SymbolIcon Symbol="Sync" />
+                                        </Button>
+                                        <TextBlock
+                                            Margin="0,4"
+                                            VerticalAlignment="Bottom"
+                                            FontWeight="SemiBold"
+                                            Text="最新ニューストピック" />
+                                    </DockPanel>
+
+                                    <DataGrid
+                                        MaxHeight="160"
+                                        AutoGenerateColumns="False"
+                                        IsReadOnly="True"
+                                        ItemsSource="{Binding RecentNews}">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn
+                                                Binding="{ReflectionBinding Title}"
+                                                Header="タイトル" />
+                                            <DataGridTextColumn
+                                                Width="180"
+                                                Binding="{ReflectionBinding PublishedAt}"
+                                                Header="公開日時" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </StackPanel>
+                            </HeaderedContentControl>
+                        </StackPanel>
+                    </ScrollViewer>
+                </DockPanel>
+            </TabItem>
+
+            <!--  設定タブ  -->
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <ui:SymbolIcon Margin="0,0,8,0" Symbol="Settings" />
+                        <TextBlock Text="設定" />
+                    </StackPanel>
+                </TabItem.Header>
+                <DockPanel>
+                    <Button
+                        Margin="0,8,0,0"
+                        HorizontalAlignment="Right"
+                        Classes="accent"
+                        Command="{Binding SaveCommand}"
+                        Content="設定を保存"
+                        DockPanel.Dock="Bottom" />
+
+                    <ScrollViewer Margin="0,0,0,8">
+                        <StackPanel>
+
+                            <!--  Google AI 設定  -->
+                            <HeaderedContentControl Margin="0,0,0,8" Header="Google AI 設定">
+                                <StackPanel>
+
+                                    <!--  APIキー  -->
+                                    <Border Classes="card" Margin="0,0,0,8">
+                                        <DockPanel>
+                                            <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+                                            <ui:SymbolIcon Margin="0,0,8,0" VerticalAlignment="Center" Symbol="Permissions" />
+                                                <TextBlock FontWeight="SemiBold" VerticalAlignment="Center" Text="Google AI APIキー" />
+                                            </StackPanel>
+                                            <StackPanel>
+                                                <TextBox
+                                                    Width="320"
+                                                    PasswordChar="●"
+                                                    Text="{Binding AppConfig.GoogleAiApiKey, Mode=TwoWay}" />
+                                                <HyperlinkButton
+                                                    Margin="0,8,0,0"
+                                                    Content="APIキー取得ページを開く"
+                                                    NavigateUri="https://aistudio.google.com/app/api-keys" />
+                                            </StackPanel>
+                                        </DockPanel>
+                                    </Border>
+
+                                    <!--  ユーザープロンプト  -->
+                                    <Border Classes="card" Margin="0,0,0,8">
+                                        <DockPanel>
+                                            <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+                                                <ui:SymbolIcon Margin="0,0,8,0" VerticalAlignment="Center" Symbol="Memo" />
+                                                <TextBlock FontWeight="SemiBold" VerticalAlignment="Center" Text="ユーザープロンプト（追加の指示）" />
+                                            </StackPanel>
+                                            <TextBox
+                                                Width="320"
+                                                Height="80"
+                                                AcceptsReturn="True"
+                                                Text="{Binding AppConfig.UserPrompt}"
+                                                TextWrapping="Wrap" />
+                                        </DockPanel>
+                                    </Border>
+
+                                    <!--  壁紙ベース生成  -->
+                                    <Border Classes="card">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <ui:SymbolIcon Margin="0,0,8,0" VerticalAlignment="Center" Symbol="ImageCopy" />
+                                                    <TextBlock FontWeight="SemiBold" VerticalAlignment="Center" Text="現在の壁紙をベースに生成" />
+                                                </StackPanel>
+                                                <TextBlock
+                                                    Margin="24,4,0,0"
+                                                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                    Text="このアプリで生成した壁紙をベースに新しい壁紙を生成する"
+                                                    TextWrapping="Wrap" />
+                                            </StackPanel>
+                                            <ToggleSwitch
+                                                Grid.Column="1"
+                                                VerticalAlignment="Center"
+                                                IsChecked="{Binding AppConfig.UseCurrentWallpaperAsBase}" />
+                                        </Grid>
+                                    </Border>
+                                </StackPanel>
+                            </HeaderedContentControl>
+
+                            <!--  スケジュール設定  -->
+                            <HeaderedContentControl Header="スケジュール設定">
+                                <StackPanel>
+
+                                    <!--  自動実行  -->
+                                    <Border Classes="card" Margin="0,0,0,8">
+                                        <StackPanel>
+                                            <Grid ColumnDefinitions="*,Auto">
+                                                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <ui:SymbolIcon Margin="0,0,8,0" VerticalAlignment="Center" Symbol="Clock" />
+                                                    <TextBlock FontWeight="SemiBold" VerticalAlignment="Center" Text="自動実行" />
+                                                </StackPanel>
+                                                <ToggleSwitch
+                                                    Grid.Column="1"
+                                                    VerticalAlignment="Center"
+                                                    Command="{Binding ToggleTaskSchedulerCommand}"
+                                                    IsChecked="{Binding IsTaskSchedulerEnabled}" />
+                                            </Grid>
+                                            <TextBlock
+                                                Margin="0,4,0,0"
+                                                Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                Text="固定時刻スケジュールを有効にする" />
+                                            <StackPanel Margin="24,8,0,0">
+                                                <TextBlock
+                                                    Margin="0,0,0,4"
+                                                    FontWeight="SemiBold"
+                                                    Text="1日あたりの更新回数" />
+                                                <ComboBox
+                                                    Width="120"
+                                                    ItemsSource="{Binding AvailableRunsPerDayOptions}"
+                                                    SelectedItem="{Binding SelectedRunsPerDay}">
+                                                    <ComboBox.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <TextBlock Text="{ReflectionBinding StringFormat={}{0}回}" />
+                                                        </DataTemplate>
+                                                    </ComboBox.ItemTemplate>
+                                                </ComboBox>
+                                            </StackPanel>
+                                            <TextBlock
+                                                Width="320"
+                                                Margin="24,8,0,0"
+                                                Text="{Binding TaskSchedulerScheduleDescription}"
+                                                TextWrapping="Wrap" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!--  変化なし時スキップ  -->
+                                    <Border Classes="card" Margin="0,0,0,8">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <ui:SymbolIcon Margin="0,0,8,0" VerticalAlignment="Center" Symbol="Next" />
+                                                    <TextBlock FontWeight="SemiBold" VerticalAlignment="Center" Text="変化なし時のスキップ" />
+                                                </StackPanel>
+                                                <TextBlock
+                                                    Margin="24,4,0,0"
+                                                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                    Text="直近の予定がなくニュースに変化がない場合は生成をスキップ"
+                                                    TextWrapping="Wrap" />
+                                            </StackPanel>
+                                            <ToggleSwitch
+                                                Grid.Column="1"
+                                                VerticalAlignment="Center"
+                                                IsChecked="{Binding AppConfig.SkipGenerationWhenNoChanges}" />
+                                        </Grid>
+                                    </Border>
+
+                                    <!--  ロック画面の更新  -->
+                                    <Border Classes="card">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <ui:SymbolIcon Margin="0,0,8,0" VerticalAlignment="Center" Symbol="Permissions" />
+                                                    <TextBlock FontWeight="SemiBold" VerticalAlignment="Center" Text="ロック画面の更新" />
+                                                </StackPanel>
+                                                <TextBlock
+                                                    Margin="24,4,0,0"
+                                                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                    Text="デスクトップ壁紙に加えてロック画面も更新する"
+                                                    TextWrapping="Wrap" />
+                                            </StackPanel>
+                                            <ToggleSwitch
+                                                Grid.Column="1"
+                                                VerticalAlignment="Center"
+                                                IsChecked="{Binding AppConfig.UpdateLockScreen}" />
+                                        </Grid>
+                                    </Border>
+                                </StackPanel>
+                            </HeaderedContentControl>
+                        </StackPanel>
+                    </ScrollViewer>
+                </DockPanel>
+            </TabItem>
+        </TabControl>
+
+        <!--  セットアップウィザードオーバーレイ  -->
+        <Border Background="#CC10161F" IsVisible="{Binding ShowSetupWizard}">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <Border
+                    MaxWidth="860"
+                    Margin="12"
+                    Padding="24"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="16">
+                    <StackPanel>
+                        <StackPanel Margin="0,0,0,16">
+                            <TextBlock
+                                FontSize="28"
+                                FontWeight="SemiBold"
+                                Text="初回セットアップ" />
+                            <TextBlock
+                                Margin="0,8,0,0"
+                                Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                Text="最初に必要な設定だけをまとめて済ませます。Google AI APIキーは必須、ほかは後から変更できます。"
+                                TextWrapping="Wrap" />
+                        </StackPanel>
+
+                        <!--  1. Google AI APIキー  -->
+                        <Border Classes="card" Margin="0,0,0,4">
+                            <DockPanel>
+                                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+                                    <ui:SymbolIcon Margin="0,0,8,0" VerticalAlignment="Center" Symbol="Permissions" />
+                                    <TextBlock FontWeight="SemiBold" VerticalAlignment="Center" Text="1. Google AI APIキー" />
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock
+                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                        Text="壁紙生成に必要です。空欄のままでは完了できません。"
+                                        TextWrapping="Wrap" />
+                                    <TextBox
+                                        Width="420"
+                                        Margin="0,8,0,0"
+                                        PasswordChar="●"
+                                        Text="{Binding AppConfig.GoogleAiApiKey, Mode=TwoWay}" />
+                                    <HyperlinkButton
+                                        Margin="0,8,0,0"
+                                        Content="APIキー取得ページを開く"
+                                        NavigateUri="https://aistudio.google.com/app/api-keys" />
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+
+                        <!--  2. Googleカレンダー  -->
+                        <Border Classes="card" Margin="0,0,0,4">
+                            <DockPanel>
+                                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+                                    <ui:SymbolIcon Margin="0,0,8,0" VerticalAlignment="Center" Symbol="Calendar" />
+                                    <TextBlock FontWeight="SemiBold" VerticalAlignment="Center" Text="2. Googleカレンダー" />
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock
+                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                        Text="認証後はプライマリ カレンダーを自動で使います。カレンダーの選択変更は後でデータタブから行えます。"
+                                        TextWrapping="Wrap" />
+                                    <DockPanel Margin="0,8,0,0">
+                                        <Button
+                                            Command="{Binding ConnectCalendarCommand}"
+                                            Content="{Binding ConnectCalendarButtonText}"
+                                            DockPanel.Dock="Right" />
+                                        <TextBlock
+                                            Margin="0,4,12,0"
+                                            VerticalAlignment="Center"
+                                            Text="{Binding CalendarStatus}"
+                                            TextWrapping="Wrap" />
+                                    </DockPanel>
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+
+                        <!--  3. 気になるニュースサイト  -->
+                        <Border Classes="card" Margin="0,0,0,4">
+                            <DockPanel>
+                                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+                                    <ui:SymbolIcon Margin="0,0,8,0" VerticalAlignment="Center" Symbol="Globe" />
+                                    <TextBlock FontWeight="SemiBold" VerticalAlignment="Center" Text="3. 気になるニュースサイト" />
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock
+                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                        Text="RSSフィードを1件だけ登録します。空欄ならスキップします。"
+                                        TextWrapping="Wrap" />
+                                    <TextBox
+                                        Width="520"
+                                        Margin="0,8,0,0"
+                                        Text="{Binding NewRssSourceUrl}"
+                                        PlaceholderText="https://example.com/feed.xml" />
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+
+                        <!--  4. 自動実行  -->
+                        <Border Classes="card" Margin="0,0,0,4">
+                            <DockPanel>
+                                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+                                    <ui:SymbolIcon Margin="0,0,8,0" VerticalAlignment="Center" Symbol="Clock" />
+                                    <TextBlock FontWeight="SemiBold" VerticalAlignment="Center" Text="4. 自動実行" />
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock
+                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                        Text="初回設定では 1 日 1 回の更新だけを登録します。後で設定タブから変更できます。"
+                                        TextWrapping="Wrap" />
+                                    <ToggleSwitch
+                                        Margin="0,8,0,0"
+                                        Content="1日1回のタスクスケジューラを有効にする"
+                                        IsChecked="{Binding IsTaskSchedulerEnabled}" />
+                                    <TextBlock
+                                        Margin="0,8,0,0"
+                                        Text="毎日 0:00 に実行します。PC の電源断などで定刻を逃した場合だけ、次回ログオン時に補完実行します。"
+                                        TextWrapping="Wrap" />
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+
+                        <TextBlock
+                            Margin="0,0,0,8"
+                            Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                            Text="{Binding LastResultMessage}"
+                            TextWrapping="Wrap" />
+                        <TextBlock
+                            Margin="0,0,0,4"
+                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                            Text="Googleカレンダー / RSS はデータタブ、APIキー / スケジュールは設定タブから後で変更できます。"
+                            TextWrapping="Wrap" />
+
+                        <Button
+                            Width="180"
+                            HorizontalAlignment="Right"
+                            Classes="accent"
+                            Command="{Binding CompleteSetupCommand}"
+                            Content="セットアップを完了" />
+                    </StackPanel>
+                </Border>
+            </ScrollViewer>
+        </Border>
+    </Grid>
+</Window>

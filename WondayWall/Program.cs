@@ -1,5 +1,5 @@
+using Avalonia;
 using ConsoleAppFramework;
-using Kamishibai;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -10,22 +10,28 @@ using WondayWall.Services;
 using WondayWall.ViewModels;
 using WondayWall.Views;
 
-// Set STAThread 
+// STAスレッドを設定
 Thread.CurrentThread.SetApartmentState(ApartmentState.Unknown);
 Thread.CurrentThread.SetApartmentState(ApartmentState.STA);
 
-
 if (args is [])
 {
-    var builder = KamishibaiApplication<App, MainWindow>.CreateBuilder();
+    // GUIモード: Generic Host でサービスを構築し Avalonia を起動
+    var builder = Host.CreateApplicationBuilder();
     ConfigureCommonServices(builder.Services);
-    builder.Services
-        .AddPresentation<MainWindow, MainWindowViewModel>();
-    var wpfApp = builder.Build();
-    await wpfApp.RunAsync();
+    builder.Services.AddTransient<MainWindow>();
+    builder.Services.AddTransient<MainWindowViewModel>();
+
+    using var host = builder.Build();
+
+    AppBuilder.Configure(() => new App(host.Services))
+        .UsePlatformDetect()
+        .LogToTrace()
+        .StartWithClassicDesktopLifetime(args);
 }
 else
 {
+    // CLIモード: ConsoleAppFramework
     if (!PInvoke.AttachConsole(PInvoke.ATTACH_PARENT_PROCESS))
     {
 #if DEBUG // デバッグビルドの場合はログ見たいのでコンソールを割り当てる

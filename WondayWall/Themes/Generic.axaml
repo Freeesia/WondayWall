@@ -1,0 +1,23 @@
+<Styles
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        カード型ボーダー（WPF-UI の CardControl に相当するコンテナ）
+        Border に Classes="card" を付けて使う
+    -->
+    <Style Selector="Border.card">
+        <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Padding" Value="12" />
+        <Setter Property="Margin" Value="0,0,0,4" />
+    </Style>
+
+    <!-- RadioButton の垂直コンテンツ配置 -->
+    <Style Selector="RadioButton">
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+</Styles>
