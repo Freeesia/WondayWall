@@ -10,5 +10,5 @@ public record HistoryItem(
     bool IsSkipped = false,
     bool WasUpscaled = false,
     string? OriginalGeneratedImagePath = null,
-    string? RequestedUpscaleMode = null,
-    string? ActualUpscaleMethod = null);
+    UpscaleMode? RequestedUpscaleMode = null,
+    UpscaleMode? ActualUpscaleMethod = null);

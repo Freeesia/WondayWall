@@ -16,7 +16,7 @@ public class AppConfig
     /// <summary>生成サイズを1段下げ、生成後に2倍アップスケールする</summary>
     public bool EnableUpscaleWallpaper { get; set; } = false;
     /// <summary>アップスケール方式</summary>
-    public string UpscaleMode { get; set; } = UpscaleModeValues.RealESRGAN;
+    public UpscaleMode UpscaleMode { get; set; } = UpscaleMode.RealESRGAN;
     /// <summary>タスクスケジューラ実行時、変化がなければ生成をスキップする</summary>
     public bool SkipGenerationWhenNoChanges { get; set; } = false;
     /// <summary>デスクトップ壁紙に加えてロック画面も更新する</summary>

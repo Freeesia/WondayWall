@@ -14,11 +14,10 @@ public class UpscaleService(ToolDownloadService toolDownloadService, ILogger<Ups
 
     public async Task<UpscaleResult> Upscale2xAsync(
         string inputPath,
-        string requestedMode,
+        UpscaleMode requestedMode,
         CancellationToken ct = default)
     {
-        var normalizedMode = UpscaleModeValues.Normalize(requestedMode);
-        if (normalizedMode == UpscaleModeValues.Lanczos)
+        if (requestedMode == UpscaleMode.Lanczos)
             return await UpscaleWithLanczosAsync(inputPath, ct);
 
         try
@@ -99,7 +98,7 @@ public class UpscaleService(ToolDownloadService toolDownloadService, ILogger<Ups
             throw new FileNotFoundException("Real-ESRGAN-ncnn-vulkan の出力画像が見つかりません。", outputPath);
 
         using var image = await Image.LoadAsync(outputPath, ct);
-        return new(outputPath, UpscaleModeValues.RealESRGAN);
+        return new(outputPath, UpscaleMode.RealESRGAN);
     }
 
     private static async Task<UpscaleResult> UpscaleWithLanczosAsync(string inputPath, CancellationToken ct)
@@ -113,7 +112,7 @@ public class UpscaleService(ToolDownloadService toolDownloadService, ILogger<Ups
         image.Mutate(operation => operation.Resize(width, height, KnownResamplers.Lanczos3));
         await image.SaveAsPngAsync(outputPath, ct);
 
-        return new(outputPath, UpscaleModeValues.Lanczos);
+        return new(outputPath, UpscaleMode.Lanczos);
     }
 
     private static string GetUpscaledOutputPath(string inputPath, string methodSuffix)
@@ -146,4 +145,4 @@ public class UpscaleService(ToolDownloadService toolDownloadService, ILogger<Ups
     }
 }
 
-public sealed record UpscaleResult(string FilePath, string ActualMethod);
+public sealed record UpscaleResult(string FilePath, UpscaleMode ActualMethod);

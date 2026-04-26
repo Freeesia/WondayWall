@@ -51,8 +51,8 @@ public class GenerationCoordinator(
         string? appliedImagePath = null;
         bool wasUpscaled = false;
         string? originalGeneratedImagePath = null;
-        string? requestedUpscaleMode = null;
-        string? actualUpscaleMethod = null;
+        UpscaleMode? requestedUpscaleMode = null;
+        UpscaleMode? actualUpscaleMethod = null;
         List<CalendarEventItem>? usedEvents = null;
         List<NewsTopicItem>? usedTopics = null;
         var historyItems = historyService.Load();
@@ -97,8 +97,9 @@ public class GenerationCoordinator(
 
                 if (useUpscale)
                 {
-                    requestedUpscaleMode = UpscaleModeValues.Normalize(config.UpscaleMode);
-                    var upscaleResult = await upscaleService.Upscale2xAsync(imageInfo.FilePath, requestedUpscaleMode, ct);
+                    var selectedUpscaleMode = config.UpscaleMode;
+                    requestedUpscaleMode = selectedUpscaleMode;
+                    var upscaleResult = await upscaleService.Upscale2xAsync(imageInfo.FilePath, selectedUpscaleMode, ct);
                     wallpaperImagePath = upscaleResult.FilePath;
                     wasUpscaled = true;
                     originalGeneratedImagePath = imageInfo.FilePath;
