@@ -251,10 +251,7 @@ public class ContextService(AppConfigService configService, HistoryService histo
             .ToList();
     }
 
-    public Task<ContextBuildResult> BuildContextAsync(CancellationToken ct = default)
-        => BuildContextAsync(displayInfo: null, ct);
-
-    public async Task<ContextBuildResult> BuildContextAsync(DisplaySizeInfo? displayInfo, CancellationToken ct = default)
+    public async Task<ContextBuildResult> BuildContextAsync(DisplaySizeInfo displayInfo, CancellationToken ct = default)
     {
         var config = configService.Current;
 
@@ -266,8 +263,6 @@ public class ContextService(AppConfigService configService, HistoryService histo
 
         // ニューストピックを収集
         var news = await BuildPromptNewsAsync(ct).ConfigureAwait(false);
-
-        displayInfo ??= DisplayHelper.GetDisplayInfo();
 
         return new(new(
             CalendarEvents: events.Select((eventItem, index) => new PromptCalendarEvent(

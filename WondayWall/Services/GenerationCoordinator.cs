@@ -49,10 +49,8 @@ public class GenerationCoordinator(
         bool isSkipped = false;
         string? errorSummary = null;
         string? appliedImagePath = null;
-        bool wasUpscaled = false;
         string? originalGeneratedImagePath = null;
-        UpscaleMode? requestedUpscaleMode = null;
-        UpscaleMode? actualUpscaleMethod = null;
+        UpscaleMode? upscaleMode = null;
         List<CalendarEventItem>? usedEvents = null;
         List<NewsTopicItem>? usedTopics = null;
         var historyItems = historyService.Load();
@@ -61,7 +59,19 @@ public class GenerationCoordinator(
         try
         {
             var useUpscale = config.EnableUpscaleWallpaper;
-            var displayInfo = DisplayHelper.GetDisplayInfo(useUpscale);
+            var displayInfo = DisplayHelper.GetDisplayInfo();
+            if (useUpscale)
+            {
+                var loweredTier = displayInfo.Tier switch
+                {
+                    DisplayImageTier.Size4K => DisplayImageTier.Size2K,
+                    DisplayImageTier.Size2K => DisplayImageTier.Size1K,
+                    DisplayImageTier.Size1K => DisplayImageTier.HalfK,
+                    _ => DisplayImageTier.HalfK,
+                };
+                displayInfo = DisplayHelper.GetDisplayInfoForTier(displayInfo.AspectRatio, loweredTier);
+            }
+
             var contextResult = await contextService.BuildContextAsync(displayInfo, ct);
             var promptContext = contextResult.PromptContext;
 
@@ -97,13 +107,10 @@ public class GenerationCoordinator(
 
                 if (useUpscale)
                 {
-                    var selectedUpscaleMode = config.UpscaleMode;
-                    requestedUpscaleMode = selectedUpscaleMode;
-                    var upscaleResult = await upscaleService.Upscale2xAsync(imageInfo.FilePath, selectedUpscaleMode, ct);
+                    var upscaleResult = await upscaleService.Upscale2xAsync(imageInfo.FilePath, config.UpscaleMode, ct);
                     wallpaperImagePath = upscaleResult.FilePath;
-                    wasUpscaled = true;
                     originalGeneratedImagePath = imageInfo.FilePath;
-                    actualUpscaleMethod = upscaleResult.ActualMethod;
+                    upscaleMode = upscaleResult.ActualMethod;
                 }
 
                 await wallpaperService.SetWallpaperAsync(
@@ -130,10 +137,8 @@ public class GenerationCoordinator(
             UsedCalendarEvents: usedEvents,
             UsedNewsTopics: usedTopics,
             IsSkipped: isSkipped,
-            WasUpscaled: wasUpscaled,
             OriginalGeneratedImagePath: originalGeneratedImagePath,
-            RequestedUpscaleMode: requestedUpscaleMode,
-            ActualUpscaleMethod: actualUpscaleMethod);
+            UpscaleMode: upscaleMode);
 
         try
         {

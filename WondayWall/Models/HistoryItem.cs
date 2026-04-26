@@ -8,7 +8,5 @@ public record HistoryItem(
     List<CalendarEventItem>? UsedCalendarEvents = null,
     List<NewsTopicItem>? UsedNewsTopics = null,
     bool IsSkipped = false,
-    bool WasUpscaled = false,
     string? OriginalGeneratedImagePath = null,
-    UpscaleMode? RequestedUpscaleMode = null,
-    UpscaleMode? ActualUpscaleMethod = null);
+    UpscaleMode? UpscaleMode = null);

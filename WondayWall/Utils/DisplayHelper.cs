@@ -44,16 +44,13 @@ internal static class DisplayHelper
     ];
 
     /// <summary>現在のディスプレイ解像度に最も近いサポートサイズ・アスペクト比・画像サイズ区分を返す</summary>
-    public static DisplaySizeInfo GetDisplayInfo(bool useOneTierLower = false)
+    public static DisplaySizeInfo GetDisplayInfo()
     {
         var width = PInvoke.GetSystemMetrics(SYSTEM_METRICS_INDEX.SM_CXSCREEN);
         var height = PInvoke.GetSystemMetrics(SYSTEM_METRICS_INDEX.SM_CYSCREEN);
 
         if (width <= 0 || height <= 0)
-        {
-            var fallbackTier = useOneTierLower ? DisplayImageTier.Size1K : DisplayImageTier.Size2K;
-            return CreateDisplaySizeInfo(SupportedSizes[10], fallbackTier); // フォールバック: 16:9
-        }
+            return CreateDisplaySizeInfo(SupportedSizes[10], DisplayImageTier.Size2K); // フォールバック: 16:9
 
         var ratio = (double)width / height;
 
@@ -78,20 +75,13 @@ internal static class DisplayHelper
             ? DisplayImageTier.Size2K
             : DisplayImageTier.Size1K;
 
-        if (useOneTierLower)
-            tier = GetOneTierLower(tier);
-
         return CreateDisplaySizeInfo(best, tier);
     }
 
-    private static DisplayImageTier GetOneTierLower(DisplayImageTier tier)
-        => tier switch
-        {
-            DisplayImageTier.Size4K => DisplayImageTier.Size2K,
-            DisplayImageTier.Size2K => DisplayImageTier.Size1K,
-            DisplayImageTier.Size1K => DisplayImageTier.HalfK,
-            _ => DisplayImageTier.HalfK,
-        };
+    public static DisplaySizeInfo GetDisplayInfoForTier(string aspectRatio, DisplayImageTier tier)
+        => CreateDisplaySizeInfo(
+            SupportedSizes.FirstOrDefault(size => size.Label == aspectRatio, SupportedSizes[10]),
+            tier);
 
     private static DisplaySizeInfo CreateDisplaySizeInfo(
         (double Ratio, string Label, string S05K, string S1K, string S2K, string S4K) size,

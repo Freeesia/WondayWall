@@ -400,6 +400,12 @@
                                                     VerticalAlignment="Center"
                                                     Content="生成サイズを1段下げてアップスケールする"
                                                     IsChecked="{Binding AppConfig.EnableUpscaleWallpaper, UpdateSourceTrigger=PropertyChanged}" />
+                                                <TextBlock
+                                                    Width="320"
+                                                    Margin="24,4,0,0"
+                                                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                    Text="高解像度環境では生成サイズを下げてAPIコストを抑え、適用前に2倍拡大します。"
+                                                    TextWrapping="Wrap" />
                                                 <ComboBox
                                                     Width="320"
                                                     Margin="24,8,0,0"

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using Cysharp.Diagnostics;
 using Microsoft.Extensions.Logging;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Processing;
@@ -45,20 +46,17 @@ public class UpscaleService(ToolDownloadService toolDownloadService, ILogger<Ups
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         timeoutCts.CancelAfter(RealEsrganTimeout);
 
-        using var process = new Process
+        var processStartInfo = new ProcessStartInfo
         {
-            StartInfo = new()
-            {
-                FileName = tool.ExecutablePath,
-                WorkingDirectory = tool.WorkingDirectory,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-            },
+            FileName = tool.ExecutablePath,
+            WorkingDirectory = tool.WorkingDirectory,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
         };
 
-        var args = process.StartInfo.ArgumentList;
+        var args = processStartInfo.ArgumentList;
         args.Add("-i");
         args.Add(inputPath);
         args.Add("-o");
@@ -72,26 +70,19 @@ public class UpscaleService(ToolDownloadService toolDownloadService, ILogger<Ups
         args.Add("-f");
         args.Add("png");
 
-        process.Start();
-        var stdoutTask = process.StandardOutput.ReadToEndAsync(timeoutCts.Token);
-        var stderrTask = process.StandardError.ReadToEndAsync(timeoutCts.Token);
-
         try
         {
-            await process.WaitForExitAsync(timeoutCts.Token);
+            _ = await ProcessX.StartAsync(processStartInfo).ToTask(timeoutCts.Token);
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
-            TryKill(process);
             throw new InvalidOperationException("Real-ESRGAN-ncnn-vulkan の実行がタイムアウトしました。");
         }
-
-        var stdout = await stdoutTask;
-        var stderr = await stderrTask;
-        if (process.ExitCode != 0)
+        catch (ProcessErrorException ex)
         {
             throw new InvalidOperationException(
-                $"Real-ESRGAN-ncnn-vulkan が終了コード {process.ExitCode} で失敗しました。{stderr}{stdout}");
+                $"Real-ESRGAN-ncnn-vulkan が終了コード {ex.ExitCode} で失敗しました。{string.Join(Environment.NewLine, ex.ErrorOutput)}",
+                ex);
         }
 
         if (!File.Exists(outputPath))
@@ -131,18 +122,6 @@ public class UpscaleService(ToolDownloadService toolDownloadService, ILogger<Ups
             File.Delete(filePath);
     }
 
-    private static void TryKill(Process process)
-    {
-        try
-        {
-            if (!process.HasExited)
-                process.Kill(entireProcessTree: true);
-        }
-        catch
-        {
-            // タイムアウト時の後片付け失敗はフォールバック判定に影響させない。
-        }
-    }
 }
 
 public sealed record UpscaleResult(string FilePath, UpscaleMode ActualMethod);
