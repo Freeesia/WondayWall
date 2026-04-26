@@ -46,25 +46,9 @@ public class GoogleAiService(
         if (string.IsNullOrWhiteSpace(config.GoogleAiApiKey))
             throw new InvalidOperationException("Google AI API key is not configured.");
 
-        var promptResult = await GeneratePromptSelectionWithFallbackAsync(
-            context,
-            serviceTier,
-            config.GoogleAiApiKey,
-            ct);
-        var imagePrompt = promptResult.PromptSelection.ImagePrompt;
-        var imageRequest = await BuildImageRequestAsync(
-            context,
-            promptResult.PromptSelection,
-            imagePrompt,
-            ct);
-
-        return await GenerateImageWithFallbackAsync(
-            context,
-            imagePrompt,
-            imageRequest,
-            promptResult.ServiceTier,
-            config.GoogleAiApiKey,
-            ct);
+        var promptResult = await GeneratePromptSelectionWithFallbackAsync(context, serviceTier, config.GoogleAiApiKey, ct).ConfigureAwait(false);
+        var imageRequest = await BuildImageRequestAsync(context, promptResult.PromptSelection, ct).ConfigureAwait(false);
+        return await GenerateImageWithFallbackAsync(context, promptResult.PromptSelection.ImagePrompt, imageRequest, promptResult.ServiceTier, config.GoogleAiApiKey, ct).ConfigureAwait(false);
     }
 
     private async Task<PromptSelectionResult> GeneratePromptSelectionWithFallbackAsync(
@@ -74,16 +58,16 @@ public class GoogleAiService(
         CancellationToken ct)
     {
         if (serviceTier != GoogleAiServiceTier.Flex)
-            return await GeneratePromptSelectionAsync(context, GoogleAiServiceTier.Standard, apiKey, ct);
+            return await GeneratePromptSelectionAsync(context, GoogleAiServiceTier.Standard, apiKey, ct).ConfigureAwait(false);
 
         try
         {
-            return await GeneratePromptSelectionAsync(context, GoogleAiServiceTier.Flex, apiKey, ct);
+            return await GeneratePromptSelectionAsync(context, GoogleAiServiceTier.Flex, apiKey, ct).ConfigureAwait(false);
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)
         {
             logger.LogWarning(ex, "画像プロンプト生成の Flex 呼び出しが規定回数失敗したため Standard モードで再試行します。");
-            return await GeneratePromptSelectionAsync(context, GoogleAiServiceTier.Standard, apiKey, ct);
+            return await GeneratePromptSelectionAsync(context, GoogleAiServiceTier.Standard, apiKey, ct).ConfigureAwait(false);
         }
     }
 
@@ -135,35 +119,17 @@ public class GoogleAiService(
     {
         if (serviceTier != GoogleAiServiceTier.Flex)
         {
-            return await GenerateImageAsync(
-                context,
-                imagePrompt,
-                imageRequest,
-                GoogleAiServiceTier.Standard,
-                apiKey,
-                ct);
+            return await GenerateImageAsync(context, imagePrompt, imageRequest, GoogleAiServiceTier.Standard, apiKey, ct).ConfigureAwait(false);
         }
 
         try
         {
-            return await GenerateImageAsync(
-                context,
-                imagePrompt,
-                imageRequest,
-                GoogleAiServiceTier.Flex,
-                apiKey,
-                ct);
+            return await GenerateImageAsync(context, imagePrompt, imageRequest, GoogleAiServiceTier.Flex, apiKey, ct).ConfigureAwait(false);
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)
         {
             logger.LogWarning(ex, "画像生成の Flex 呼び出しが規定回数失敗したため、生成済みプロンプトを使って Standard モードで再試行します。");
-            return await GenerateImageAsync(
-                context,
-                imagePrompt,
-                imageRequest,
-                GoogleAiServiceTier.Standard,
-                apiKey,
-                ct);
+            return await GenerateImageAsync(context, imagePrompt, imageRequest, GoogleAiServiceTier.Standard, apiKey, ct).ConfigureAwait(false);
         }
     }
 
@@ -181,7 +147,7 @@ public class GoogleAiService(
         GenerateContentResponse response;
         try
         {
-            response = await imageModel.GenerateContentAsync(imageRequest, ct);
+            response = await imageModel.GenerateContentAsync(imageRequest, ct).ConfigureAwait(false);
         }
         catch (ApiException ex) when (IsPaidTierRequiredError(ex))
         {
@@ -194,21 +160,12 @@ public class GoogleAiService(
             throw new InvalidOperationException("No image data returned from Google AI.");
 
         var filePath = FileNameHelper.GetImageFilePath(FixedImageSavePath);
-        await File.WriteAllBytesAsync(filePath, imageBytes, ct);
+        await File.WriteAllBytesAsync(filePath, imageBytes, ct).ConfigureAwait(false);
 
-        return new GeneratedImageInfo(
-            FilePath: filePath,
-            GeneratedAt: DateTime.Now,
-            UsedPrompt: imagePrompt,
-            ServiceTier: serviceTier,
-            SourceContext: context);
+        return new(filePath, DateTime.Now, imagePrompt, serviceTier, context);
     }
 
-    private async Task<GenerateContentRequest> BuildImageRequestAsync(
-        PromptContext context,
-        PromptSelectionResponse promptSelection,
-        string imagePrompt,
-        CancellationToken ct)
+    private async Task<GenerateContentRequest> BuildImageRequestAsync(PromptContext context, PromptSelectionResponse promptSelection, CancellationToken ct)
     {
         // テキストモデルが採用したニュースだけ、そのOGP画像を参照画像として添付する
         var selectedNewsIds = promptSelection.SelectedNewsIds.ToHashSet(StringComparer.Ordinal);
@@ -219,18 +176,18 @@ public class GoogleAiService(
             .ToList();
         var finalPrompt = ogpUrls.Count > 0
             ? $$"""
-              {{imagePrompt}}
+              {{promptSelection.ImagePrompt}}
 
               Reference images from the selected news topics are attached. Incorporate their visual themes, color palette, and subject matter into the wallpaper design.
               """
-            : imagePrompt;
+            : promptSelection.ImagePrompt;
 
         var imageRequest = new GenerateContentRequest();
 
         // ベース壁紙がある場合はインラインデータとして先頭に付加し、プロンプトにも指示を追加
         if (!string.IsNullOrEmpty(context.BaseImagePath) && File.Exists(context.BaseImagePath))
         {
-            var baseImageBytes = await File.ReadAllBytesAsync(context.BaseImagePath, ct);
+            var baseImageBytes = await File.ReadAllBytesAsync(context.BaseImagePath, ct).ConfigureAwait(false);
             var baseMimeType = GetMimeTypeFromPath(context.BaseImagePath);
             imageRequest.AddInlineData(Convert.ToBase64String(baseImageBytes), baseMimeType);
             // ベース画像を参照しつつ、現在のテーマに合わない要素を整理する指示を追加
@@ -256,10 +213,10 @@ public class GoogleAiService(
             try
             {
                 // HTTPレスポンスからMIMEタイプを取得してインラインデータとして添付
-                using var imgResponse = await ogpHttpClient.GetAsync(imgUrl, ct);
+                using var imgResponse = await ogpHttpClient.GetAsync(imgUrl, ct).ConfigureAwait(false);
                 imgResponse.EnsureSuccessStatusCode();
                 var mimeType = imgResponse.Content.Headers.ContentType?.MediaType ?? "image/jpeg";
-                var imgBytes = await imgResponse.Content.ReadAsByteArrayAsync(ct);
+                var imgBytes = await imgResponse.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
                 imageRequest.AddInlineData(Convert.ToBase64String(imgBytes), mimeType);
             }
             catch (Exception ex)
