@@ -80,16 +80,17 @@ public class CliCommands(
                 ],
                 ImageSize: "1920x1080"),
             DisplayHelper.GetDisplayInfo(),
+            GoogleAiServiceTier.Standard,
             cancellationToken);
-        logger.LogInformation("Success! Image saved to: {Path}", info.FilePath);
+        logger.LogInformation("Success! Image saved to: {Path} ({ServiceTier})", info.FilePath, info.ServiceTier);
     }
 
     private void LogRunResult(HistoryItem result)
     {
         if (result.IsSkipped)
-            logger.LogInformation("Skipped: no changes detected.");
+            logger.LogInformation("Skipped: no changes detected. ({ServiceTier})", result.ServiceTier);
         else if (result.IsSuccess)
-            logger.LogInformation("Done. Wallpaper set: {Path}", result.AppliedImagePath);
+            logger.LogInformation("Done. Wallpaper set: {Path} ({ServiceTier})", result.AppliedImagePath, result.ServiceTier);
         else
             logger.LogError("Failed: {Error}", result.ErrorSummary);
     }

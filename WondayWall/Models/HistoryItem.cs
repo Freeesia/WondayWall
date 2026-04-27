@@ -7,6 +7,7 @@ public record HistoryItem(
     string? AppliedImagePath = null,
     List<CalendarEventItem>? UsedCalendarEvents = null,
     List<NewsTopicItem>? UsedNewsTopics = null,
+    GoogleAiServiceTier? ServiceTier = null,
     bool IsSkipped = false,
     string? OriginalGeneratedImagePath = null,
     UpscaleMode? UpscaleMode = null);

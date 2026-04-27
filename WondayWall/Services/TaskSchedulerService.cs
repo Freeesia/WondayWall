@@ -20,7 +20,8 @@ public class TaskSchedulerService(AppConfigService appConfigService)
 
         using var ts = new TaskService();
         var td = ts.NewTask();
-        td.RegistrationInfo.Description = $"WondayWall 壁紙自動生成 ({ScheduleHelper.FormatSlotTimes(runsPerDay)} + ログオン時補完)";
+        td.RegistrationInfo.Description =
+            $"WondayWall の定期壁紙更新タスクです ({ScheduleHelper.FormatSlotTimes(runsPerDay)} + ログオン時補完)。バックグラウンド実行用のため Google AI の画像生成を Flex モードで実行し、Flex が失敗した場合は Standard にフォールバックします。実行時点の予定・ニュースを取得してから画像生成し、完了後に壁紙へ適用します。";
 
         var dailyTrigger = new DailyTrigger
         {
