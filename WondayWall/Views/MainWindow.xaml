@@ -31,7 +31,6 @@
             <Setter Property="Margin" Value="4" />
             <Setter Property="MinWidth" Value="80" />
         </Style>
-        <utils:StringFormatConverter x:Key="StringFormatConverter" />
         <utils:UrlToFaviconConverter x:Key="UrlToFaviconConverter" />
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
     </ui:FluentWindow.Resources>
@@ -420,13 +419,7 @@
                                                     <ComboBox
                                                         Width="120"
                                                         ItemsSource="{Binding AvailableRunsPerDayOptions}"
-                                                        SelectedItem="{Binding SelectedRunsPerDay, UpdateSourceTrigger=PropertyChanged}">
-                                                        <ComboBox.ItemTemplate>
-                                                            <DataTemplate>
-                                                                <TextBlock Text="{Binding Converter={StaticResource StringFormatConverter}, ConverterParameter={x:Static properties:Resources.RunsPerDayOptionFormat}}" />
-                                                            </DataTemplate>
-                                                        </ComboBox.ItemTemplate>
-                                                    </ComboBox>
+                                                        SelectedItem="{Binding SelectedRunsPerDay, UpdateSourceTrigger=PropertyChanged}" />
                                                 </StackPanel>
                                                 <TextBlock
                                                     Width="320"

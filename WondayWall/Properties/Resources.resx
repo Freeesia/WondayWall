@@ -165,9 +165,6 @@
   <data name="RunsPerDay" xml:space="preserve">
     <value>Updates per day</value>
   </data>
-  <data name="RunsPerDayOptionFormat" xml:space="preserve">
-    <value>{0} time(s)</value>
-  </data>
   <data name="RunHistory" xml:space="preserve">
     <value>Run history</value>
   </data>

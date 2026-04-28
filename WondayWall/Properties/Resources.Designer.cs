@@ -86,7 +86,6 @@ public static class Resources
     public static string RemoveSelected => GetString(nameof(RemoveSelected));
     public static string RssSources => GetString(nameof(RssSources));
     public static string RunsPerDay => GetString(nameof(RunsPerDay));
-    public static string RunsPerDayOptionFormat => GetString(nameof(RunsPerDayOptionFormat));
     public static string RunHistory => GetString(nameof(RunHistory));
     public static string SaveSettings => GetString(nameof(SaveSettings));
     public static string ScheduleDescription => GetString(nameof(ScheduleDescription));

@@ -165,9 +165,6 @@
   <data name="RunsPerDay" xml:space="preserve">
     <value>1日あたりの更新回数</value>
   </data>
-  <data name="RunsPerDayOptionFormat" xml:space="preserve">
-    <value>{0}回</value>
-  </data>
   <data name="RunHistory" xml:space="preserve">
     <value>実行履歴</value>
   </data>
