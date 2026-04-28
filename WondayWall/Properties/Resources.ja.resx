@@ -1,0 +1,288 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Add" xml:space="preserve">
+    <value>追加</value>
+  </data>
+  <data name="AutomaticExecution" xml:space="preserve">
+    <value>自動実行</value>
+  </data>
+  <data name="CalendarNotConnected" xml:space="preserve">
+    <value>Googleカレンダーは未接続です。接続ボタンから認証してください。</value>
+  </data>
+  <data name="CalendarStatusConnecting" xml:space="preserve">
+    <value>接続中...</value>
+  </data>
+  <data name="CalendarStatusConnectedEventFound" xml:space="preserve">
+    <value>接続済み - {0} 件の予定が見つかりました</value>
+  </data>
+  <data name="CalendarStatusConnectedEvents" xml:space="preserve">
+    <value>接続済み - {0} 件の予定</value>
+  </data>
+  <data name="CalendarStatusConnectedNoEvents" xml:space="preserve">
+    <value>接続済み - 直近の予定はありません</value>
+  </data>
+  <data name="CalendarStatusError" xml:space="preserve">
+    <value>エラー: {0}</value>
+  </data>
+  <data name="CalendarStatusNotConnected" xml:space="preserve">
+    <value>未接続</value>
+  </data>
+  <data name="CalendarStatusRefreshing" xml:space="preserve">
+    <value>再取得中...</value>
+  </data>
+  <data name="CalendarTokenExpired" xml:space="preserve">
+    <value>Googleカレンダーの認証トークンが期限切れです。接続ボタンから再認証してください。</value>
+  </data>
+  <data name="Connect" xml:space="preserve">
+    <value>接続する</value>
+  </data>
+  <data name="CurrentWallpaper" xml:space="preserve">
+    <value>現在の壁紙</value>
+  </data>
+  <data name="DataTab" xml:space="preserve">
+    <value>データ</value>
+  </data>
+  <data name="EnableFixedSchedule" xml:space="preserve">
+    <value>固定時刻スケジュールを有効にする</value>
+  </data>
+  <data name="EventLocation" xml:space="preserve">
+    <value>場所</value>
+  </data>
+  <data name="EventStartTime" xml:space="preserve">
+    <value>開始日時</value>
+  </data>
+  <data name="EventTitle" xml:space="preserve">
+    <value>タイトル</value>
+  </data>
+  <data name="FetchNewsToolTip" xml:space="preserve">
+    <value>ニュース取得</value>
+  </data>
+  <data name="GenerateNow" xml:space="preserve">
+    <value>壁紙を今すぐ生成</value>
+  </data>
+  <data name="GoogleAiApiKey" xml:space="preserve">
+    <value>Google AI APIキー</value>
+  </data>
+  <data name="GoogleAiBillingError" xml:space="preserve">
+    <value>無料枠または課金未設定の Google AI API キーでは、この画像生成機能を利用できません。Google AI Studio で課金設定済みのプロジェクト/APIキーを確認してください: </value>
+  </data>
+  <data name="GoogleAiSettings" xml:space="preserve">
+    <value>Google AI 設定</value>
+  </data>
+  <data name="GoogleCalendar" xml:space="preserve">
+    <value>Googleカレンダー</value>
+  </data>
+  <data name="HistoryAi" xml:space="preserve">
+    <value>AI</value>
+  </data>
+  <data name="HistoryCalendar" xml:space="preserve">
+    <value>予定</value>
+  </data>
+  <data name="HistoryExecutedAt" xml:space="preserve">
+    <value>実行日時</value>
+  </data>
+  <data name="HistoryImageFileNotFound" xml:space="preserve">
+    <value>画像ファイルが見つかりません: {0}</value>
+  </data>
+  <data name="HistoryImageOpenFailed" xml:space="preserve">
+    <value>画像を開けませんでした: {0}</value>
+  </data>
+  <data name="HistoryImagePathMissing" xml:space="preserve">
+    <value>画像パスがありません。</value>
+  </data>
+  <data name="HistoryMessage" xml:space="preserve">
+    <value>メッセージ</value>
+  </data>
+  <data name="HistoryNews" xml:space="preserve">
+    <value>ニュース</value>
+  </data>
+  <data name="HistorySuccess" xml:space="preserve">
+    <value>成功</value>
+  </data>
+  <data name="HomeTab" xml:space="preserve">
+    <value>ホーム</value>
+  </data>
+  <data name="LastResult" xml:space="preserve">
+    <value>最終実行結果</value>
+  </data>
+  <data name="LastResultDone" xml:space="preserve">
+    <value>完了しました。壁紙: {0}</value>
+  </data>
+  <data name="LastResultError" xml:space="preserve">
+    <value>エラー: {0}</value>
+  </data>
+  <data name="LastResultFailed" xml:space="preserve">
+    <value>失敗しました: {0}</value>
+  </data>
+  <data name="LastResultGenerating" xml:space="preserve">
+    <value>生成中...</value>
+  </data>
+  <data name="LastResultNoGeneration" xml:space="preserve">
+    <value>まだ生成していません</value>
+  </data>
+  <data name="LatestNewsTopics" xml:space="preserve">
+    <value>最新ニューストピック</value>
+  </data>
+  <data name="News" xml:space="preserve">
+    <value>ニュース</value>
+  </data>
+  <data name="NewsFetchError" xml:space="preserve">
+    <value>ニュース取得エラー: {0}</value>
+  </data>
+  <data name="OpenApiKeyPage" xml:space="preserve">
+    <value>APIキー取得ページを開く</value>
+  </data>
+  <data name="PublishedAt" xml:space="preserve">
+    <value>公開日時</value>
+  </data>
+  <data name="RecentCalendarEvents" xml:space="preserve">
+    <value>直近のカレンダーイベント</value>
+  </data>
+  <data name="ReferencedCalendars" xml:space="preserve">
+    <value>参照するカレンダー</value>
+  </data>
+  <data name="Refresh" xml:space="preserve">
+    <value>再取得する</value>
+  </data>
+  <data name="RemoveSelected" xml:space="preserve">
+    <value>選択中を削除</value>
+  </data>
+  <data name="RssSources" xml:space="preserve">
+    <value>RSSソース</value>
+  </data>
+  <data name="RunsPerDay" xml:space="preserve">
+    <value>1日あたりの更新回数</value>
+  </data>
+  <data name="RunsPerDayOptionFormat" xml:space="preserve">
+    <value>{0}回</value>
+  </data>
+  <data name="RunHistory" xml:space="preserve">
+    <value>実行履歴</value>
+  </data>
+  <data name="SaveSettings" xml:space="preserve">
+    <value>設定を保存</value>
+  </data>
+  <data name="ScheduleDescription" xml:space="preserve">
+    <value>毎日 {0} に実行します。PC の電源断などで定刻を逃した場合だけ、次回ログオン時に補完実行します。</value>
+  </data>
+  <data name="ScheduleSettings" xml:space="preserve">
+    <value>スケジュール設定</value>
+  </data>
+  <data name="SettingsSaveError" xml:space="preserve">
+    <value>設定保存エラー: {0}</value>
+  </data>
+  <data name="SettingsSaved" xml:space="preserve">
+    <value>設定を保存しました。</value>
+  </data>
+  <data name="SettingsTab" xml:space="preserve">
+    <value>設定</value>
+  </data>
+  <data name="SetupApiKeyDescription" xml:space="preserve">
+    <value>壁紙生成に必要です。空欄のままでは完了できません。</value>
+  </data>
+  <data name="SetupApiKeyRequired" xml:space="preserve">
+    <value>Google AI APIキーを入力してください。</value>
+  </data>
+  <data name="SetupAutomaticExecutionDescription" xml:space="preserve">
+    <value>初回設定では 1 日 1 回の更新だけを登録します。後で設定タブから変更できます。</value>
+  </data>
+  <data name="SetupCalendarDescription" xml:space="preserve">
+    <value>認証後はプライマリ カレンダーを自動で使います。カレンダーの選択変更は後でデータタブから行えます。</value>
+  </data>
+  <data name="SetupCompleted" xml:space="preserve">
+    <value>初回セットアップが完了しました。</value>
+  </data>
+  <data name="SetupCompletedWithImage" xml:space="preserve">
+    <value>{0} 壁紙: {1}</value>
+  </data>
+  <data name="SetupDailyTaskDescription" xml:space="preserve">
+    <value>毎日 0:00 に実行します。PC の電源断などで定刻を逃した場合だけ、次回ログオン時に補完実行します。</value>
+  </data>
+  <data name="SetupDescription" xml:space="preserve">
+    <value>最初に必要な設定だけをまとめて済ませます。Google AI APIキーは必須、ほかは後から変更できます。</value>
+  </data>
+  <data name="SetupEnableDailyTask" xml:space="preserve">
+    <value>1日1回のタスクスケジューラを有効にする</value>
+  </data>
+  <data name="SetupFailed" xml:space="preserve">
+    <value>初回セットアップを完了できませんでした: {0}</value>
+  </data>
+  <data name="SetupFooterDescription" xml:space="preserve">
+    <value>Googleカレンダー / RSS はデータタブ、APIキー / スケジュールは設定タブから後で変更できます。</value>
+  </data>
+  <data name="SetupGenerateAndStart" xml:space="preserve">
+    <value>壁紙を生成して開始</value>
+  </data>
+  <data name="SetupGenerationFailed" xml:space="preserve">
+    <value>壁紙生成に失敗しました: {0}</value>
+  </data>
+  <data name="SetupImagePathUnavailable" xml:space="preserve">
+    <value>画像パスを取得できませんでした。</value>
+  </data>
+  <data name="SetupNewsDescription" xml:space="preserve">
+    <value>RSSフィードを1件だけ登録します。空欄ならスキップします。</value>
+  </data>
+  <data name="SetupRssUrlInvalid" xml:space="preserve">
+    <value>有効なRSSフィードURLを入力してください。</value>
+  </data>
+  <data name="SetupSavedGenerating" xml:space="preserve">
+    <value>初回設定を保存しました。壁紙を生成しています...</value>
+  </data>
+  <data name="SetupStepApiKey" xml:space="preserve">
+    <value>1. Google AI APIキー</value>
+  </data>
+  <data name="SetupStepAutomaticExecution" xml:space="preserve">
+    <value>4. 自動実行</value>
+  </data>
+  <data name="SetupStepGoogleCalendar" xml:space="preserve">
+    <value>2. Googleカレンダー</value>
+  </data>
+  <data name="SetupStepNewsSite" xml:space="preserve">
+    <value>3. 気になるニュースサイト</value>
+  </data>
+  <data name="SetupTaskSchedulerFailed" xml:space="preserve">
+    <value>タスクスケジューラの設定に失敗しました。無効にして完了するか、再試行してください: {0}</value>
+  </data>
+  <data name="SetupTitle" xml:space="preserve">
+    <value>初回セットアップ</value>
+  </data>
+  <data name="SkipWhenNoChanges" xml:space="preserve">
+    <value>直近の予定がなくニュースに変化がない場合は生成をスキップ</value>
+  </data>
+  <data name="SkipWhenNoChangesHeader" xml:space="preserve">
+    <value>変化なし時のスキップ</value>
+  </data>
+  <data name="TaskSchedulerDescription" xml:space="preserve">
+    <value>WondayWall の定期壁紙更新タスクです ({0} + ログオン時補完)。バックグラウンド実行用のため Google AI の画像生成を Flex モードで実行し、Flex が失敗した場合は Standard にフォールバックします。実行時点の予定・ニュースを取得してから画像生成し、完了後に壁紙へ適用します。</value>
+  </data>
+  <data name="TaskSchedulerError" xml:space="preserve">
+    <value>タスクスケジューラエラー: {0}</value>
+  </data>
+  <data name="UpdateLockScreen" xml:space="preserve">
+    <value>デスクトップ壁紙に加えてロック画面も更新する</value>
+  </data>
+  <data name="UpdateLockScreenHeader" xml:space="preserve">
+    <value>ロック画面の更新</value>
+  </data>
+  <data name="UseCurrentWallpaperAsBase" xml:space="preserve">
+    <value>このアプリで生成した壁紙をベースに新しい壁紙を生成する</value>
+  </data>
+  <data name="UseCurrentWallpaperAsBaseHeader" xml:space="preserve">
+    <value>現在の壁紙をベースに生成</value>
+  </data>
+  <data name="UserPromptHeader" xml:space="preserve">
+    <value>ユーザープロンプト（追加の指示）</value>
+  </data>
+</root>

@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:properties="clr-namespace:WondayWall.Properties"
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
     xmlns:utils="clr-namespace:WondayWall.Utils"
     xmlns:vm="clr-namespace:WondayWall.ViewModels"
@@ -15,7 +16,6 @@
     ui:Design.Foreground="{DynamicResource TextFillColorPrimaryBrush}"
     ExtendsContentIntoTitleBar="True"
     Icon="/Assets/AppIcon.ico"
-    Language="ja"
     WindowBackdropType="Mica"
     WindowCornerPreference="Default"
     WindowStartupLocation="CenterScreen"
@@ -31,6 +31,7 @@
             <Setter Property="Margin" Value="4" />
             <Setter Property="MinWidth" Value="80" />
         </Style>
+        <utils:StringFormatConverter x:Key="StringFormatConverter" />
         <utils:UrlToFaviconConverter x:Key="UrlToFaviconConverter" />
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
     </ui:FluentWindow.Resources>
@@ -54,7 +55,7 @@
                     <TabItem.Header>
                         <StackPanel Orientation="Horizontal">
                             <ui:SymbolIcon Margin="0,0,8,0" Symbol="Home24" />
-                            <TextBlock Text="ホーム" />
+                            <TextBlock Text="{x:Static properties:Resources.HomeTab}" />
                         </StackPanel>
                     </TabItem.Header>
                     <ScrollViewer Margin="0,0,0,8">
@@ -62,7 +63,7 @@
                             <ui:CardControl
                                 Margin="0,0,0,12"
                                 DockPanel.Dock="Top"
-                                Header="現在の壁紙">
+                                Header="{x:Static properties:Resources.CurrentWallpaper}">
                                 <ui:CardControl.Icon>
                                     <ui:SymbolIcon Symbol="Image24" />
                                 </ui:CardControl.Icon>
@@ -75,7 +76,7 @@
                             <ui:CardControl
                                 Margin="0,0,0,12"
                                 DockPanel.Dock="Top"
-                                Header="最終実行結果">
+                                Header="{x:Static properties:Resources.LastResult}">
                                 <ui:CardControl.Icon>
                                     <ui:SymbolIcon Symbol="Info24" />
                                 </ui:CardControl.Icon>
@@ -91,7 +92,7 @@
                                 DockPanel.Dock="Top"
                                 Icon="{ui:SymbolIcon Symbol=Wand24}">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock VerticalAlignment="Center" Text="壁紙を今すぐ生成" />
+                                    <TextBlock VerticalAlignment="Center" Text="{x:Static properties:Resources.GenerateNow}" />
                                     <ui:ProgressRing
                                         Width="24"
                                         Height="24"
@@ -107,7 +108,7 @@
                                 DockPanel.Dock="Top"
                                 FontSize="16"
                                 FontWeight="SemiBold"
-                                Text="実行履歴" />
+                                Text="{x:Static properties:Resources.RunHistory}" />
                             <ui:ListView
                                 x:Name="HistoryListView"
                                 MinHeight="200"
@@ -118,27 +119,27 @@
                                         <GridViewColumn
                                             Width="160"
                                             DisplayMemberBinding="{Binding ExecutedAt, StringFormat='{}{0:yyyy/MM/dd HH:mm}'}"
-                                            Header="実行日時" />
+                                            Header="{x:Static properties:Resources.HistoryExecutedAt}" />
                                         <GridViewColumn
                                             Width="60"
                                             DisplayMemberBinding="{Binding IsSuccess}"
-                                            Header="成功" />
+                                            Header="{x:Static properties:Resources.HistorySuccess}" />
                                         <GridViewColumn
                                             Width="80"
                                             DisplayMemberBinding="{Binding ServiceTier}"
-                                            Header="AI" />
+                                            Header="{x:Static properties:Resources.HistoryAi}" />
                                         <GridViewColumn
                                             Width="60"
                                             DisplayMemberBinding="{Binding UsedCalendarEvents.Count, FallbackValue=0}"
-                                            Header="予定" />
+                                            Header="{x:Static properties:Resources.HistoryCalendar}" />
                                         <GridViewColumn
                                             Width="60"
                                             DisplayMemberBinding="{Binding UsedNewsTopics.Count, FallbackValue=0}"
-                                            Header="ニュース" />
+                                            Header="{x:Static properties:Resources.HistoryNews}" />
                                         <GridViewColumn
                                             Width="280"
                                             DisplayMemberBinding="{Binding ErrorSummary}"
-                                            Header="メッセージ" />
+                                            Header="{x:Static properties:Resources.HistoryMessage}" />
                                     </ui:GridView>
                                 </ui:ListView.View>
                             </ui:ListView>
@@ -151,7 +152,7 @@
                     <TabItem.Header>
                         <StackPanel Orientation="Horizontal">
                             <ui:SymbolIcon Margin="0,0,8,0" Symbol="DatabasePerson24" />
-                            <TextBlock Text="データ" />
+                            <TextBlock Text="{x:Static properties:Resources.DataTab}" />
                         </StackPanel>
                     </TabItem.Header>
                     <DockPanel>
@@ -159,13 +160,13 @@
                             HorizontalAlignment="Right"
                             Appearance="Primary"
                             Command="{Binding SaveCommand}"
-                            Content="設定を保存"
+                            Content="{x:Static properties:Resources.SaveSettings}"
                             DockPanel.Dock="Bottom" />
 
                         <ScrollViewer Margin="0,0,0,8">
                             <StackPanel>
                                 <!--  カレンダーグループ  -->
-                                <GroupBox Header="Googleカレンダー">
+                                <GroupBox Header="{x:Static properties:Resources.GoogleCalendar}">
                                     <StackPanel Margin="4">
                                         <ui:CardControl Header="{Binding CalendarStatus}">
                                             <ui:CardControl.Icon>
@@ -185,10 +186,10 @@
                                             <ui:Button Appearance="Secondary" Command="{Binding ConnectCalendarCommand}">
                                                 <ui:Button.Style>
                                                     <Style BasedOn="{StaticResource {x:Type ui:Button}}" TargetType="ui:Button">
-                                                        <Setter Property="Content" Value="接続する" />
+                                                        <Setter Property="Content" Value="{x:Static properties:Resources.Connect}" />
                                                         <Style.Triggers>
                                                             <DataTrigger Binding="{Binding IsCalendarConnected}" Value="True">
-                                                                <Setter Property="Content" Value="再取得する" />
+                                                                <Setter Property="Content" Value="{x:Static properties:Resources.Refresh}" />
                                                             </DataTrigger>
                                                         </Style.Triggers>
                                                     </Style>
@@ -199,7 +200,7 @@
                                         <TextBlock
                                             Margin="0,0,0,4"
                                             Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                            Text="参照するカレンダー" />
+                                            Text="{x:Static properties:Resources.ReferencedCalendars}" />
                                         <ui:ListView
                                             MaxHeight="120"
                                             ItemsSource="{Binding AvailableCalendars}"
@@ -219,7 +220,7 @@
                                         <TextBlock
                                             Margin="0,4,0,4"
                                             FontWeight="SemiBold"
-                                            Text="直近のカレンダーイベント" />
+                                            Text="{x:Static properties:Resources.RecentCalendarEvents}" />
                                         <ui:ListView
                                             MaxHeight="160"
                                             ItemsSource="{Binding RecentEvents}"
@@ -229,27 +230,27 @@
                                                     <GridViewColumn
                                                         Width="250"
                                                         DisplayMemberBinding="{Binding Title}"
-                                                        Header="タイトル" />
+                                                        Header="{x:Static properties:Resources.EventTitle}" />
                                                     <GridViewColumn
                                                         Width="160"
                                                         DisplayMemberBinding="{Binding StartTime, StringFormat='{}{0:yyyy/MM/dd HH:mm}'}"
-                                                        Header="開始日時" />
+                                                        Header="{x:Static properties:Resources.EventStartTime}" />
                                                     <GridViewColumn
                                                         Width="150"
                                                         DisplayMemberBinding="{Binding Location}"
-                                                        Header="場所" />
+                                                        Header="{x:Static properties:Resources.EventLocation}" />
                                                 </ui:GridView>
                                             </ui:ListView.View>
                                         </ui:ListView>
                                     </StackPanel>
                                 </GroupBox>
                                 <!--  ニュースグループ  -->
-                                <GroupBox Header="ニュース">
+                                <GroupBox Header="{x:Static properties:Resources.News}">
                                     <StackPanel Margin="4">
                                         <TextBlock
                                             Margin="0,0,0,4"
                                             FontWeight="SemiBold"
-                                            Text="RSSソース" />
+                                            Text="{x:Static properties:Resources.RssSources}" />
                                         <ui:ListView
                                             MaxHeight="120"
                                             Margin="0,0,0,8"
@@ -283,14 +284,14 @@
                                                 Grid.Column="1"
                                                 Appearance="Primary"
                                                 Command="{Binding AddRssSourceCommand}"
-                                                Content="追加"
+                                                Content="{x:Static properties:Resources.Add}"
                                                 Icon="{ui:SymbolIcon Symbol=Add24}" />
                                             <ui:Button
                                                 Grid.Column="2"
                                                 Appearance="Secondary"
                                                 Command="{Binding RemoveRssSourceCommand}"
                                                 CommandParameter="{Binding SelectedRssSource}"
-                                                Content="選択中を削除"
+                                                Content="{x:Static properties:Resources.RemoveSelected}"
                                                 Icon="{ui:SymbolIcon Symbol=Delete24}" />
                                         </Grid>
 
@@ -301,12 +302,12 @@
                                                 Command="{Binding FetchNewsCommand}"
                                                 DockPanel.Dock="Right"
                                                 Icon="{ui:SymbolIcon ArrowSync24}"
-                                                ToolTip="ニュース取得" />
+                                                ToolTip="{x:Static properties:Resources.FetchNewsToolTip}" />
                                             <TextBlock
                                                 Margin="0,4"
                                                 VerticalAlignment="Bottom"
                                                 FontWeight="SemiBold"
-                                                Text="最新ニューストピック" />
+                                                Text="{x:Static properties:Resources.LatestNewsTopics}" />
                                         </DockPanel>
                                         <ui:ListView
                                             MaxHeight="160"
@@ -324,11 +325,11 @@
                                                             </DataTemplate>
                                                         </GridViewColumn.CellTemplate>
                                                     </GridViewColumn>
-                                                    <GridViewColumn DisplayMemberBinding="{Binding Title}" Header="タイトル" />
+                                                    <GridViewColumn DisplayMemberBinding="{Binding Title}" Header="{x:Static properties:Resources.EventTitle}" />
                                                     <GridViewColumn
                                                         Width="180"
                                                         DisplayMemberBinding="{Binding PublishedAt}"
-                                                        Header="公開日時" />
+                                                        Header="{x:Static properties:Resources.PublishedAt}" />
                                                 </ui:GridView>
                                             </ui:ListView.View>
                                         </ui:ListView>
@@ -344,7 +345,7 @@
                     <TabItem.Header>
                         <StackPanel Orientation="Horizontal">
                             <ui:SymbolIcon Margin="0,0,8,0" Symbol="Settings24" />
-                            <TextBlock Text="設定" />
+                            <TextBlock Text="{x:Static properties:Resources.SettingsTab}" />
                         </StackPanel>
                     </TabItem.Header>
                     <DockPanel>
@@ -352,14 +353,14 @@
                             HorizontalAlignment="Right"
                             Appearance="Primary"
                             Command="{Binding SaveCommand}"
-                            Content="設定を保存"
+                            Content="{x:Static properties:Resources.SaveSettings}"
                             DockPanel.Dock="Bottom" />
 
                         <ScrollViewer Margin="0,0,0,8">
                             <StackPanel>
-                                <GroupBox Header="Google AI 設定">
+                                <GroupBox Header="{x:Static properties:Resources.GoogleAiSettings}">
                                     <StackPanel>
-                                        <ui:CardControl Header="Google AI APIキー">
+                                        <ui:CardControl Header="{x:Static properties:Resources.GoogleAiApiKey}">
                                             <ui:CardControl.Icon>
                                                 <ui:SymbolIcon Symbol="Password24" />
                                             </ui:CardControl.Icon>
@@ -368,11 +369,13 @@
                                                     Width="320"
                                                     Password="{Binding AppConfig.GoogleAiApiKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                                 <TextBlock Margin="0,8,0,0">
-                                                    <Hyperlink NavigateUri="https://aistudio.google.com/app/api-keys" RequestNavigate="ApiKeyLink_RequestNavigate">APIキー取得ページを開く</Hyperlink>
+                                                    <Hyperlink NavigateUri="https://aistudio.google.com/app/api-keys" RequestNavigate="ApiKeyLink_RequestNavigate">
+                                                        <Run Text="{x:Static properties:Resources.OpenApiKeyPage}" />
+                                                    </Hyperlink>
                                                 </TextBlock>
                                             </StackPanel>
                                         </ui:CardControl>
-                                        <ui:CardControl Header="ユーザープロンプト（追加の指示）">
+                                        <ui:CardControl Header="{x:Static properties:Resources.UserPromptHeader}">
                                             <ui:CardControl.Icon>
                                                 <ui:SymbolIcon Symbol="NoteEdit24" />
                                             </ui:CardControl.Icon>
@@ -384,22 +387,22 @@
                                                 TextWrapping="Wrap"
                                                 VerticalScrollBarVisibility="Auto" />
                                         </ui:CardControl>
-                                        <ui:CardControl Header="現在の壁紙をベースに生成">
+                                        <ui:CardControl Header="{x:Static properties:Resources.UseCurrentWallpaperAsBaseHeader}">
                                             <ui:CardControl.Icon>
                                                 <ui:SymbolIcon Symbol="ImageCopy24" />
                                             </ui:CardControl.Icon>
                                             <ui:ToggleSwitch
                                                 VerticalAlignment="Center"
-                                                Content="このアプリで生成した壁紙をベースに新しい壁紙を生成する"
+                                                Content="{x:Static properties:Resources.UseCurrentWallpaperAsBase}"
                                                 IsChecked="{Binding AppConfig.UseCurrentWallpaperAsBase}" />
                                         </ui:CardControl>
 
                                     </StackPanel>
                                 </GroupBox>
 
-                                <GroupBox Header="スケジュール設定">
+                                <GroupBox Header="{x:Static properties:Resources.ScheduleSettings}">
                                     <StackPanel>
-                                        <ui:CardControl Header="自動実行">
+                                        <ui:CardControl Header="{x:Static properties:Resources.AutomaticExecution}">
                                             <ui:CardControl.Icon>
                                                 <ui:SymbolIcon Symbol="Clock24" />
                                             </ui:CardControl.Icon>
@@ -407,20 +410,20 @@
                                                 <ui:ToggleSwitch
                                                     VerticalAlignment="Center"
                                                     Command="{Binding ToggleTaskSchedulerCommand}"
-                                                    Content="固定時刻スケジュールを有効にする"
+                                                    Content="{x:Static properties:Resources.EnableFixedSchedule}"
                                                     IsChecked="{Binding IsTaskSchedulerEnabled}" />
                                                 <StackPanel Margin="24,8,0,0">
                                                     <TextBlock
                                                         Margin="0,0,0,4"
                                                         FontWeight="SemiBold"
-                                                        Text="1日あたりの更新回数" />
+                                                        Text="{x:Static properties:Resources.RunsPerDay}" />
                                                     <ComboBox
                                                         Width="120"
                                                         ItemsSource="{Binding AvailableRunsPerDayOptions}"
                                                         SelectedItem="{Binding SelectedRunsPerDay, UpdateSourceTrigger=PropertyChanged}">
                                                         <ComboBox.ItemTemplate>
                                                             <DataTemplate>
-                                                                <TextBlock Text="{Binding StringFormat={}{0}回}" />
+                                                                <TextBlock Text="{Binding Converter={StaticResource StringFormatConverter}, ConverterParameter={x:Static properties:Resources.RunsPerDayOptionFormat}}" />
                                                             </DataTemplate>
                                                         </ComboBox.ItemTemplate>
                                                     </ComboBox>
@@ -433,23 +436,23 @@
                                             </StackPanel>
                                         </ui:CardControl>
 
-                                        <ui:CardControl Header="変化なし時のスキップ">
+                                        <ui:CardControl Header="{x:Static properties:Resources.SkipWhenNoChangesHeader}">
                                             <ui:CardControl.Icon>
                                                 <ui:SymbolIcon Symbol="SkipForwardTab24" />
                                             </ui:CardControl.Icon>
                                             <ui:ToggleSwitch
                                                 VerticalAlignment="Center"
-                                                Content="直近の予定がなくニュースに変化がない場合は生成をスキップ"
+                                                Content="{x:Static properties:Resources.SkipWhenNoChanges}"
                                                 IsChecked="{Binding AppConfig.SkipGenerationWhenNoChanges, UpdateSourceTrigger=PropertyChanged}" />
                                         </ui:CardControl>
 
-                                        <ui:CardControl Header="ロック画面の更新">
+                                        <ui:CardControl Header="{x:Static properties:Resources.UpdateLockScreenHeader}">
                                             <ui:CardControl.Icon>
                                                 <ui:SymbolIcon Symbol="LockClosed24" />
                                             </ui:CardControl.Icon>
                                             <ui:ToggleSwitch
                                                 VerticalAlignment="Center"
-                                                Content="デスクトップ壁紙に加えてロック画面も更新する"
+                                                Content="{x:Static properties:Resources.UpdateLockScreen}"
                                                 IsChecked="{Binding AppConfig.UpdateLockScreen, UpdateSourceTrigger=PropertyChanged}" />
                                         </ui:CardControl>
                                     </StackPanel>
@@ -477,41 +480,43 @@
                                 <TextBlock
                                     FontSize="28"
                                     FontWeight="SemiBold"
-                                    Text="初回セットアップ" />
+                                    Text="{x:Static properties:Resources.SetupTitle}" />
                                 <TextBlock
                                     Margin="0,8,0,0"
                                     Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                    Text="最初に必要な設定だけをまとめて済ませます。Google AI APIキーは必須、ほかは後から変更できます。"
+                                    Text="{x:Static properties:Resources.SetupDescription}"
                                     TextWrapping="Wrap" />
                             </StackPanel>
 
-                            <ui:CardControl Margin="0,0,0,4" Header="1. Google AI APIキー">
+                            <ui:CardControl Margin="0,0,0,4" Header="{x:Static properties:Resources.SetupStepApiKey}">
                                 <ui:CardControl.Icon>
                                     <ui:SymbolIcon Symbol="Password24" />
                                 </ui:CardControl.Icon>
                                 <StackPanel>
                                     <TextBlock
                                         Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                        Text="壁紙生成に必要です。空欄のままでは完了できません。"
+                                        Text="{x:Static properties:Resources.SetupApiKeyDescription}"
                                         TextWrapping="Wrap" />
                                     <ui:PasswordBox
                                         Width="420"
                                         Margin="0,8,0,0"
                                         Password="{Binding AppConfig.GoogleAiApiKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                     <TextBlock Margin="0,8,0,0">
-                                        <Hyperlink NavigateUri="https://aistudio.google.com/app/api-keys" RequestNavigate="ApiKeyLink_RequestNavigate">APIキー取得ページを開く</Hyperlink>
+                                        <Hyperlink NavigateUri="https://aistudio.google.com/app/api-keys" RequestNavigate="ApiKeyLink_RequestNavigate">
+                                            <Run Text="{x:Static properties:Resources.OpenApiKeyPage}" />
+                                        </Hyperlink>
                                     </TextBlock>
                                 </StackPanel>
                             </ui:CardControl>
 
-                            <ui:CardControl Margin="0,0,0,4" Header="2. Googleカレンダー">
+                            <ui:CardControl Margin="0,0,0,4" Header="{x:Static properties:Resources.SetupStepGoogleCalendar}">
                                 <ui:CardControl.Icon>
                                     <ui:SymbolIcon Symbol="Info24" />
                                 </ui:CardControl.Icon>
                                 <StackPanel>
                                     <TextBlock
                                         Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                        Text="認証後はプライマリ カレンダーを自動で使います。カレンダーの選択変更は後でデータタブから行えます。"
+                                        Text="{x:Static properties:Resources.SetupCalendarDescription}"
                                         TextWrapping="Wrap" />
                                     <DockPanel Margin="0,8,0,0">
                                         <ui:Button
@@ -520,10 +525,10 @@
                                             DockPanel.Dock="Right">
                                             <ui:Button.Style>
                                                 <Style BasedOn="{StaticResource {x:Type ui:Button}}" TargetType="ui:Button">
-                                                    <Setter Property="Content" Value="接続する" />
+                                                    <Setter Property="Content" Value="{x:Static properties:Resources.Connect}" />
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding IsCalendarConnected}" Value="True">
-                                                            <Setter Property="Content" Value="再取得する" />
+                                                            <Setter Property="Content" Value="{x:Static properties:Resources.Refresh}" />
                                                         </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
@@ -538,14 +543,14 @@
                                 </StackPanel>
                             </ui:CardControl>
 
-                            <ui:CardControl Margin="0,0,0,4" Header="3. 気になるニュースサイト">
+                            <ui:CardControl Margin="0,0,0,4" Header="{x:Static properties:Resources.SetupStepNewsSite}">
                                 <ui:CardControl.Icon>
                                     <ui:SymbolIcon Symbol="Info24" />
                                 </ui:CardControl.Icon>
                                 <StackPanel>
                                     <TextBlock
                                         Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                        Text="RSSフィードを1件だけ登録します。空欄ならスキップします。"
+                                        Text="{x:Static properties:Resources.SetupNewsDescription}"
                                         TextWrapping="Wrap" />
                                     <ui:TextBox
                                         Width="520"
@@ -555,22 +560,22 @@
                                 </StackPanel>
                             </ui:CardControl>
 
-                            <ui:CardControl Margin="0,0,0,4" Header="4. 自動実行">
+                            <ui:CardControl Margin="0,0,0,4" Header="{x:Static properties:Resources.SetupStepAutomaticExecution}">
                                 <ui:CardControl.Icon>
                                     <ui:SymbolIcon Symbol="Clock24" />
                                 </ui:CardControl.Icon>
                                 <StackPanel>
                                     <TextBlock
                                         Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                        Text="初回設定では 1 日 1 回の更新だけを登録します。後で設定タブから変更できます。"
+                                        Text="{x:Static properties:Resources.SetupAutomaticExecutionDescription}"
                                         TextWrapping="Wrap" />
                                     <ui:ToggleSwitch
                                         Margin="0,8,0,0"
-                                        Content="1日1回のタスクスケジューラを有効にする"
+                                        Content="{x:Static properties:Resources.SetupEnableDailyTask}"
                                         IsChecked="{Binding IsTaskSchedulerEnabled}" />
                                     <TextBlock
                                         Margin="0,8,0,0"
-                                        Text="毎日 0:00 に実行します。PC の電源断などで定刻を逃した場合だけ、次回ログオン時に補完実行します。"
+                                        Text="{x:Static properties:Resources.SetupDailyTaskDescription}"
                                         TextWrapping="Wrap" />
                                 </StackPanel>
                             </ui:CardControl>
@@ -583,7 +588,7 @@
                             <TextBlock
                                 Margin="0,0,0,4"
                                 Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                Text="Googleカレンダー / RSS はデータタブ、APIキー / スケジュールは設定タブから後で変更できます。"
+                                Text="{x:Static properties:Resources.SetupFooterDescription}"
                                 TextWrapping="Wrap" />
 
                             <ui:Button
@@ -593,7 +598,7 @@
                                 Command="{Binding CompleteSetupCommand}"
                                 Icon="{ui:SymbolIcon Symbol=Image24}">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock VerticalAlignment="Center" Text="壁紙を生成して開始" />
+                                    <TextBlock VerticalAlignment="Center" Text="{x:Static properties:Resources.SetupGenerateAndStart}" />
                                     <ui:ProgressRing
                                         Width="24"
                                         Height="24"
