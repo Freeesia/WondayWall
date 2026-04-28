@@ -23,20 +23,30 @@ var project = new ManagedProject(App,
 project.RebootSupressing = RebootSupressing.Suppress;
 project.GUID = new("A1B2C3D4-E5F6-7890-ABCD-EF1234567890");
 project.Platform = Platform.x64;
+project.Language = "ja-JP";
 project.Version = new(version);
 
 // コントロールパネルの情報を設定
 project.ControlPanelInfo = new()
 {
     Manufacturer = Manufacturer,
+    ProductIcon = @"..\WondayWall\Assets\AppIcon.ico",
+    InstallLocation = "[INSTALLDIR]",
     UrlInfoAbout = "https://github.com/Freeesia/WondayWall",
     UrlUpdateInfo = "https://github.com/Freeesia/WondayWall/releases",
 };
 
 project.MajorUpgrade = MajorUpgrade.Default;
 
+project.BackgroundImage = @"installer_back.png";
+project.ValidateBackgroundImage = false;
+project.BannerImage = @"installer_banner.png";
+
 // ユーザーレベルのインストールを強制する
 project.Scope = InstallScope.perUser;
+
+// ライセンスファイルの設定
+project.LicenceFile = @"..\Terms_of_Use.rtf";
 
 // インストール後にアプリを起動するオプション
 project.AfterInstall += static e =>
