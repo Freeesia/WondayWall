@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using WondayWall.ComponentModel;
 using WondayWall.Models;
 using WondayWall.Utils;
+using AppResources = WondayWall.Properties.Resources;
 
 namespace WondayWall.Services;
 
@@ -17,9 +18,7 @@ public class GoogleAiService(
     ILogger<GoogleAiService> logger)
 {
     private const string GoogleAiApiKeyPageUrl = "https://aistudio.google.com/app/api-keys";
-    private const string PaidTierRequiredMessage =
-        "無料枠または課金未設定の Google AI API キーでは、この画像生成機能を利用できません。Google AI Studio で課金設定済みのプロジェクト/APIキーを確認してください: "
-        + GoogleAiApiKeyPageUrl;
+    private static string PaidTierRequiredMessage => AppResources.GoogleAiBillingError + GoogleAiApiKeyPageUrl;
     private const string TextModelName = "gemini-3-flash-preview";
     private const string ImageModelName = "gemini-3.1-flash-image-preview";
 
