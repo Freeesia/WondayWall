@@ -267,6 +267,45 @@
   <data name="TaskSchedulerError" xml:space="preserve">
     <value>タスクスケジューラエラー: {0}</value>
   </data>
+  <data name="CheckNewVersion" xml:space="preserve">
+    <value>更新を確認</value>
+  </data>
+  <data name="CheckUpdateNotes" xml:space="preserve">
+    <value>更新内容を確認</value>
+  </data>
+  <data name="InstallNewVersion" xml:space="preserve">
+    <value>バージョン {0} をインストール</value>
+  </data>
+  <data name="NewVersionAvailable" xml:space="preserve">
+    <value>バージョン {0} が利用可能です</value>
+  </data>
+  <data name="UpdateAvailableMessage" xml:space="preserve">
+    <value>バージョン {0} が利用可能です。</value>
+  </data>
+  <data name="UpdateCheckFailed" xml:space="preserve">
+    <value>更新チェックに失敗しました: {0}</value>
+  </data>
+  <data name="UpdateInstallStartFailed" xml:space="preserve">
+    <value>インストーラーを起動できませんでした: {0}</value>
+  </data>
+  <data name="UpdateInstallButton" xml:space="preserve">
+    <value>インストール</value>
+  </data>
+  <data name="UpdateNotAvailable" xml:space="preserve">
+    <value>最新バージョンを使用しています。</value>
+  </data>
+  <data name="UpdateNotificationMessage" xml:space="preserve">
+    <value>更新版をインストールしますか？</value>
+  </data>
+  <data name="UpdateNotificationTitle" xml:space="preserve">
+    <value>WondayWall {0} がリリースされました</value>
+  </data>
+  <data name="UpdateReleaseNotesOpenFailed" xml:space="preserve">
+    <value>更新内容を開けませんでした: {0}</value>
+  </data>
+  <data name="UpdateSkipVersion" xml:space="preserve">
+    <value>このバージョンをスキップ</value>
+  </data>
   <data name="UpdateLockScreen" xml:space="preserve">
     <value>デスクトップ壁紙に加えてロック画面も更新する</value>
   </data>

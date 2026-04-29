@@ -45,6 +45,61 @@
             <ui:TitleBar.Icon>
                 <ui:ImageIcon Source="/Assets/icon_512.png" />
             </ui:TitleBar.Icon>
+            <ui:TitleBar.TrailingContent>
+                <StackPanel Orientation="Horizontal" Visibility="{Binding ShowUpdateControls, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <ui:DropDownButton
+                        Height="30"
+                        VerticalAlignment="Top"
+                        VerticalContentAlignment="Stretch"
+                        Background="Goldenrod"
+                        BorderThickness="0"
+                        CornerRadius="0"
+                        Icon="{ui:SymbolIcon MegaphoneLoud24}"
+                        MouseOverBackground="Gold"
+                        ToolTip="{Binding LatestVersion, StringFormat={x:Static properties:Resources.NewVersionAvailable}}"
+                        Visibility="{Binding HasUpdate, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <ui:DropDownButton.Flyout>
+                            <ContextMenu>
+                                <ui:MenuItem Command="{Binding InstallUpdateCommand}">
+                                    <ui:MenuItem.Header>
+                                        <TextBlock Text="{Binding LatestVersion, StringFormat={x:Static properties:Resources.InstallNewVersion}}" />
+                                    </ui:MenuItem.Header>
+                                    <ui:MenuItem.Icon>
+                                        <ui:SymbolIcon Symbol="PresenceAvailable24" />
+                                    </ui:MenuItem.Icon>
+                                </ui:MenuItem>
+                                <ui:MenuItem
+                                    Command="{Binding OpenReleaseNotesCommand}"
+                                    Header="{x:Static properties:Resources.CheckUpdateNotes}"
+                                    Icon="{ui:SymbolIcon Globe24}" />
+                            </ContextMenu>
+                        </ui:DropDownButton.Flyout>
+                    </ui:DropDownButton>
+                    <ui:Button
+                        Height="30"
+                        MinWidth="44"
+                        Margin="0"
+                        VerticalAlignment="Top"
+                        VerticalContentAlignment="Stretch"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Command="{Binding CheckUpdateCommand}"
+                        CornerRadius="0"
+                        Icon="{ui:SymbolIcon ArrowSync24}"
+                        ToolTip="{x:Static properties:Resources.CheckNewVersion}">
+                        <ui:Button.Style>
+                            <Style BasedOn="{StaticResource {x:Type ui:Button}}" TargetType="ui:Button">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding HasUpdate}" Value="True">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ui:Button.Style>
+                    </ui:Button>
+                </StackPanel>
+            </ui:TitleBar.TrailingContent>
         </ui:TitleBar>
 
         <Grid Grid.Row="1">
@@ -364,9 +419,7 @@
                                                 <ui:SymbolIcon Symbol="Password24" />
                                             </ui:CardControl.Icon>
                                             <StackPanel>
-                                                <ui:PasswordBox
-                                                    Width="320"
-                                                    Password="{Binding AppConfig.GoogleAiApiKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                                <ui:PasswordBox Width="320" Password="{Binding AppConfig.GoogleAiApiKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                                 <TextBlock Margin="0,8,0,0">
                                                     <Hyperlink NavigateUri="https://aistudio.google.com/app/api-keys" RequestNavigate="ApiKeyLink_RequestNavigate">
                                                         <Run Text="{x:Static properties:Resources.OpenApiKeyPage}" />
