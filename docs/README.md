@@ -16,12 +16,13 @@
 
 ## セットアップ
 
-1. [リリースページ](https://github.com/Freeesia/WondayWall/releases/latest)から `WondayWall.exe` をダウンロード
-2. 起動するとセットアップ画面が表示される
-3. **Google AI API キー** を設定
-4. **Google Calendar** の認証を行う（初回起動時にブラウザが開きます）
-5. 興味キーワードと RSS フィード URL を登録
-6. 「今すぐ生成」で動作確認
+1. [リリースページ](https://github.com/Freeesia/WondayWall/releases/latest)から `WondayWall-(バージョン).msi` をダウンロード
+2. ダウンロードした MSI を実行し、インストーラーの案内に従ってインストール
+3. インストールした WondayWall を起動するとセットアップ画面が表示される
+4. **Google AI API キー** を設定
+5. **Google Calendar** の認証を行う（初回起動時にブラウザが開きます）
+6. 興味キーワードと RSS フィード URL を登録
+7. 「今すぐ生成」で動作確認
 
 定期実行するには、アプリの設定画面で **1日あたりの更新回数** を選び、**タスクスケジューラ** に下記コマンドを登録します。
 

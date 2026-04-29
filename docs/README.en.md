@@ -16,12 +16,13 @@ Instead of showing a simple slideshow, it brings a scene that reflects your day 
 
 ## Setup
 
-1. Download `WondayWall.exe` from the [releases page](https://github.com/Freeesia/WondayWall/releases/latest)
-2. Launch the app to open the setup screen
-3. Configure your **Google AI API key**
-4. Authorize **Google Calendar** (a browser opens during the first setup)
-5. Register your interest keywords and RSS feed URLs
-6. Use "Generate now" to verify that wallpaper generation works
+1. Download `WondayWall-(version).msi` from the [releases page](https://github.com/Freeesia/WondayWall/releases/latest)
+2. Run the downloaded MSI and follow the installer prompts
+3. Launch the installed WondayWall app to open the setup screen
+4. Configure your **Google AI API key**
+5. Authorize **Google Calendar** (a browser opens during the first setup)
+6. Register your interest keywords and RSS feed URLs
+7. Use "Generate now" to verify that wallpaper generation works
 
 For scheduled updates, select **runs per day** in the app settings and register the following command in Task Scheduler.
 
