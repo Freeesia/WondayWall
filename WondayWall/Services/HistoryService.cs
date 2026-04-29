@@ -7,9 +7,8 @@ namespace WondayWall.Services;
 public class HistoryService
 {
     private const int MaxHistoryItems = 100;
-
     private static readonly string HistoryFilePath =
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WondayWall", "history.json");
+        Path.Combine(PathUtility.AppDataDirectory, "history.json");
 
     public List<HistoryItem> Load()
         => JsonFileHelper.Load<List<HistoryItem>>(HistoryFilePath) ?? [];

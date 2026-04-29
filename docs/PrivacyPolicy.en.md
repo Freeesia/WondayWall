@@ -20,10 +20,10 @@ However, to provide its features, the app stores data locally on the user's PC a
 
 The app stores the following information on the user's PC:
 
-- Settings file: `%LocalAppData%\WondayWall\config.json`
-- Generation history: `%LocalAppData%\WondayWall\history.json`
-- Generated images: `%LocalAppData%\WondayWall\wallpapers\`
-- Google Calendar OAuth tokens: `%LocalAppData%\WondayWall\calendar-token\`
+- Settings file: `%LocalAppData%\StudioFreesia\WondayWall\config.json`
+- Generation history: `%LocalAppData%\StudioFreesia\WondayWall\history.json`
+- Generated images: `%LocalAppData%\StudioFreesia\WondayWall\wallpapers\`
+- Google Calendar OAuth tokens: `%LocalAppData%\StudioFreesia\WondayWall\calendar-token\`
 - Google AI API key: Windows Credential Manager
 
 The Google AI API key is stored in Windows Credential Manager and is not stored directly in the settings file.
@@ -87,7 +87,7 @@ Data handled by those external services is governed by their respective terms an
 
 To delete settings, history, generated images, and Google Calendar OAuth tokens stored by the app, delete the following folder:
 
-`%LocalAppData%\WondayWall\`
+`%LocalAppData%\StudioFreesia\WondayWall\`
 
 To delete the Google AI API key, remove the credentials related to `StudioFreesia.WondayWall.AppConfig` from Windows Credential Manager.
 

@@ -21,12 +21,11 @@ public class GoogleAiService(
     private static string PaidTierRequiredMessage => AppResources.GoogleAiBillingError + GoogleAiApiKeyPageUrl;
     private const string TextModelName = "gemini-3-flash-preview";
     private const string ImageModelName = "gemini-3.1-flash-image-preview";
+    private static readonly string ImageSaveDirectory =
+        Path.Combine(PathUtility.AppDataDirectory, "wallpapers");
 
     private readonly HttpClient ogpHttpClient = httpClientFactory.CreateClient("WondayWall");
     private readonly HttpClient geminiHttpClient = httpClientFactory.CreateClient("Gemini");
-    private static readonly string FixedImageSavePath = Path.Combine(
-        System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData),
-        "WondayWall", "wallpapers");
     private static readonly JsonSerializerOptions JsonSerializerOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -158,7 +157,7 @@ public class GoogleAiService(
         if (imageData == null || imageData.Value.Bytes.Length == 0)
             throw new InvalidOperationException("No image data returned from Google AI.");
 
-        var filePath = FileNameHelper.GetImageFilePath(FixedImageSavePath, extension: imageData.Value.Extension);
+        var filePath = FileNameHelper.GetImageFilePath(ImageSaveDirectory, extension: imageData.Value.Extension);
         await File.WriteAllBytesAsync(filePath, imageData.Value.Bytes, ct).ConfigureAwait(false);
 
         return new(filePath, DateTime.Now, imagePrompt, serviceTier, context);

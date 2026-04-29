@@ -24,7 +24,7 @@ description: WondayWall 利用規約
 
 ## 3. 認証情報とローカルデータ
 
-Google AI API キー、カレンダー認証トークン、設定、履歴、生成画像は利用者の Windows 環境の `%LocalAppData%\WondayWall\` 以下に保存されます。
+Google AI API キー、カレンダー認証トークン、設定、履歴、生成画像は利用者の Windows 環境の `%LocalAppData%\StudioFreesia\WondayWall\` 以下に保存されます。
 利用者は端末、アカウント、認証情報、生成画像を適切に管理してください。
 当方は利用者のローカル環境に保存された情報の漏えい、破損、消失について責任を負いません。
 

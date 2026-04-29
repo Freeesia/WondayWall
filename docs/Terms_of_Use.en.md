@@ -24,7 +24,7 @@ Changes, suspension, fees, or restrictions applied by third-party services may p
 
 ## 3. Credentials and Local Data
 
-Google AI API keys, calendar authentication tokens, settings, history, and generated images are stored under `%LocalAppData%\WondayWall\` in the user's Windows environment.
+Google AI API keys, calendar authentication tokens, settings, history, and generated images are stored under `%LocalAppData%\StudioFreesia\WondayWall\` in the user's Windows environment.
 Users are responsible for properly managing their devices, accounts, credentials, and generated images.
 We are not responsible for leakage, corruption, or loss of information stored in the user's local environment.
 
