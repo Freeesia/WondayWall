@@ -1,4 +1,6 @@
-# <img src="assets/icon_512.png" width="32" > WondayWall
+# WondayWall
+
+[日本語](README.md) | [English](README.en.md)
 
 予定や関心を反映した壁紙を生成する Windows 向けパーソナル壁紙アプリ
 
@@ -14,7 +16,7 @@
 
 ## セットアップ
 
-1. リリースページから `WondayWall.exe` をダウンロード
+1. [リリースページ](https://github.com/Freeesia/WondayWall/releases/latest)から `WondayWall.exe` をダウンロード
 2. 起動するとセットアップ画面が表示される
 3. **Google AI API キー** を設定
 4. **Google Calendar** の認証を行う（初回起動時にブラウザが開きます）
@@ -23,7 +25,7 @@
 
 定期実行するには、アプリの設定画面で **1日あたりの更新回数** を選び、**タスクスケジューラ** に下記コマンドを登録します。
 
-```
+```powershell
 WondayWall.exe run-once
 ```
 
@@ -72,9 +74,12 @@ cd WondayWall/WondayWall
 dotnet build
 ```
 
-詳細は [dev.md](dev.md) を参照。
+詳細は [dev.md](https://github.com/Freeesia/WondayWall/blob/main/dev.md) を参照してください。
+
+## プライバシー
+
+[プライバシーポリシー](PrivacyPolicy.md)
 
 ## ライセンス
 
-[MIT License](LICENSE)
-
+[MIT License](https://github.com/Freeesia/WondayWall/blob/main/LICENSE)
