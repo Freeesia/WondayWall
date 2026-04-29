@@ -7,6 +7,22 @@
 カレンダーの予定・RSS ニュース・興味キーワードをもとに、Gemini API が毎日あなた向けの壁紙を生成します。
 単なるスライドショーではなく、**その日の自分に寄り添う景色**をデスクトップに映します。
 
+## 画面イメージ
+
+<p align="center">
+  <img src="../assets/store_super_hero_placeholder.png" alt="WondayWall が生成した壁紙イメージ" width="100%">
+</p>
+
+<p align="center">
+  <img src="../assets/store_screenshot_home.png" alt="ホーム画面" width="32%">
+  <img src="../assets/store_screenshot_data.png" alt="データ画面" width="32%">
+  <img src="../assets/store_screenshot_settings.png" alt="設定画面" width="32%">
+</p>
+
+<p align="center">
+  <img src="../assets/store_screenshot_wallpaper_variations.png" alt="予定やニュースに合わせた壁紙バリエーション" width="100%">
+</p>
+
 ## 必要な環境
 
 - Windows 10 / 11
