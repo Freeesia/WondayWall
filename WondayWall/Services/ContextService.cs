@@ -15,6 +15,7 @@ using Microsoft.Extensions.Logging;
 using OpenGraphNet;
 using WondayWall.Models;
 using WondayWall.Utils;
+using AppResources = WondayWall.Properties.Resources;
 
 namespace WondayWall.Services;
 
@@ -394,7 +395,7 @@ public class ContextService(AppConfigService configService, HistoryService histo
         var dataStore = CreateCalendarTokenStore();
         var existingToken = await dataStore.GetAsync<TokenResponse>("user");
         if (existingToken == null)
-            throw new InvalidOperationException("Googleカレンダーは未接続です。接続ボタンから認証してください。");
+            throw new InvalidOperationException(AppResources.CalendarNotConnected);
 
         return await GetCalendarServiceAsync(dataStore, existingToken, ct);
     }
@@ -422,7 +423,7 @@ public class ContextService(AppConfigService configService, HistoryService histo
         {
             var refreshed = await credential.RefreshTokenAsync(ct);
             if (!refreshed)
-                throw new InvalidOperationException("Googleカレンダーの認証トークンが期限切れです。接続ボタンから再認証してください。");
+                throw new InvalidOperationException(AppResources.CalendarTokenExpired);
         }
 
         _calendarService = new CalendarService(new BaseClientService.Initializer

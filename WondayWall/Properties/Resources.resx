@@ -1,0 +1,285 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Add" xml:space="preserve">
+    <value>Add</value>
+  </data>
+  <data name="AutomaticExecution" xml:space="preserve">
+    <value>Automatic execution</value>
+  </data>
+  <data name="CalendarNotConnected" xml:space="preserve">
+    <value>Google Calendar is not connected. Use the connect button to authenticate.</value>
+  </data>
+  <data name="CalendarStatusConnecting" xml:space="preserve">
+    <value>Connecting...</value>
+  </data>
+  <data name="CalendarStatusConnectedEventFound" xml:space="preserve">
+    <value>Connected - {0} event(s) found</value>
+  </data>
+  <data name="CalendarStatusConnectedEvents" xml:space="preserve">
+    <value>Connected - {0} event(s)</value>
+  </data>
+  <data name="CalendarStatusConnectedNoEvents" xml:space="preserve">
+    <value>Connected - no upcoming events</value>
+  </data>
+  <data name="CalendarStatusError" xml:space="preserve">
+    <value>Error: {0}</value>
+  </data>
+  <data name="CalendarStatusNotConnected" xml:space="preserve">
+    <value>Not connected</value>
+  </data>
+  <data name="CalendarStatusRefreshing" xml:space="preserve">
+    <value>Refreshing...</value>
+  </data>
+  <data name="CalendarTokenExpired" xml:space="preserve">
+    <value>The Google Calendar authentication token has expired. Use the connect button to authenticate again.</value>
+  </data>
+  <data name="Connect" xml:space="preserve">
+    <value>Connect</value>
+  </data>
+  <data name="CurrentWallpaper" xml:space="preserve">
+    <value>Current wallpaper</value>
+  </data>
+  <data name="DataTab" xml:space="preserve">
+    <value>Data</value>
+  </data>
+  <data name="EnableFixedSchedule" xml:space="preserve">
+    <value>Enable fixed-time schedule</value>
+  </data>
+  <data name="EventLocation" xml:space="preserve">
+    <value>Location</value>
+  </data>
+  <data name="EventStartTime" xml:space="preserve">
+    <value>Start time</value>
+  </data>
+  <data name="EventTitle" xml:space="preserve">
+    <value>Title</value>
+  </data>
+  <data name="FetchNewsToolTip" xml:space="preserve">
+    <value>Fetch news</value>
+  </data>
+  <data name="GenerateNow" xml:space="preserve">
+    <value>Generate wallpaper now</value>
+  </data>
+  <data name="GoogleAiApiKey" xml:space="preserve">
+    <value>Google AI API key</value>
+  </data>
+  <data name="GoogleAiBillingError" xml:space="preserve">
+    <value>This image generation feature is not available with a free-tier or non-billing Google AI API key. Confirm that your Google AI Studio project/API key has billing enabled: </value>
+  </data>
+  <data name="GoogleAiSettings" xml:space="preserve">
+    <value>Google AI settings</value>
+  </data>
+  <data name="GoogleCalendar" xml:space="preserve">
+    <value>Google Calendar</value>
+  </data>
+  <data name="HistoryAi" xml:space="preserve">
+    <value>AI</value>
+  </data>
+  <data name="HistoryCalendar" xml:space="preserve">
+    <value>Calendar</value>
+  </data>
+  <data name="HistoryExecutedAt" xml:space="preserve">
+    <value>Executed at</value>
+  </data>
+  <data name="HistoryImageFileNotFound" xml:space="preserve">
+    <value>Image file not found: {0}</value>
+  </data>
+  <data name="HistoryImageOpenFailed" xml:space="preserve">
+    <value>Could not open image: {0}</value>
+  </data>
+  <data name="HistoryImagePathMissing" xml:space="preserve">
+    <value>No image path is available.</value>
+  </data>
+  <data name="HistoryMessage" xml:space="preserve">
+    <value>Message</value>
+  </data>
+  <data name="HistoryNews" xml:space="preserve">
+    <value>News</value>
+  </data>
+  <data name="HistorySuccess" xml:space="preserve">
+    <value>Success</value>
+  </data>
+  <data name="HomeTab" xml:space="preserve">
+    <value>Home</value>
+  </data>
+  <data name="LastResult" xml:space="preserve">
+    <value>Last result</value>
+  </data>
+  <data name="LastResultDone" xml:space="preserve">
+    <value>Done! Image: {0}</value>
+  </data>
+  <data name="LastResultError" xml:space="preserve">
+    <value>Error: {0}</value>
+  </data>
+  <data name="LastResultFailed" xml:space="preserve">
+    <value>Failed: {0}</value>
+  </data>
+  <data name="LastResultGenerating" xml:space="preserve">
+    <value>Generating...</value>
+  </data>
+  <data name="LastResultNoGeneration" xml:space="preserve">
+    <value>No generation yet</value>
+  </data>
+  <data name="LatestNewsTopics" xml:space="preserve">
+    <value>Latest news topics</value>
+  </data>
+  <data name="News" xml:space="preserve">
+    <value>News</value>
+  </data>
+  <data name="NewsFetchError" xml:space="preserve">
+    <value>News fetch error: {0}</value>
+  </data>
+  <data name="OpenApiKeyPage" xml:space="preserve">
+    <value>Open API key page</value>
+  </data>
+  <data name="PublishedAt" xml:space="preserve">
+    <value>Published at</value>
+  </data>
+  <data name="RecentCalendarEvents" xml:space="preserve">
+    <value>Recent calendar events</value>
+  </data>
+  <data name="ReferencedCalendars" xml:space="preserve">
+    <value>Calendars to use</value>
+  </data>
+  <data name="Refresh" xml:space="preserve">
+    <value>Refresh</value>
+  </data>
+  <data name="RemoveSelected" xml:space="preserve">
+    <value>Remove selected</value>
+  </data>
+  <data name="RssSources" xml:space="preserve">
+    <value>RSS sources</value>
+  </data>
+  <data name="RunsPerDay" xml:space="preserve">
+    <value>Updates per day</value>
+  </data>
+  <data name="RunHistory" xml:space="preserve">
+    <value>Run history</value>
+  </data>
+  <data name="SaveSettings" xml:space="preserve">
+    <value>Save settings</value>
+  </data>
+  <data name="ScheduleDescription" xml:space="preserve">
+    <value>Runs every day at {0}. If the scheduled time is missed because the PC is off, it runs once at the next logon.</value>
+  </data>
+  <data name="ScheduleSettings" xml:space="preserve">
+    <value>Schedule settings</value>
+  </data>
+  <data name="SettingsSaveError" xml:space="preserve">
+    <value>Settings save error: {0}</value>
+  </data>
+  <data name="SettingsSaved" xml:space="preserve">
+    <value>Settings saved.</value>
+  </data>
+  <data name="SettingsTab" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="SetupApiKeyDescription" xml:space="preserve">
+    <value>Required for wallpaper generation. Setup cannot finish while this is blank.</value>
+  </data>
+  <data name="SetupApiKeyRequired" xml:space="preserve">
+    <value>Enter a Google AI API key.</value>
+  </data>
+  <data name="SetupAutomaticExecutionDescription" xml:space="preserve">
+    <value>Initial setup registers a once-per-day update. You can change it later from the settings tab.</value>
+  </data>
+  <data name="SetupCalendarDescription" xml:space="preserve">
+    <value>After authentication, the primary calendar is used automatically. You can change calendar selection later from the data tab.</value>
+  </data>
+  <data name="SetupCompleted" xml:space="preserve">
+    <value>Initial setup is complete.</value>
+  </data>
+  <data name="SetupCompletedWithImage" xml:space="preserve">
+    <value>{0} Wallpaper: {1}</value>
+  </data>
+  <data name="SetupDailyTaskDescription" xml:space="preserve">
+    <value>Runs every day at 0:00. If the scheduled time is missed because the PC is off, it runs once at the next logon.</value>
+  </data>
+  <data name="SetupDescription" xml:space="preserve">
+    <value>Finish only the required settings first. A Google AI API key is required; everything else can be changed later.</value>
+  </data>
+  <data name="SetupEnableDailyTask" xml:space="preserve">
+    <value>Enable a once-per-day Task Scheduler task</value>
+  </data>
+  <data name="SetupFailed" xml:space="preserve">
+    <value>Could not complete initial setup: {0}</value>
+  </data>
+  <data name="SetupFooterDescription" xml:space="preserve">
+    <value>You can change Google Calendar / RSS from the data tab, and API key / schedule from the settings tab later.</value>
+  </data>
+  <data name="SetupGenerateAndStart" xml:space="preserve">
+    <value>Generate wallpaper and start</value>
+  </data>
+  <data name="SetupGenerationFailed" xml:space="preserve">
+    <value>Wallpaper generation failed: {0}</value>
+  </data>
+  <data name="SetupImagePathUnavailable" xml:space="preserve">
+    <value>Could not get the image path.</value>
+  </data>
+  <data name="SetupNewsDescription" xml:space="preserve">
+    <value>Register one RSS feed. Leave it blank to skip.</value>
+  </data>
+  <data name="SetupRssUrlInvalid" xml:space="preserve">
+    <value>Enter a valid RSS feed URL.</value>
+  </data>
+  <data name="SetupSavedGenerating" xml:space="preserve">
+    <value>Initial settings saved. Generating wallpaper...</value>
+  </data>
+  <data name="SetupStepApiKey" xml:space="preserve">
+    <value>1. Google AI API key</value>
+  </data>
+  <data name="SetupStepAutomaticExecution" xml:space="preserve">
+    <value>4. Automatic execution</value>
+  </data>
+  <data name="SetupStepGoogleCalendar" xml:space="preserve">
+    <value>2. Google Calendar</value>
+  </data>
+  <data name="SetupStepNewsSite" xml:space="preserve">
+    <value>3. News site of interest</value>
+  </data>
+  <data name="SetupTaskSchedulerFailed" xml:space="preserve">
+    <value>Task Scheduler setup failed. Disable it to finish, or try again: {0}</value>
+  </data>
+  <data name="SetupTitle" xml:space="preserve">
+    <value>Initial setup</value>
+  </data>
+  <data name="SkipWhenNoChanges" xml:space="preserve">
+    <value>Skip generation when there are no recent events and the news has not changed</value>
+  </data>
+  <data name="SkipWhenNoChangesHeader" xml:space="preserve">
+    <value>Skip when there are no changes</value>
+  </data>
+  <data name="TaskSchedulerDescription" xml:space="preserve">
+    <value>WondayWall's scheduled wallpaper update task ({0} + logon catch-up). For background execution, Google AI image generation uses Flex mode and falls back to Standard mode if Flex fails. It fetches the current calendar events and news, generates an image, and applies it as the wallpaper.</value>
+  </data>
+  <data name="TaskSchedulerError" xml:space="preserve">
+    <value>Task Scheduler error: {0}</value>
+  </data>
+  <data name="UpdateLockScreen" xml:space="preserve">
+    <value>Update the lock screen in addition to the desktop wallpaper</value>
+  </data>
+  <data name="UpdateLockScreenHeader" xml:space="preserve">
+    <value>Lock screen update</value>
+  </data>
+  <data name="UseCurrentWallpaperAsBase" xml:space="preserve">
+    <value>Generate a new wallpaper based on a wallpaper generated by this app</value>
+  </data>
+  <data name="UseCurrentWallpaperAsBaseHeader" xml:space="preserve">
+    <value>Generate from current wallpaper</value>
+  </data>
+  <data name="UserPromptHeader" xml:space="preserve">
+    <value>User prompt (additional instructions)</value>
+  </data>
+</root>

@@ -1,6 +1,7 @@
 using Microsoft.Win32.TaskScheduler;
 using System.Security.Principal;
 using WondayWall.Utils;
+using AppResources = WondayWall.Properties.Resources;
 
 namespace WondayWall.Services;
 
@@ -20,7 +21,9 @@ public class TaskSchedulerService(AppConfigService appConfigService)
 
         using var ts = new TaskService();
         var td = ts.NewTask();
-        td.RegistrationInfo.Description = $"WondayWall 壁紙自動生成 ({ScheduleHelper.FormatSlotTimes(runsPerDay)} + ログオン時補完)";
+        td.RegistrationInfo.Description = AppResources.Format(
+            AppResources.TaskSchedulerDescription,
+            ScheduleHelper.FormatSlotTimes(runsPerDay));
 
         var dailyTrigger = new DailyTrigger
         {

@@ -1,3 +1,5 @@
+using AppResources = WondayWall.Properties.Resources;
+
 namespace WondayWall.Utils;
 
 public static class ScheduleHelper
@@ -48,5 +50,5 @@ public static class ScheduleHelper
                 .Select(static offset => $"{(int)offset.TotalHours}:00"));
 
     public static string FormatScheduleDescription(int runsPerDay)
-        => $"毎日 {FormatSlotTimes(runsPerDay)} に実行します。PC の電源断などで定刻を逃した場合だけ、次回ログオン時に補完実行します。";
+        => AppResources.Format(AppResources.ScheduleDescription, FormatSlotTimes(runsPerDay));
 }

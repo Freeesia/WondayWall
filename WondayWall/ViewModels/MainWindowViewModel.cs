@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using WondayWall.Models;
 using WondayWall.Services;
 using WondayWall.Utils;
+using AppResources = WondayWall.Properties.Resources;
 
 namespace WondayWall.ViewModels;
 
@@ -24,13 +25,13 @@ public partial class MainWindowViewModel : ObservableObject
     public partial AppConfig AppConfig { get; set; } = new();
 
     [ObservableProperty]
-    public partial string CalendarStatus { get; set; } = "Not connected";
+    public partial string CalendarStatus { get; set; } = AppResources.CalendarStatusNotConnected;
 
     [ObservableProperty]
     public partial bool IsCalendarConnected { get; set; }
 
     [ObservableProperty]
-    public partial string LastResultMessage { get; set; } = "No generation yet";
+    public partial string LastResultMessage { get; set; } = AppResources.LastResultNoGeneration;
 
     [ObservableProperty]
     public partial bool IsGenerating { get; set; }
@@ -98,7 +99,7 @@ public partial class MainWindowViewModel : ObservableObject
     {
         var canAccessCalendarSilently = await _contextService.CanAccessCalendarSilentlyAsync();
         if (!canAccessCalendarSilently)
-            CalendarStatus = "Not connected";
+            CalendarStatus = AppResources.CalendarStatusNotConnected;
 
         if (canAccessCalendarSilently)
         {
@@ -128,15 +129,15 @@ public partial class MainWindowViewModel : ObservableObject
     private async Task GenerateAsync(CancellationToken ct = default)
     {
         IsGenerating = true;
-        LastResultMessage = "Generating...";
+        LastResultMessage = AppResources.LastResultGenerating;
         GenerateCommand.NotifyCanExecuteChanged();
 
         try
         {
             var result = await _coordinator.RunAsync(ct: ct);
             LastResultMessage = result.IsSuccess
-                ? $"Done! Image: {result.AppliedImagePath}"
-                : $"Failed: {result.ErrorSummary}";
+                ? AppResources.Format(AppResources.LastResultDone, result.AppliedImagePath)
+                : AppResources.Format(AppResources.LastResultFailed, result.ErrorSummary);
 
             if (result.IsSuccess && result.AppliedImagePath != null)
                 LastImagePreviewPath = result.AppliedImagePath;
@@ -145,7 +146,7 @@ public partial class MainWindowViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            LastResultMessage = $"Error: {ex.Message}";
+            LastResultMessage = AppResources.Format(AppResources.LastResultError, ex.Message);
         }
         finally
         {
@@ -156,16 +157,22 @@ public partial class MainWindowViewModel : ObservableObject
 
     private bool CanGenerate() => !IsGenerating;
 
+    partial void OnIsGeneratingChanged(bool value)
+    {
+        GenerateCommand.NotifyCanExecuteChanged();
+        CompleteSetupCommand.NotifyCanExecuteChanged();
+    }
+
     [RelayCommand]
     private void Save()
     {
         try
         {
-            SaveSettings(IsTaskSchedulerEnabled, "Settings saved.");
+            SaveSettings(IsTaskSchedulerEnabled, AppResources.SettingsSaved);
         }
         catch (Exception ex)
         {
-            LastResultMessage = $"Settings save error: {ex.Message}";
+            LastResultMessage = AppResources.Format(AppResources.SettingsSaveError, ex.Message);
         }
     }
 
@@ -182,20 +189,21 @@ public partial class MainWindowViewModel : ObservableObject
         catch (Exception ex)
         {
             IsTaskSchedulerEnabled = !IsTaskSchedulerEnabled;
-            LastResultMessage = $"Task Scheduler error: {ex.Message}";
+            LastResultMessage = AppResources.Format(AppResources.TaskSchedulerError, ex.Message);
         }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanGenerate))]
     private async Task CompleteSetup(CancellationToken ct = default)
     {
         LastResultMessage = string.Empty;
-        const string setupCompletedMessage = "初回セットアップが完了しました。";
+        var setupCompletedMessage = AppResources.SetupCompleted;
+        var setupSavedMessage = AppResources.SetupSavedGenerating;
 
         var apiKey = AppConfig.GoogleAiApiKey.Trim();
         if (string.IsNullOrWhiteSpace(apiKey))
         {
-            LastResultMessage = "Google AI APIキーを入力してください。";
+            LastResultMessage = AppResources.SetupApiKeyRequired;
             return;
         }
 
@@ -206,11 +214,12 @@ public partial class MainWindowViewModel : ObservableObject
         {
             if (!Uri.TryCreate(rssUrl, UriKind.Absolute, out _))
             {
-                LastResultMessage = "有効なRSSフィードURLを入力してください。";
+                LastResultMessage = AppResources.SetupRssUrlInvalid;
                 return;
             }
 
-            RssSources.Add(rssUrl);
+            if (!RssSources.Contains(rssUrl))
+                RssSources.Add(rssUrl);
         }
 
         if (IsCalendarConnected)
@@ -219,10 +228,11 @@ public partial class MainWindowViewModel : ObservableObject
             primaryCalendar?.IsSelected = true;
         }
 
+        IsGenerating = true;
+
         try
         {
-            SaveSettings(IsTaskSchedulerEnabled, setupCompletedMessage);
-            ShowSetupWizard = false;
+            SaveSettings(IsTaskSchedulerEnabled, setupSavedMessage);
             NewRssSourceUrl = string.Empty;
 
             if (IsCalendarConnected && AvailableCalendars.Count > 0)
@@ -251,22 +261,41 @@ public partial class MainWindowViewModel : ObservableObject
                 }
             }
 
-            LastResultMessage = setupCompletedMessage;
+            var result = await _coordinator.RunAsync(skipIfNoChanges: false, ct: ct);
+            LoadHistory();
+
+            if (result.IsSuccess && result.AppliedImagePath != null)
+            {
+                LastImagePreviewPath = result.AppliedImagePath;
+                LastResultMessage = AppResources.Format(AppResources.SetupCompletedWithImage, setupCompletedMessage, result.AppliedImagePath);
+                ShowSetupWizard = false;
+                return;
+            }
+
+            LastResultMessage = AppResources.Format(
+                AppResources.SetupGenerationFailed,
+                result.ErrorSummary ?? AppResources.SetupImagePathUnavailable);
         }
         catch (Exception ex) when (IsTaskSchedulerEnabled && ex is SecurityException or UnauthorizedAccessException)
         {
-            LastResultMessage = $"タスクスケジューラの設定に失敗しました。無効にして完了するか、再試行してください: {ex.Message}";
+            LastResultMessage = AppResources.Format(AppResources.SetupTaskSchedulerFailed, ex.Message);
         }
         catch (Exception ex)
         {
-            LastResultMessage = $"初回セットアップを完了できませんでした: {ex.Message}";
+            LastResultMessage = AppResources.Format(AppResources.SetupFailed, ex.Message);
+        }
+        finally
+        {
+            IsGenerating = false;
         }
     }
 
     [RelayCommand]
     private async Task ConnectCalendarAsync(CancellationToken ct = default)
     {
-        CalendarStatus = IsCalendarConnected ? "再取得中..." : "接続中...";
+        CalendarStatus = IsCalendarConnected
+            ? AppResources.CalendarStatusRefreshing
+            : AppResources.CalendarStatusConnecting;
         try
         {
             _ = await _contextService.GetCalendarServiceInteractiveAsync(ct);
@@ -274,7 +303,7 @@ public partial class MainWindowViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            CalendarStatus = $"Error: {ex.Message}";
+            CalendarStatus = AppResources.Format(AppResources.CalendarStatusError, ex.Message);
         }
     }
 
@@ -314,9 +343,9 @@ public partial class MainWindowViewModel : ObservableObject
         IsCalendarConnected = true;
         CalendarStatus = RecentEvents.Count > 0
             ? includeFoundSuffix
-                ? $"Connected — {RecentEvents.Count} event(s) found"
-                : $"Connected — {RecentEvents.Count} event(s)"
-            : "Connected — no upcoming events";
+                ? AppResources.Format(AppResources.CalendarStatusConnectedEventFound, RecentEvents.Count)
+                : AppResources.Format(AppResources.CalendarStatusConnectedEvents, RecentEvents.Count)
+            : AppResources.CalendarStatusConnectedNoEvents;
     }
 
     [RelayCommand]
@@ -330,7 +359,7 @@ public partial class MainWindowViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            LastResultMessage = $"News fetch error: {ex.Message}";
+            LastResultMessage = AppResources.Format(AppResources.NewsFetchError, ex.Message);
         }
     }
 
@@ -360,13 +389,13 @@ public partial class MainWindowViewModel : ObservableObject
         var imagePath = item?.AppliedImagePath;
         if (string.IsNullOrWhiteSpace(imagePath))
         {
-            LastResultMessage = "画像パスがありません。";
+            LastResultMessage = AppResources.HistoryImagePathMissing;
             return;
         }
 
         if (!File.Exists(imagePath))
         {
-            LastResultMessage = $"画像ファイルが見つかりません: {imagePath}";
+            LastResultMessage = AppResources.Format(AppResources.HistoryImageFileNotFound, imagePath);
             return;
         }
 
@@ -381,7 +410,7 @@ public partial class MainWindowViewModel : ObservableObject
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "履歴画像を開けませんでした: {ImagePath}", imagePath);
-            LastResultMessage = $"画像を開けませんでした: {ex.Message}";
+            LastResultMessage = AppResources.Format(AppResources.HistoryImageOpenFailed, ex.Message);
         }
     }
 
