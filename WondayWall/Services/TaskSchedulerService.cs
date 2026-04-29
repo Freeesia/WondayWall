@@ -1,5 +1,4 @@
 using Microsoft.Win32.TaskScheduler;
-using System.Security.Principal;
 using WondayWall.Utils;
 using AppResources = WondayWall.Properties.Resources;
 
@@ -35,18 +34,18 @@ public class TaskSchedulerService(AppConfigService appConfigService)
             dailyTrigger.Repetition.Interval = ScheduleHelper.GetInterval(runsPerDay);
             dailyTrigger.Repetition.Duration = TimeSpan.FromDays(1);
         }
-
-        using var identity = WindowsIdentity.GetCurrent();
-        var logonTrigger = new LogonTrigger
-        {
-            UserId = identity.Name,
-            Enabled = true,
-        };
-
         td.Triggers.Add(dailyTrigger);
-        td.Triggers.Add(logonTrigger);
+
+        td.Settings.AllowDemandStart = true;
+        td.Settings.DisallowStartIfOnBatteries = false;
+        td.Settings.StopIfGoingOnBatteries = false;
+        td.Settings.RunOnlyIfNetworkAvailable = false;
         td.Settings.MultipleInstances = TaskInstancesPolicy.IgnoreNew;
-        td.Settings.StartWhenAvailable = false;
+        td.Settings.StartWhenAvailable = true;
+        td.Settings.RestartInterval = TimeSpan.FromMinutes(5);
+        td.Settings.RestartCount = 3;
+        td.Settings.ExecutionTimeLimit = TimeSpan.FromHours(12);
+        td.Settings.AllowHardTerminate = true;
 
         td.Actions.Add(new ExecAction(Environment.ProcessPath, "run-once"));
 
