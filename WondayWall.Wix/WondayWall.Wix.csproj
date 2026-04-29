@@ -14,7 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="WixSharp_wix4.bin" Version="2.13.0" />
+    <PackageReference Include="WixSharp_wix4.bin" Version="2.12.3" />
   </ItemGroup>
 
   <ItemGroup>
