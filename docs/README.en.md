@@ -77,9 +77,11 @@ dotnet build
 
 See [dev.md](https://github.com/Freeesia/WondayWall/blob/main/dev.md) for development details.
 
-## Privacy
+## Legal
 
 [Privacy Policy](PrivacyPolicy.en.md)
+
+[Terms of Use](Terms_of_Use.en.md)
 
 ## License
 

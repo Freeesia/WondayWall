@@ -77,9 +77,11 @@ dotnet build
 
 詳細は [dev.md](https://github.com/Freeesia/WondayWall/blob/main/dev.md) を参照してください。
 
-## プライバシー
+## 法的情報
 
 [プライバシーポリシー](PrivacyPolicy.md)
+
+[利用規約](Terms_of_Use.md)
 
 ## ライセンス
 
