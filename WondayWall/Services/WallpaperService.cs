@@ -5,11 +5,15 @@ using Windows.Storage;
 using Windows.System.UserProfile;
 using Windows.Win32.UI.Shell;
 using WindowsDesktop;
+using WondayWall.Utils;
 
 namespace WondayWall.Services;
 
 public class WallpaperService
 {
+    private static readonly string AssembliesDirectory =
+        Path.Combine(PathUtility.AppDataDirectory, "assemblies");
+
     private readonly IDesktopWallpaper _wallpaper = (IDesktopWallpaper)new DesktopWallpaper();
     private readonly ILogger<WallpaperService> logger;
 
@@ -18,15 +22,7 @@ public class WallpaperService
         this.logger = logger;
         VirtualDesktop.Configure(new()
         {
-            CompiledAssemblySaveDirectory = new(Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "StudioFreesia",
-#if DEBUG
-                "WondayWall-debug",
-#else
-                "WondayWall",
-#endif
-                "assemblies")),
+            CompiledAssemblySaveDirectory = new(AssembliesDirectory),
         });
     }
 

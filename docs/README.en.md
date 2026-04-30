@@ -71,10 +71,10 @@ WondayWall.exe check-google-ai   # Check Gemini API access
 
 | Data | Path |
 |------|------|
-| Settings file | `%LocalAppData%\WondayWall\config.json` |
-| Generation history | `%LocalAppData%\WondayWall\history.json` |
-| Generated images | `%LocalAppData%\WondayWall\wallpapers\` |
-| OAuth tokens | `%LocalAppData%\WondayWall\calendar-token\` |
+| Settings file | `%LocalAppData%\StudioFreesia\WondayWall\config.json` |
+| Generation history | `%LocalAppData%\StudioFreesia\WondayWall\history.json` |
+| Generated images | `%LocalAppData%\StudioFreesia\WondayWall\wallpapers\` |
+| OAuth tokens | `%LocalAppData%\StudioFreesia\WondayWall\calendar-token\` |
 
 ## Schedule
 

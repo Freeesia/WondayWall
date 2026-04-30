@@ -475,9 +475,7 @@ public class ContextService(AppConfigService configService, HistoryService histo
 
     private static FileDataStore CreateCalendarTokenStore()
     {
-        var credPath = Path.Combine(
-            System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData),
-            "WondayWall", "calendar-token");
-        return new FileDataStore(credPath, true);
+        var tokenDirectory = Path.Combine(PathUtility.AppDataDirectory, "calendar-token");
+        return new FileDataStore(tokenDirectory, true);
     }
 }
