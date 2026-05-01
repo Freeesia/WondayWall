@@ -24,8 +24,7 @@ public class UpdateChecker : BackgroundService
     private const string OpenReleaseNotesAction = "open-release-notes";
     private const string SkipAction = "skip";
 
-    private static readonly string UpdateInfoPath =
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WondayWall", "update.json");
+    private static readonly string UpdateInfoPath = Path.Combine(PathUtility.AppDataDirectory, "update.json");
 
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IGitHubClient _gitHubClient;
@@ -388,10 +387,7 @@ public class UpdateChecker : BackgroundService
         if (string.IsNullOrWhiteSpace(processDirectory))
             return false;
 
-        var installDirectory = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "StudioFreesia",
-            Repository);
+        var installDirectory = PathUtility.AppDataDirectory;
 
         return string.Equals(
             Path.GetFullPath(processDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
