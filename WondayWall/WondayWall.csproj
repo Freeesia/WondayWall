@@ -18,7 +18,7 @@
   <ItemGroup>
     <None Remove="Assets\AppIcon.ico" />
     <Resource Include="Assets\AppIcon.ico" />
-    <Resource Include="..\assets\icon_512.png" Link="Assets\icon_512.png" />
+    <Resource Include="..\docs\assets\icon_512.png" Link="Assets\icon_512.png" />
     <EmbeddedResource Update="Properties\Resources.resx">
       <Generator>PublicResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
