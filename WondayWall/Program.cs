@@ -68,6 +68,13 @@ static void ConfigureCommonServices(IServiceCollection services)
 
 static void ConfigureGuiServices(IServiceCollection services)
 {
+    services.AddHttpClient(
+        "WondayWallUpdate",
+        c =>
+        {
+            c.Timeout = TimeSpan.FromMinutes(10);
+            c.DefaultRequestHeaders.UserAgent.ParseAdd("WondayWall");
+        });
     services.AddSingleton<IGitHubClient>(_ => new GitHubClient(new ProductHeaderValue("WondayWall")));
     services.AddSingleton<UpdateChecker>();
     services.AddHostedService(sp => sp.GetRequiredService<UpdateChecker>());

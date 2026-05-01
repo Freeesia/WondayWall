@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using System.Net.Http;
 using System.Reflection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -17,6 +18,7 @@ public class UpdateChecker : BackgroundService
 {
     private const string Owner = "Freeesia";
     private const string Repository = "WondayWall";
+    private const string HttpClientName = "WondayWallUpdate";
     private const string SourceArgument = nameof(UpdateChecker);
     private const string ActionArgument = "action";
     private const string InstallAction = "install";
@@ -25,6 +27,7 @@ public class UpdateChecker : BackgroundService
 
     private static readonly string UpdateInfoPath = Path.Combine(PathUtility.AppDataDirectory, "update.json");
 
+    private readonly IHttpClientFactory _httpClientFactory;
     private readonly IGitHubClient _gitHubClient;
     private readonly ILogger<UpdateChecker> _logger;
     private readonly AsyncLock _checking = new();
@@ -37,9 +40,11 @@ public class UpdateChecker : BackgroundService
     public string? LatestVersion { get; private set; }
 
     public UpdateChecker(
+        IHttpClientFactory httpClientFactory,
         IGitHubClient gitHubClient,
         ILogger<UpdateChecker> logger)
     {
+        _httpClientFactory = httpClientFactory;
         _gitHubClient = gitHubClient;
         _logger = logger;
 
@@ -288,18 +293,20 @@ public class UpdateChecker : BackgroundService
         var tempPath = Path.Combine(dir, Path.GetRandomFileName());
         try
         {
-            ct.ThrowIfCancellationRequested();
-            var response = await _gitHubClient.Connection
-                .GetRawStream(new Uri(asset.Url), new Dictionary<string, string>())
+            var client = _httpClientFactory.CreateClient(HttpClientName);
+            using var response = await client
+                .GetAsync(asset.BrowserDownloadUrl, HttpCompletionOption.ResponseHeadersRead, ct)
                 .ConfigureAwait(false);
-            if (response.Body is null)
-                throw new InvalidOperationException("GitHub release asset のダウンロードストリームが空です");
+            response.EnsureSuccessStatusCode();
 
-            await using (var source = response.Body)
+            await using (var source = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false))
             {
                 await using var destination = File.Create(tempPath);
                 await source.CopyToAsync(destination, ct).ConfigureAwait(false);
             }
+
+            if (new FileInfo(tempPath).Length == 0)
+                throw new InvalidOperationException("GitHub release asset のダウンロード結果が空です");
 
             File.Move(tempPath, installerPath, overwrite: true);
             _logger.LogInformation("インストーラーをダウンロードしました: {InstallerPath}", installerPath);
