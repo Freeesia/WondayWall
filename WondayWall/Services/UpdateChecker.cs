@@ -1,10 +1,10 @@
 using System.Diagnostics;
 using System.IO;
-using System.Net.Http;
 using System.Reflection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Toolkit.Uwp.Notifications;
+using Nito.AsyncEx;
 using Octokit;
 using Windows.UI.Notifications;
 using WondayWall.Models;
@@ -17,7 +17,6 @@ public class UpdateChecker : BackgroundService
 {
     private const string Owner = "Freeesia";
     private const string Repository = "WondayWall";
-    private const string HttpClientName = "WondayWallUpdate";
     private const string SourceArgument = nameof(UpdateChecker);
     private const string ActionArgument = "action";
     private const string InstallAction = "install";
@@ -26,10 +25,9 @@ public class UpdateChecker : BackgroundService
 
     private static readonly string UpdateInfoPath = Path.Combine(PathUtility.AppDataDirectory, "update.json");
 
-    private readonly IHttpClientFactory _httpClientFactory;
     private readonly IGitHubClient _gitHubClient;
     private readonly ILogger<UpdateChecker> _logger;
-    private readonly SemaphoreSlim _checking = new(1, 1);
+    private readonly AsyncLock _checking = new();
     private readonly Version _currentVersion;
 
     public event EventHandler? UpdateAvailable;
@@ -39,11 +37,9 @@ public class UpdateChecker : BackgroundService
     public string? LatestVersion { get; private set; }
 
     public UpdateChecker(
-        IHttpClientFactory httpClientFactory,
         IGitHubClient gitHubClient,
         ILogger<UpdateChecker> logger)
     {
-        _httpClientFactory = httpClientFactory;
         _gitHubClient = gitHubClient;
         _logger = logger;
 
@@ -213,8 +209,7 @@ public class UpdateChecker : BackgroundService
 
     private async Task CheckCoreAsync(bool forceRefresh, CancellationToken ct)
     {
-        await _checking.WaitAsync(ct).ConfigureAwait(false);
-        try
+        using (await _checking.LockAsync(ct).ConfigureAwait(false))
         {
             var updateInfo = LoadUpdateInfo();
             if (!forceRefresh && TryUseCachedUpdateInfo(updateInfo))
@@ -249,10 +244,6 @@ public class UpdateChecker : BackgroundService
             var latestUpdateInfo = new UpdateInfo(releaseVersion.ToString(), release.HtmlUrl, installerPath, DateTime.UtcNow, false);
             SaveUpdateInfo(latestUpdateInfo);
             SetUpdateState(latestUpdateInfo.Version, hasUpdate: true);
-        }
-        finally
-        {
-            _checking.Release();
         }
     }
 
@@ -297,10 +288,10 @@ public class UpdateChecker : BackgroundService
         var tempPath = Path.Combine(dir, Path.GetRandomFileName());
         try
         {
-            var client = _httpClientFactory.CreateClient(HttpClientName);
-            await using var source = await client.GetStreamAsync(asset.BrowserDownloadUrl, ct).ConfigureAwait(false);
-            await using var destination = File.Create(tempPath);
-            await source.CopyToAsync(destination, ct).ConfigureAwait(false);
+            var response = await _gitHubClient.Connection
+                .Get<byte[]>(new Uri(asset.Url), new Dictionary<string, string>(), "application/octet-stream", ct)
+                .ConfigureAwait(false);
+            await File.WriteAllBytesAsync(tempPath, response.Body, ct).ConfigureAwait(false);
             File.Move(tempPath, installerPath, overwrite: true);
             _logger.LogInformation("インストーラーをダウンロードしました: {InstallerPath}", installerPath);
             return installerPath;
