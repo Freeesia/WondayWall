@@ -9,6 +9,7 @@ public class GenerationCoordinator(
     AppConfigService configService,
     ContextService contextService,
     GoogleAiService googleAiService,
+    UpscaleService upscaleService,
     WallpaperService wallpaperService,
     HistoryService historyService,
     ILogger<GenerationCoordinator> logger)
@@ -48,26 +49,45 @@ public class GenerationCoordinator(
         bool isSkipped = false;
         string? errorSummary = null;
         string? appliedImagePath = null;
+        string? originalGeneratedImagePath = null;
+        UpscaleMode? upscaleMode = null;
         List<CalendarEventItem>? usedEvents = null;
         List<NewsTopicItem>? usedTopics = null;
         var usedServiceTier = serviceTier;
         var historyItems = historyService.Load();
+        var config = configService.Current;
 
         try
         {
-            var contextResult = await contextService.BuildContextAsync(ct);
+            var useUpscale = config.EnableUpscaleWallpaper;
+            var displayInfo = DisplayHelper.GetDisplayInfo();
+            if (useUpscale)
+            {
+                var loweredTier = displayInfo.Tier switch
+                {
+                    DisplayImageTier.Size4K => DisplayImageTier.Size2K,
+                    DisplayImageTier.Size2K => DisplayImageTier.Size1K,
+                    DisplayImageTier.Size1K => DisplayImageTier.HalfK,
+                    _ => DisplayImageTier.HalfK,
+                };
+                displayInfo = DisplayHelper.GetDisplayInfoForTier(displayInfo.AspectRatio, loweredTier);
+            }
+
+            var contextResult = await contextService.BuildContextAsync(displayInfo, ct);
             var promptContext = contextResult.PromptContext;
 
             // UseCurrentWallpaperAsBase が有効なら直前の成功生成画像をベースとして設定
-            if (configService.Current.UseCurrentWallpaperAsBase)
+            if (config.UseCurrentWallpaperAsBase)
             {
-                var baseImagePath = historyItems
+                var baseHistory = historyItems
                     .OrderByDescending(h => h.ExecutedAt)
                     .FirstOrDefault(h => h.IsSuccess
                                         && !h.IsSkipped
-                                        && h.AppliedImagePath != null
-                                        && File.Exists(h.AppliedImagePath))
-                    ?.AppliedImagePath;
+                                        && ((h.OriginalGeneratedImagePath != null && File.Exists(h.OriginalGeneratedImagePath))
+                                            || (h.AppliedImagePath != null && File.Exists(h.AppliedImagePath))));
+                var baseImagePath = baseHistory?.OriginalGeneratedImagePath != null && File.Exists(baseHistory.OriginalGeneratedImagePath)
+                    ? baseHistory.OriginalGeneratedImagePath
+                    : baseHistory?.AppliedImagePath;
                 if (baseImagePath != null)
                     promptContext = promptContext with { BaseImagePath = baseImagePath };
             }
@@ -83,15 +103,25 @@ public class GenerationCoordinator(
             }
             else
             {
-                var imageInfo = await googleAiService.GenerateWallpaperAsync(promptContext, serviceTier, ct);
+                var imageInfo = await googleAiService.GenerateWallpaperAsync(promptContext, displayInfo, serviceTier, ct);
                 usedServiceTier = imageInfo.ServiceTier;
+                var wallpaperImagePath = imageInfo.FilePath;
+
+                if (useUpscale)
+                {
+                    var upscaleResult = await upscaleService.Upscale2xAsync(imageInfo.FilePath, config.UpscaleMode, ct);
+                    wallpaperImagePath = upscaleResult.FilePath;
+                    originalGeneratedImagePath = imageInfo.FilePath;
+                    upscaleMode = upscaleResult.ActualMethod;
+                }
+
                 await wallpaperService.SetWallpaperAsync(
-                    imageInfo.FilePath,
-                    configService.Current.UpdateLockScreen,
+                    wallpaperImagePath,
+                    config.UpdateLockScreen,
                     ct);
 
                 isSuccess = true;
-                appliedImagePath = imageInfo.FilePath;
+                appliedImagePath = wallpaperImagePath;
                 usedEvents = contextResult.CalendarEvents;
                 usedTopics = contextResult.NewsTopics;
             }
@@ -109,7 +139,9 @@ public class GenerationCoordinator(
             UsedCalendarEvents: usedEvents,
             UsedNewsTopics: usedTopics,
             ServiceTier: usedServiceTier,
-            IsSkipped: isSkipped);
+            IsSkipped: isSkipped,
+            OriginalGeneratedImagePath: originalGeneratedImagePath,
+            UpscaleMode: upscaleMode);
 
         try
         {

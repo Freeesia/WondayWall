@@ -2,6 +2,7 @@ using ConsoleAppFramework;
 using Microsoft.Extensions.Logging;
 using WondayWall.Models;
 using WondayWall.Services;
+using WondayWall.Utils;
 
 namespace WondayWall.Commands;
 
@@ -78,6 +79,7 @@ public class CliCommands(
                         Summary: "Sample news summary")
                 ],
                 ImageSize: "1920x1080"),
+            DisplayHelper.GetDisplayInfo(),
             GoogleAiServiceTier.Standard,
             cancellationToken);
         logger.LogInformation("Success! Image saved to: {Path} ({ServiceTier})", info.FilePath, info.ServiceTier);

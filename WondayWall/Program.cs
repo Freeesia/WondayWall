@@ -47,6 +47,7 @@ static void ConfigureCommonServices(IServiceCollection services)
 {
     services.AddLogging(b => b.AddConsole());
     services.AddHttpClient("WondayWall", c => c.Timeout = TimeSpan.FromSeconds(30));
+    services.AddHttpClient("WondayWall.Tools", c => c.Timeout = TimeSpan.FromMinutes(5));
     services.AddHttpClient(
             "Gemini",
             c =>
@@ -60,6 +61,8 @@ static void ConfigureCommonServices(IServiceCollection services)
     services.AddSingleton<HistoryService>();
     services.AddSingleton<ContextService>();
     services.AddSingleton<GoogleAiService>();
+    services.AddSingleton<ToolDownloadService>();
+    services.AddSingleton<UpscaleService>();
     services.AddSingleton<GenerationCoordinator>();
     services.AddSingleton<TaskSchedulerService>();
 }

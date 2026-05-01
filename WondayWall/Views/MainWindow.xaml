@@ -396,6 +396,34 @@
                                                 IsChecked="{Binding AppConfig.UseCurrentWallpaperAsBase}" />
                                         </ui:CardControl>
 
+                                        <ui:CardControl Header="アップスケール">
+                                            <ui:CardControl.Icon>
+                                                <ui:SymbolIcon Symbol="Image24" />
+                                            </ui:CardControl.Icon>
+                                            <StackPanel>
+                                                <ui:ToggleSwitch
+                                                    x:Name="EnableUpscaleWallpaperToggle"
+                                                    VerticalAlignment="Center"
+                                                    Content="生成サイズを1段下げてアップスケールする"
+                                                    IsChecked="{Binding AppConfig.EnableUpscaleWallpaper, UpdateSourceTrigger=PropertyChanged}" />
+                                                <TextBlock
+                                                    Width="320"
+                                                    Margin="24,4,0,0"
+                                                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                    Text="有効にすると生成サイズを下げてAPIコストを抑え、適用前に2倍拡大します。"
+                                                    TextWrapping="Wrap" />
+                                                <ComboBox
+                                                    Width="320"
+                                                    Margin="24,8,0,0"
+                                                    HorizontalAlignment="Left"
+                                                    DisplayMemberPath="DisplayName"
+                                                    IsEnabled="{Binding IsChecked, ElementName=EnableUpscaleWallpaperToggle}"
+                                                    ItemsSource="{Binding AvailableUpscaleModeOptions}"
+                                                    SelectedValue="{Binding AppConfig.UpscaleMode, UpdateSourceTrigger=PropertyChanged}"
+                                                    SelectedValuePath="Value" />
+                                            </StackPanel>
+                                        </ui:CardControl>
+
                                     </StackPanel>
                                 </GroupBox>
 

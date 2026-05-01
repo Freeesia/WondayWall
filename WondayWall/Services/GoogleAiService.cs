@@ -36,6 +36,7 @@ public class GoogleAiService(
 
     public async Task<GeneratedImageInfo> GenerateWallpaperAsync(
         PromptContext context,
+        DisplaySizeInfo displayInfo,
         GoogleAiServiceTier serviceTier,
         CancellationToken ct = default)
     {
@@ -45,7 +46,7 @@ public class GoogleAiService(
             throw new InvalidOperationException("Google AI API key is not configured.");
 
         var promptResult = await GeneratePromptSelectionWithFallbackAsync(context, serviceTier, config.GoogleAiApiKey, ct).ConfigureAwait(false);
-        var imageRequest = await BuildImageRequestAsync(context, promptResult.PromptSelection, ct).ConfigureAwait(false);
+        var imageRequest = await BuildImageRequestAsync(context, promptResult.PromptSelection, displayInfo, ct).ConfigureAwait(false);
         return await GenerateImageWithFallbackAsync(context, promptResult.PromptSelection.ImagePrompt, imageRequest, promptResult.ServiceTier, config.GoogleAiApiKey, ct).ConfigureAwait(false);
     }
 
@@ -163,7 +164,11 @@ public class GoogleAiService(
         return new(filePath, DateTime.Now, imagePrompt, serviceTier, context);
     }
 
-    private async Task<GenerateContentRequest> BuildImageRequestAsync(PromptContext context, PromptSelectionResponse promptSelection, CancellationToken ct)
+    private async Task<GenerateContentRequest> BuildImageRequestAsync(
+        PromptContext context,
+        PromptSelectionResponse promptSelection,
+        DisplaySizeInfo displayInfo,
+        CancellationToken ct)
     {
         // テキストモデルが採用したニュースだけ、そのOGP画像を参照画像として添付する
         var selectedNewsIds = promptSelection.SelectedNewsIds.ToHashSet(StringComparer.Ordinal);
@@ -223,7 +228,6 @@ public class GoogleAiService(
             }
         }
 
-        var displayInfo = DisplayHelper.GetDisplayInfo();
         imageRequest.GenerationConfig = new GenerationConfig
         {
             ResponseModalities = [Modality.IMAGE],

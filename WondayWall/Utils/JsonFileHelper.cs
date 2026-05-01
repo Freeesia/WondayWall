@@ -1,5 +1,6 @@
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using System.IO;
 using WondayWall.ComponentModel;
@@ -14,7 +15,9 @@ public static class JsonFileHelper
     {
         WriteIndented = true,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        PropertyNameCaseInsensitive = true,
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        Converters = { new JsonStringEnumConverter(namingPolicy: null, allowIntegerValues: false) },
         TypeInfoResolver = TypeInfoResolver,
     };
 
