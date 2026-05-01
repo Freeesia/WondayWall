@@ -288,10 +288,19 @@ public class UpdateChecker : BackgroundService
         var tempPath = Path.Combine(dir, Path.GetRandomFileName());
         try
         {
+            ct.ThrowIfCancellationRequested();
             var response = await _gitHubClient.Connection
-                .Get<byte[]>(new Uri(asset.Url), new Dictionary<string, string>(), "application/octet-stream", ct)
+                .GetRawStream(new Uri(asset.Url), new Dictionary<string, string>())
                 .ConfigureAwait(false);
-            await File.WriteAllBytesAsync(tempPath, response.Body, ct).ConfigureAwait(false);
+            if (response.Body is null)
+                throw new InvalidOperationException("GitHub release asset のダウンロードストリームが空です");
+
+            await using (var source = response.Body)
+            {
+                await using var destination = File.Create(tempPath);
+                await source.CopyToAsync(destination, ct).ConfigureAwait(false);
+            }
+
             File.Move(tempPath, installerPath, overwrite: true);
             _logger.LogInformation("インストーラーをダウンロードしました: {InstallerPath}", installerPath);
             return installerPath;
