@@ -8,6 +8,7 @@ using Microsoft.Toolkit.Uwp.Notifications;
 using Nito.AsyncEx;
 using Octokit;
 using Windows.UI.Notifications;
+using WondayWall;
 using WondayWall.Models;
 using WondayWall.Utils;
 using AppResources = WondayWall.Properties.Resources;
@@ -30,6 +31,7 @@ public class UpdateChecker : BackgroundService
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IGitHubClient _gitHubClient;
     private readonly ILogger<UpdateChecker> _logger;
+    private readonly App _app;
     private readonly AsyncLock _checking = new();
     private readonly Version _currentVersion;
 
@@ -42,10 +44,12 @@ public class UpdateChecker : BackgroundService
     public UpdateChecker(
         IHttpClientFactory httpClientFactory,
         IGitHubClient gitHubClient,
+        App app,
         ILogger<UpdateChecker> logger)
     {
         _httpClientFactory = httpClientFactory;
         _gitHubClient = gitHubClient;
+        _app = app;
         _logger = logger;
 
         var assemblyName = Assembly.GetExecutingAssembly().GetName();
@@ -61,6 +65,7 @@ public class UpdateChecker : BackgroundService
             return;
         }
 
+        await _app.WaitForStartupAsync().WaitAsync(stoppingToken).ConfigureAwait(false);
         ToastNotificationManagerCompat.OnActivated += ToastNotificationManagerCompat_OnActivated;
         try
         {
@@ -248,7 +253,7 @@ public class UpdateChecker : BackgroundService
             var installerPath = await DownloadInstallerAsync(asset, ct).ConfigureAwait(false);
             var latestUpdateInfo = new UpdateInfo(releaseVersion.ToString(), release.HtmlUrl, installerPath, DateTime.UtcNow, false);
             SaveUpdateInfo(latestUpdateInfo);
-            SetUpdateState(latestUpdateInfo.Version, hasUpdate: true, showNotification: true);
+            SetUpdateState(latestUpdateInfo.Version, hasUpdate: true);
         }
     }
 
@@ -271,7 +276,7 @@ public class UpdateChecker : BackgroundService
 
         if (updateInfo.Path is { Length: > 0 } installerPath && File.Exists(installerPath))
         {
-            SetUpdateState(updateInfo.Version, hasUpdate: true, showNotification: true);
+            SetUpdateState(updateInfo.Version, hasUpdate: true);
             return true;
         }
 
@@ -325,32 +330,25 @@ public class UpdateChecker : BackgroundService
     private static void SaveUpdateInfo(UpdateInfo updateInfo)
         => JsonFileHelper.Save(UpdateInfoPath, updateInfo);
 
-    private void SetUpdateState(string? latestVersion, bool hasUpdate, bool showNotification = false)
+    private void SetUpdateState(string? latestVersion, bool hasUpdate)
     {
         var changed = HasUpdate != hasUpdate || LatestVersion != latestVersion;
         HasUpdate = hasUpdate;
         LatestVersion = latestVersion;
-        if (hasUpdate && showNotification && latestVersion is not null)
-        {
-            try
-            {
-                ShowUpdateNotification(latestVersion, suppressPopup: false);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "更新通知の表示に失敗しました");
-            }
-        }
 
         if (changed)
         {
-            try
+            UpdateAvailable?.Invoke(this, EventArgs.Empty);
+            if (hasUpdate && latestVersion is not null)
             {
-                UpdateAvailable?.Invoke(this, EventArgs.Empty);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "更新状態の変更通知に失敗しました");
+                try
+                {
+                    ShowUpdateNotification(latestVersion, suppressPopup: false);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "更新通知の表示に失敗しました");
+                }
             }
         }
     }
