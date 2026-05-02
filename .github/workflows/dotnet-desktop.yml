@@ -33,7 +33,7 @@ jobs:
         run: dotnet tool restore
 
       - name: Restore NuGet packages
-        run: dotnet restore WondayWall.sln -c Release
+        run: dotnet restore WondayWall.sln
 
       - name: Generate third-party notices
         run: |
