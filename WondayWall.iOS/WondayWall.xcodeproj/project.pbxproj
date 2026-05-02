@@ -28,6 +28,7 @@ BB000000000000000000000012 /* ScheduleHelper.swift in Sources */ = {isa = PBXBui
 BB000000000000000000000013 /* FileHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000013 /* FileHelper.swift */; };
 BB000000000000000000000014 /* KeychainHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000014 /* KeychainHelper.swift */; };
 BB000000000000000000000015 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000015 /* ContentView.swift */; };
+		BB000000000000000000000021 /* NetworkHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000021 /* NetworkHelper.swift */; };
 BB000000000000000000000016 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000016 /* HomeView.swift */; };
 BB000000000000000000000017 /* HomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000017 /* HomeViewModel.swift */; };
 BB000000000000000000000018 /* DataView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000018 /* DataView.swift */; };
@@ -61,6 +62,7 @@ AA000000000000000000000011 /* ForegroundBackgroundTaskService.swift */ = {isa = 
 AA000000000000000000000012 /* ScheduleHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleHelper.swift; sourceTree = "<group>"; };
 AA000000000000000000000013 /* FileHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileHelper.swift; sourceTree = "<group>"; };
 AA000000000000000000000014 /* KeychainHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainHelper.swift; sourceTree = "<group>"; };
+		AA000000000000000000000021 /* NetworkHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkHelper.swift; sourceTree = "<group>"; };
 AA000000000000000000000015 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 AA000000000000000000000016 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 AA000000000000000000000017 /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModel.swift; sourceTree = "<group>"; };
@@ -200,6 +202,7 @@ children = (
 AA000000000000000000000012 /* ScheduleHelper.swift */,
 AA000000000000000000000013 /* FileHelper.swift */,
 AA000000000000000000000014 /* KeychainHelper.swift */,
+				AA000000000000000000000021 /* NetworkHelper.swift */,
 );
 path = Utils;
 sourceTree = "<group>";
@@ -300,6 +303,7 @@ BB000000000000000000000011 /* ForegroundBackgroundTaskService.swift in Sources *
 BB000000000000000000000012 /* ScheduleHelper.swift in Sources */,
 BB000000000000000000000013 /* FileHelper.swift in Sources */,
 BB000000000000000000000014 /* KeychainHelper.swift in Sources */,
+				BB000000000000000000000021 /* NetworkHelper.swift in Sources */,
 BB000000000000000000000015 /* ContentView.swift in Sources */,
 BB000000000000000000000016 /* HomeView.swift in Sources */,
 BB000000000000000000000017 /* HomeViewModel.swift in Sources */,

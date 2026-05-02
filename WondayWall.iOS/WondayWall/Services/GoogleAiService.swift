@@ -7,6 +7,9 @@ final class GoogleAiService {
     private static let apiBaseURL =
         "https://generativelanguage.googleapis.com/v1beta/models"
 
+    // 画像生成 API のタイムアウト秒数（画像生成は時間がかかる場合がある）
+    private static let imageGenerationTimeout: TimeInterval = 300
+
     private let configService: AppConfigService
 
     init(configService: AppConfigService) {
@@ -267,7 +270,7 @@ final class GoogleAiService {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(body)
         // 画像生成は時間がかかることがあるためタイムアウトを延長
-        request.timeoutInterval = 300
+        request.timeoutInterval = Self.imageGenerationTimeout
         let (data, response) = try await URLSession.shared.data(for: request)
         if let httpResponse = response as? HTTPURLResponse,
             !(200..<300).contains(httpResponse.statusCode)

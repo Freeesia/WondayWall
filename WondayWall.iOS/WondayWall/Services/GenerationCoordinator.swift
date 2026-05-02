@@ -155,12 +155,10 @@ actor GenerationCoordinator {
         cancel()
     }
 
-    // Wi-Fi 接続中かどうかを確認する（簡易チェック）
+    // Wi-Fi 接続中かどうかを確認する
+    // NWPathMonitor を使って接続タイプを判定する
     private func isOnWiFi() -> Bool {
-        // Network.framework を使った実装は NWPathMonitor が必要だが、
-        // ここでは常に true を返し呼び出し元に判断を委ねる
-        // 本番実装では NWPathMonitor を使って接続タイプを判定すること
-        true
+        NetworkHelper.isOnWiFi()
     }
 
     // ニューストピックに変化があるかを判定する

@@ -249,7 +249,7 @@ private struct SettingsContentView: View {
                     Button("追加") {
                         vm.addRssSource()
                     }
-                    .disabled(vm.newRssURL.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .disabled(vm.newRssURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
         }
