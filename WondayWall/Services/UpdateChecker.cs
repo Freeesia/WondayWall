@@ -113,17 +113,6 @@ public class UpdateChecker : BackgroundService
             return;
         }
 
-        InstallUpdate(installerPath);
-    }
-
-    private void InstallUpdate(string installerPath)
-    {
-        if (!File.Exists(installerPath))
-        {
-            _logger.LogWarning("インストーラーが見つからないため更新を開始できませんでした: {InstallerPath}", installerPath);
-            return;
-        }
-
         var startInfo = new ProcessStartInfo("msiexec")
         {
             UseShellExecute = false,
@@ -149,14 +138,6 @@ public class UpdateChecker : BackgroundService
         });
     }
 
-    private void OpenReleaseNotes(string url)
-    {
-        Process.Start(new ProcessStartInfo(url)
-        {
-            UseShellExecute = true,
-        });
-    }
-
     public Task SkipVersionAsync(CancellationToken ct = default)
     {
         var updateInfo = LoadUpdateInfo();
@@ -168,15 +149,13 @@ public class UpdateChecker : BackgroundService
         return Task.CompletedTask;
     }
 
-    private void ShowUpdateNotification(UpdateInfo updateInfo, bool suppressPopup)
+    private void ShowUpdateNotification(string version, bool suppressPopup)
     {
         var builder = new ToastContentBuilder()
-            .AddText(AppResources.Format(AppResources.UpdateNotificationTitle, updateInfo.Version), AdaptiveTextStyle.Title)
+            .AddText(AppResources.Format(AppResources.UpdateNotificationTitle, version), AdaptiveTextStyle.Title)
             .AddText(AppResources.UpdateNotificationMessage)
             .AddArgument(SourceArgument)
-            .AddArgument("version", updateInfo.Version)
-            .AddArgument("url", updateInfo.Url)
-            .AddArgument("path", updateInfo.Path ?? string.Empty)
+            .AddArgument("version", version)
             .AddButton(new ToastButton()
                 .SetContent(AppResources.UpdateInstallButton)
                 .AddArgument(ActionArgument, InstallAction))
@@ -215,30 +194,15 @@ public class UpdateChecker : BackgroundService
             switch (action)
             {
                 case InstallAction:
-                    if (args.TryGetValue("path", out string? installerPath) && !string.IsNullOrWhiteSpace(installerPath))
-                        InstallUpdate(installerPath);
-                    else
-                        InstallUpdate();
+                    InstallUpdate();
                     break;
                 case OpenReleaseNotesAction:
-                    if (args.TryGetValue("url", out string? url) && !string.IsNullOrWhiteSpace(url))
-                        OpenReleaseNotes(url);
-                    else
-                        OpenReleaseNotes();
-
-                    if (TryGetUpdateInfoFromToastArgs(args, out var updateInfo))
-                        ShowUpdateNotification(updateInfo, suppressPopup: true);
+                    OpenReleaseNotes();
+                    if (args.TryGetValue("version", out string? version) && version is not null)
+                        ShowUpdateNotification(version, suppressPopup: true);
                     break;
                 case SkipAction:
-                    if (TryGetUpdateInfoFromToastArgs(args, out var skippedUpdateInfo))
-                    {
-                        SaveUpdateInfo(skippedUpdateInfo with { CheckedAt = DateTime.UtcNow, Skip = true });
-                        SetUpdateState(skippedUpdateInfo.Version, hasUpdate: false);
-                    }
-                    else
-                    {
-                        await SkipVersionAsync().ConfigureAwait(false);
-                    }
+                    await SkipVersionAsync().ConfigureAwait(false);
                     break;
             }
         }
@@ -284,7 +248,7 @@ public class UpdateChecker : BackgroundService
             var installerPath = await DownloadInstallerAsync(asset, ct).ConfigureAwait(false);
             var latestUpdateInfo = new UpdateInfo(releaseVersion.ToString(), release.HtmlUrl, installerPath, DateTime.UtcNow, false);
             SaveUpdateInfo(latestUpdateInfo);
-            SetUpdateState(latestUpdateInfo.Version, hasUpdate: true, latestUpdateInfo);
+            SetUpdateState(latestUpdateInfo.Version, hasUpdate: true, showNotification: true);
         }
     }
 
@@ -307,7 +271,7 @@ public class UpdateChecker : BackgroundService
 
         if (updateInfo.Path is { Length: > 0 } installerPath && File.Exists(installerPath))
         {
-            SetUpdateState(updateInfo.Version, hasUpdate: true, updateInfo);
+            SetUpdateState(updateInfo.Version, hasUpdate: true, showNotification: true);
             return true;
         }
 
@@ -361,16 +325,16 @@ public class UpdateChecker : BackgroundService
     private static void SaveUpdateInfo(UpdateInfo updateInfo)
         => JsonFileHelper.Save(UpdateInfoPath, updateInfo);
 
-    private void SetUpdateState(string? latestVersion, bool hasUpdate, UpdateInfo? notificationInfo = null)
+    private void SetUpdateState(string? latestVersion, bool hasUpdate, bool showNotification = false)
     {
         var changed = HasUpdate != hasUpdate || LatestVersion != latestVersion;
         HasUpdate = hasUpdate;
         LatestVersion = latestVersion;
-        if (hasUpdate && notificationInfo is not null)
+        if (hasUpdate && showNotification && latestVersion is not null)
         {
             try
             {
-                ShowUpdateNotification(notificationInfo, suppressPopup: false);
+                ShowUpdateNotification(latestVersion, suppressPopup: false);
             }
             catch (Exception ex)
             {
@@ -389,20 +353,6 @@ public class UpdateChecker : BackgroundService
                 _logger.LogWarning(ex, "更新状態の変更通知に失敗しました");
             }
         }
-    }
-
-    private static bool TryGetUpdateInfoFromToastArgs(ToastArguments args, out UpdateInfo updateInfo)
-    {
-        updateInfo = default!;
-        if (!args.TryGetValue("version", out string? version) || string.IsNullOrWhiteSpace(version))
-            return false;
-
-        if (!args.TryGetValue("url", out string? url) || string.IsNullOrWhiteSpace(url))
-            return false;
-
-        args.TryGetValue("path", out string? path);
-        updateInfo = new(version, url, string.IsNullOrWhiteSpace(path) ? null : path, DateTime.UtcNow, false);
-        return true;
     }
 
     private static string? GetReleaseVersionText(Release release)
