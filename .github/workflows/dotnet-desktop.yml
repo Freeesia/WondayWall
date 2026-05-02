@@ -8,7 +8,52 @@ on:
     branches: [main]
 
 jobs:
+  license:
+    if: ${{ startsWith(github.ref, 'refs/tags/') }}
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore dotnet tools
+        run: dotnet tool restore
+
+      - name: Restore NuGet packages
+        run: dotnet restore WondayWall.sln -c Release
+
+      - name: Generate third-party notices
+        run: |
+          mkdir artifacts\licenses
+          dotnet tool run nuget-license `
+            -i WondayWall.sln `
+            -t `
+            -a eng\licenses\allowed-licenses.json `
+            -o Markdown `
+            -fo artifacts\licenses\THIRD-PARTY-NOTICES.md `
+            -f net10.0-windows10.0.22621.0
+
+      - name: Verify THIRD-PARTY-NOTICES.md is not empty
+        run: |
+          if (!(Test-Path "artifacts\licenses\THIRD-PARTY-NOTICES.md")) {
+            throw "THIRD-PARTY-NOTICES.md was not found."
+          }
+          if ((Get-Item "artifacts\licenses\THIRD-PARTY-NOTICES.md").Length -eq 0) {
+            throw "THIRD-PARTY-NOTICES.md is empty."
+          }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: third-party-notices
+          path: artifacts\licenses\THIRD-PARTY-NOTICES.md
+
   build:
+    needs:
+      - license
     strategy:
       matrix:
         self: [true, false]
@@ -35,6 +80,11 @@ jobs:
           versionSpec: "6.x"
       - id: gitversion
         uses: gittools/actions/gitversion/execute@v4.5.0
+      - uses: actions/download-artifact@v4
+        if: ${{ startsWith(github.ref, 'refs/tags/') && needs.license.result == 'success' }}
+        with:
+          name: third-party-notices
+          path: publish
       - run: |
           dotnet publish WondayWall -c Release -o publish `
             -p:DebugType=None `
@@ -45,6 +95,12 @@ jobs:
             -p:AssemblyVersion=${{ steps.gitversion.outputs.assemblySemVer }} `
             -p:FileVersion=${{ steps.gitversion.outputs.assemblySemFileVer }} `
             -p:InformationalVersion=${{ steps.gitversion.outputs.informationalVersion }}
+      - name: Verify THIRD-PARTY-NOTICES.md in publish output (tag only)
+        if: ${{ startsWith(github.ref, 'refs/tags/') }}
+        run: |
+          if (!(Test-Path "publish\THIRD-PARTY-NOTICES.md")) {
+            throw "THIRD-PARTY-NOTICES.md was not found in publish output."
+          }
       - uses: actions/upload-artifact@v4
         with:
           name: WondayWall${{ matrix.self && '-full' || '' }}-${{ steps.gitversion.outputs.fullSemVer }}
@@ -73,6 +129,11 @@ jobs:
           path: artifacts
           pattern: WondayWall-full-*
           merge-multiple: true
+      - name: Verify THIRD-PARTY-NOTICES.md in artifacts
+        run: |
+          if (!(Test-Path "artifacts\THIRD-PARTY-NOTICES.md")) {
+            throw "THIRD-PARTY-NOTICES.md was not found in artifacts."
+          }
       - run: |
           dotnet run --project WondayWall.Wix.csproj -c Release
           dotnet build WondayWall.Installer.wixproj -p:OutputName=WondayWall-${{ needs.build.outputs.version }}
@@ -97,6 +158,14 @@ jobs:
             base=$(basename "$dir")
             if ! find "$dir" -maxdepth 1 -type f -name "*.msi" | read; then
               (cd "$dir" && zip -r "../${base}.zip" .)
+            fi
+          done
+      - name: Verify THIRD-PARTY-NOTICES.md in zips
+        run: |
+          for zip in WondayWall-*.zip; do
+            if ! unzip -l "$zip" | grep -q "THIRD-PARTY-NOTICES.md"; then
+              echo "THIRD-PARTY-NOTICES.md not found in $zip"
+              exit 1
             fi
           done
       - uses: softprops/action-gh-release@v2.6.1
