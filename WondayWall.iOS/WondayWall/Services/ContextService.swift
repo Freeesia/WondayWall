@@ -513,7 +513,7 @@ struct AvailableCalendar: Identifiable {
 }
 
 // ASWebAuthenticationSession のプレゼンテーションコンテキスト
-final class PresentationContextProvider: NSObject,
+private final class PresentationContextProvider: NSObject,
     ASWebAuthenticationPresentationContextProviding
 {
     let anchor: ASPresentationAnchor
