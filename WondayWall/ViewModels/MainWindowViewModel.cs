@@ -260,7 +260,11 @@ public partial class MainWindowViewModel : ObservableObject
     {
         try
         {
+            var previousSaveToOneDrive = _configService.Current.SaveToOneDrive;
             SaveSettings(IsTaskSchedulerEnabled, AppResources.SettingsSaved);
+            // 保存先の変更時は既存の壁紙画像を移行する
+            if (AppConfig.SaveToOneDrive != previousSaveToOneDrive)
+                _configService.MigrateWallpaperImages(toOneDrive: AppConfig.SaveToOneDrive);
         }
         catch (Exception ex)
         {

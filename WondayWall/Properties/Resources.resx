@@ -318,7 +318,13 @@
   <data name="UseCurrentWallpaperAsBaseHeader" xml:space="preserve">
     <value>Generate from current wallpaper</value>
   </data>
-  <data name="UserPromptHeader" xml:space="preserve">
-    <value>User prompt (additional instructions)</value>
+  <data name="StorageSettings" xml:space="preserve">
+    <value>Storage settings</value>
+  </data>
+  <data name="SaveToOneDriveHeader" xml:space="preserve">
+    <value>Save to OneDrive</value>
+  </data>
+  <data name="SaveToOneDrive" xml:space="preserve">
+    <value>Save generated wallpapers to OneDrive folder</value>
   </data>
 </root>

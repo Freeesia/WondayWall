@@ -503,6 +503,20 @@
                                         </ui:CardControl>
                                     </StackPanel>
                                 </GroupBox>
+
+                                <GroupBox Header="{x:Static properties:Resources.StorageSettings}">
+                                    <StackPanel>
+                                        <ui:CardControl Header="{x:Static properties:Resources.SaveToOneDriveHeader}">
+                                            <ui:CardControl.Icon>
+                                                <ui:SymbolIcon Symbol="Cloud24" />
+                                            </ui:CardControl.Icon>
+                                            <ui:ToggleSwitch
+                                                VerticalAlignment="Center"
+                                                Content="{x:Static properties:Resources.SaveToOneDrive}"
+                                                IsChecked="{Binding AppConfig.SaveToOneDrive, UpdateSourceTrigger=PropertyChanged}" />
+                                        </ui:CardControl>
+                                    </StackPanel>
+                                </GroupBox>
                             </StackPanel>
                         </ScrollViewer>
                     </DockPanel>
