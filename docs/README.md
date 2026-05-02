@@ -99,6 +99,8 @@ dotnet build
 
 [利用規約](Terms_of_Use.md)
 
+[生成画像の利用について](GeneratedImageUsage.md)
+
 ## ライセンス
 
 [MIT License](https://github.com/Freeesia/WondayWall/blob/main/LICENSE)
