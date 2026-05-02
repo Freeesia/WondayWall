@@ -19,22 +19,20 @@ public static class PathUtility
     /// <summary>ローカルの壁紙保存フォルダパス</summary>
     public static string LocalWallpaperDirectory => Path.Combine(AppDataDirectory, "wallpapers");
 
-    /// <summary>OneDrive 配下の壁紙保存フォルダパス</summary>
-    public static string OneDriveWallpaperDirectory
+    /// <summary>OneDrive 配下の壁紙保存フォルダパス。OneDrive が未インストールの場合は null。</summary>
+    public static string? OneDriveWallpaperDirectory
     {
         get
         {
             // OneDrive 環境変数（Windows で OneDrive がインストールされている場合に設定される）
             var oneDrivePath = Environment.GetEnvironmentVariable("OneDrive");
             if (string.IsNullOrEmpty(oneDrivePath))
-                oneDrivePath = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                    "OneDrive");
-            return Path.Combine(oneDrivePath, "WondayWall", "wallpapers");
+                return null;
+            return Path.Combine(oneDrivePath, "Pictures", "WondayWall", "wallpapers");
         }
     }
 
-    /// <summary>設定に基づく壁紙保存フォルダパスを返す</summary>
+    /// <summary>設定に基づく壁紙保存フォルダパスを返す。OneDrive が未インストールの場合はローカルパスを使用。</summary>
     public static string GetWallpaperDirectory(bool saveToOneDrive)
-        => saveToOneDrive ? OneDriveWallpaperDirectory : LocalWallpaperDirectory;
+        => (saveToOneDrive ? OneDriveWallpaperDirectory : null) ?? LocalWallpaperDirectory;
 }
