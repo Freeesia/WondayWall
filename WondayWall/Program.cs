@@ -18,7 +18,7 @@ Thread.CurrentThread.SetApartmentState(ApartmentState.Unknown);
 Thread.CurrentThread.SetApartmentState(ApartmentState.STA);
 
 
-if (args is [])
+if (args is [] || IsToastActivation(args))
 {
     var builder = KamishibaiApplication<App, MainWindow>.CreateBuilder();
     ConfigureCommonServices(builder.Services);
@@ -79,3 +79,7 @@ static void ConfigureGuiServices(IServiceCollection services)
     services.AddSingleton<UpdateChecker>();
     services.AddHostedService(sp => sp.GetRequiredService<UpdateChecker>());
 }
+
+static bool IsToastActivation(string[] args)
+    // Toast から起動された場合は CLI ではなく GUI として起動する
+    => args.Contains("-ToastActivated", StringComparer.OrdinalIgnoreCase);

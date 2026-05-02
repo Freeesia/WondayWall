@@ -8,7 +8,6 @@ using Microsoft.Toolkit.Uwp.Notifications;
 using Nito.AsyncEx;
 using Octokit;
 using Windows.UI.Notifications;
-using WondayWall;
 using WondayWall.Models;
 using WondayWall.Utils;
 using AppResources = WondayWall.Properties.Resources;
@@ -31,7 +30,6 @@ public class UpdateChecker : BackgroundService
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IGitHubClient _gitHubClient;
     private readonly ILogger<UpdateChecker> _logger;
-    private readonly App _app;
     private readonly AsyncLock _checking = new();
     private readonly Version _currentVersion;
 
@@ -44,12 +42,10 @@ public class UpdateChecker : BackgroundService
     public UpdateChecker(
         IHttpClientFactory httpClientFactory,
         IGitHubClient gitHubClient,
-        App app,
         ILogger<UpdateChecker> logger)
     {
         _httpClientFactory = httpClientFactory;
         _gitHubClient = gitHubClient;
-        _app = app;
         _logger = logger;
 
         var assemblyName = Assembly.GetExecutingAssembly().GetName();
@@ -65,7 +61,6 @@ public class UpdateChecker : BackgroundService
             return;
         }
 
-        await _app.WaitForStartupAsync().WaitAsync(stoppingToken).ConfigureAwait(false);
         ToastNotificationManagerCompat.OnActivated += ToastNotificationManagerCompat_OnActivated;
         try
         {
