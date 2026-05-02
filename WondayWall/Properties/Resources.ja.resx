@@ -318,13 +318,4 @@
   <data name="UseCurrentWallpaperAsBaseHeader" xml:space="preserve">
     <value>現在の壁紙をベースに生成</value>
   </data>
-  <data name="StorageSettings" xml:space="preserve">
-    <value>保存先設定</value>
-  </data>
-  <data name="SaveToOneDriveHeader" xml:space="preserve">
-    <value>OneDriveに保存</value>
-  </data>
-  <data name="SaveToOneDrive" xml:space="preserve">
-    <value>生成した壁紙をOneDriveフォルダに保存する</value>
-  </data>
 </root>

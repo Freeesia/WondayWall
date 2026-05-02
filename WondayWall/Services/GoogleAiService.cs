@@ -155,7 +155,7 @@ public class GoogleAiService(
         if (imageData == null || imageData.Value.Bytes.Length == 0)
             throw new InvalidOperationException("No image data returned from Google AI.");
 
-        var filePath = FileNameHelper.GetImageFilePath(configService.GetWallpaperSaveDirectory(), extension: imageData.Value.Extension);
+        var filePath = FileNameHelper.GetImageFilePath(PathUtility.WallpaperDirectory, extension: imageData.Value.Extension);
         await File.WriteAllBytesAsync(filePath, imageData.Value.Bytes, ct).ConfigureAwait(false);
 
         return new(filePath, DateTime.Now, imagePrompt, serviceTier, context);

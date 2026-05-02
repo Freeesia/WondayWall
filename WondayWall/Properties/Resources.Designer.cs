@@ -138,7 +138,4 @@ public static class Resources
     public static string UseCurrentWallpaperAsBase => GetString(nameof(UseCurrentWallpaperAsBase));
     public static string UseCurrentWallpaperAsBaseHeader => GetString(nameof(UseCurrentWallpaperAsBaseHeader));
     public static string UserPromptHeader => GetString(nameof(UserPromptHeader));
-    public static string StorageSettings => GetString(nameof(StorageSettings));
-    public static string SaveToOneDriveHeader => GetString(nameof(SaveToOneDriveHeader));
-    public static string SaveToOneDrive => GetString(nameof(SaveToOneDrive));
 }

@@ -17,6 +17,4 @@ public class AppConfig
     public bool SkipGenerationWhenNoChanges { get; set; } = false;
     /// <summary>デスクトップ壁紙に加えてロック画面も更新する</summary>
     public bool UpdateLockScreen { get; set; } = false;
-    /// <summary>生成した壁紙をOneDrive配下に保存する</summary>
-    public bool SaveToOneDrive { get; set; } = false;
 }
