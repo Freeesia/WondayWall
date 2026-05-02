@@ -1,5 +1,6 @@
 import Foundation
 import AuthenticationServices
+import FeedKit
 
 // Google Calendar への接続と RSS フィードからコンテキストを構築するサービス
 final class ContextService {
@@ -30,6 +31,9 @@ final class ContextService {
 
     private let configService: AppConfigService
     private let historyService: HistoryService
+    // ASWebAuthenticationSession は weak で保持されないため、強参照で保持する
+    private var authSession: ASWebAuthenticationSession?
+    private var authContextProvider: PresentationContextProvider?
 
     init(configService: AppConfigService, historyService: HistoryService) {
         self.configService = configService
@@ -69,10 +73,14 @@ final class ContextService {
             "com.googleusercontent.apps.1032289774423-97qnlp8qkh7vca159jvq1ohggcn4qaqm"
 
         let callbackURL: URL = try await withCheckedThrowingContinuation { continuation in
+            let provider = PresentationContextProvider(anchor: presentingAnchor)
             let session = ASWebAuthenticationSession(
                 url: authURL,
                 callbackURLScheme: callbackScheme
-            ) { url, error in
+            ) { [weak self] url, error in
+                // 認証完了後に参照を解放
+                self?.authSession = nil
+                self?.authContextProvider = nil
                 if let error {
                     continuation.resume(throwing: error)
                 } else if let url {
@@ -81,10 +89,11 @@ final class ContextService {
                     continuation.resume(throwing: URLError(.cancelled))
                 }
             }
-            session.presentationContextProvider = PresentationContextProvider(
-                anchor: presentingAnchor
-            )
+            session.presentationContextProvider = provider
             session.prefersEphemeralWebBrowserSession = false
+            // セッションとプロバイダーをプロパティで強参照保持（ARCによる早期解放を防ぐ）
+            self.authContextProvider = provider
+            self.authSession = session
             session.start()
         }
 
@@ -279,12 +288,56 @@ final class ContextService {
             }
     }
 
-    // 1つの RSS ソースからアイテムを取得してパースする
+    // 1つの RSS ソースからアイテムを取得してパースする（FeedKit使用）
     private func fetchRssItems(from urlString: String, since: Date) async -> [RssItem] {
         guard let url = URL(string: urlString) else { return [] }
         guard let (data, _) = try? await URLSession.shared.data(from: url) else { return [] }
-        let parser = RssFeedParser(data: data)
-        return parser.parse().filter { $0.publishedAt >= since }
+
+        let feedResult: Result<Feed, ParserError> = await withCheckedContinuation { continuation in
+            FeedParser(data: data).parseAsync { continuation.resume(returning: $0) }
+        }
+
+        guard case .success(let feed) = feedResult else { return [] }
+
+        let items: [RssItem]
+        switch feed {
+        case .atom(let atomFeed):
+            items = (atomFeed.entries ?? []).compactMap { entry in
+                guard let title = entry.title else { return nil }
+                let link = entry.links?
+                    .first(where: { $0.attributes?.rel == "alternate" })?
+                    .attributes?.href
+                    ?? entry.links?.first?.attributes?.href
+                return RssItem(
+                    title: title,
+                    summary: entry.summary?.value,
+                    url: link,
+                    publishedAt: entry.published ?? entry.updated ?? Date()
+                )
+            }
+        case .rss(let rssFeed):
+            items = (rssFeed.items ?? []).compactMap { item in
+                guard let title = item.title else { return nil }
+                return RssItem(
+                    title: title,
+                    summary: item.description,
+                    url: item.link,
+                    publishedAt: item.pubDate ?? Date()
+                )
+            }
+        case .json(let jsonFeed):
+            items = (jsonFeed.items ?? []).compactMap { item in
+                guard let title = item.title else { return nil }
+                return RssItem(
+                    title: title,
+                    summary: item.summary,
+                    url: item.url,
+                    publishedAt: item.datePublished ?? Date()
+                )
+            }
+        }
+
+        return items.filter { $0.publishedAt >= since }
     }
 
     // 画像生成用コンテキストを構築する
@@ -444,7 +497,7 @@ final class ContextService {
     }
 
     // RSS フィードアイテム（内部用）
-    fileprivate struct RssItem {
+    private struct RssItem {
         let title: String
         let summary: String?
         let url: String?
@@ -460,105 +513,12 @@ struct AvailableCalendar: Identifiable {
 }
 
 // ASWebAuthenticationSession のプレゼンテーションコンテキスト
-private final class PresentationContextProvider: NSObject,
+final class PresentationContextProvider: NSObject,
     ASWebAuthenticationPresentationContextProviding
 {
     let anchor: ASPresentationAnchor
     init(anchor: ASPresentationAnchor) { self.anchor = anchor }
     func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
         anchor
-    }
-}
-
-// RSS/Atom フィードの XML SAX パーサー
-private final class RssFeedParser: NSObject, XMLParserDelegate {
-    private let data: Data
-    private var items: [ContextService.RssItem] = []
-
-    private var currentTitle = ""
-    private var currentLink = ""
-    private var currentSummary = ""
-    private var currentPubDate = ""
-    private var insideItem = false
-    private var currentElement = ""
-    private var isAtom = false
-
-    init(data: Data) { self.data = data }
-
-    func parse() -> [ContextService.RssItem] {
-        let parser = XMLParser(data: data)
-        parser.delegate = self
-        parser.parse()
-        return items
-    }
-
-    func parser(
-        _ parser: XMLParser,
-        didStartElement elementName: String,
-        namespaceURI: String?,
-        qualifiedName qName: String?,
-        attributes attributeDict: [String: String] = [:]
-    ) {
-        currentElement = elementName
-        if elementName == "item" || elementName == "entry" {
-            insideItem = true
-            isAtom = (elementName == "entry")
-            currentTitle = ""
-            currentLink = ""
-            currentSummary = ""
-            currentPubDate = ""
-        } else if elementName == "link", isAtom, let href = attributeDict["href"], !href.isEmpty {
-            // Atom の <link href="..."> からリンクを取得
-            currentLink = href
-        }
-    }
-
-    func parser(_ parser: XMLParser, foundCharacters string: String) {
-        guard insideItem else { return }
-        let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        switch currentElement {
-        case "title": currentTitle += trimmed
-        case "link" where !isAtom: currentLink += trimmed
-        case "description", "summary", "content": currentSummary += trimmed
-        case "pubDate", "published", "updated", "dc:date": currentPubDate += trimmed
-        default: break
-        }
-    }
-
-    func parser(
-        _ parser: XMLParser,
-        didEndElement elementName: String,
-        namespaceURI: String?,
-        qualifiedName qName: String?
-    ) {
-        guard elementName == "item" || elementName == "entry" else { return }
-        insideItem = false
-        let date = parseDate(currentPubDate)
-        items.append(
-            ContextService.RssItem(
-                title: currentTitle,
-                summary: currentSummary.isEmpty ? nil : currentSummary,
-                url: currentLink.isEmpty ? nil : currentLink,
-                publishedAt: date
-            )
-        )
-    }
-
-    private func parseDate(_ str: String) -> Date {
-        let formats = [
-            "EEE, dd MMM yyyy HH:mm:ss Z",
-            "EEE, dd MMM yyyy HH:mm:ss zzz",
-            "yyyy-MM-dd'T'HH:mm:ssZ",
-            "yyyy-MM-dd'T'HH:mm:ss.SSSZ",
-            "yyyy-MM-dd'T'HH:mm:ssXXXXX",
-        ]
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        for format in formats {
-            formatter.dateFormat = format
-            if let date = formatter.date(from: str) { return date }
-        }
-        return Date()
     }
 }

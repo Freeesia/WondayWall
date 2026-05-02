@@ -32,16 +32,16 @@ private struct HomeContentView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
-                // 最新生成画像プレビュー
-                wallpaperPreview
+                // アクションボタン群
+                actionButtons
 
                 // 直近実行結果バッジ
                 if let history = vm.latestHistory {
                     lastResultBadge(history: history)
                 }
 
-                // アクションボタン群
-                actionButtons
+                // 最新生成画像プレビュー
+                wallpaperPreview
             }
             .padding()
         }

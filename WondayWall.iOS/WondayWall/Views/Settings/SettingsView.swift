@@ -121,9 +121,12 @@ private struct SettingsContentView: View {
             // RSS ソースセクション
             Section {
                 ForEach(vm.config.rssSources, id: \.self) { source in
-                    Text(source)
-                        .font(.caption)
-                        .lineLimit(1)
+                    HStack(spacing: 8) {
+                        FaviconImage(urlString: source)
+                        Text(source)
+                            .font(.caption)
+                            .lineLimit(1)
+                    }
                 }
                 .onDelete { vm.removeRssSource(at: $0) }
 
@@ -228,10 +231,14 @@ private struct SettingsContentView: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("https://example.com/feed.rss", text: $vm.newRssURL)
-                        .keyboardType(.URL)
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
+                    TextField(
+                        "",
+                        text: $vm.newRssURL,
+                        prompt: Text("https://example.com/feed.rss").foregroundStyle(.secondary)
+                    )
+                    .keyboardType(.URL)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
                 } header: {
                     Text("RSS フィード URL")
                 }

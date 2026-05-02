@@ -39,6 +39,8 @@ BB00000000000000000000001C /* HistoryViewModel.swift in Sources */ = {isa = PBXB
 BB00000000000000000000001D /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000000001D /* SettingsView.swift */; };
 BB00000000000000000000001E /* SettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000000001E /* SettingsViewModel.swift */; };
 BB00000000000000000000001F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000000001F /* Assets.xcassets */; };
+BB000000000000000000000022 /* FaviconImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000022 /* FaviconImage.swift */; };
+DD000000000000000000000003 /* FeedKit in Frameworks */ = {isa = PBXBuildFile; productRef = DD000000000000000000000002 /* FeedKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -75,6 +77,7 @@ AA00000000000000000000001D /* SettingsView.swift */ = {isa = PBXFileReference; l
 AA00000000000000000000001E /* SettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewModel.swift; sourceTree = "<group>"; };
 AA00000000000000000000001F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 AA000000000000000000000020 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+AA000000000000000000000022 /* FaviconImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaviconImage.swift; sourceTree = "<group>"; };
 FF000000000000000000000006 /* WondayWall.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WondayWall.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -151,6 +154,7 @@ CC000000000000000000000007 /* Views */ = {
 isa = PBXGroup;
 children = (
 AA000000000000000000000015 /* ContentView.swift */,
+AA000000000000000000000022 /* FaviconImage.swift */,
 CC000000000000000000000008 /* Home */,
 CC000000000000000000000009 /* DataView */,
 CC00000000000000000000000A /* History */,
@@ -229,6 +233,9 @@ FF000000000000000000000005 /* Frameworks */,
 buildRules = ();
 dependencies = ();
 name = WondayWall;
+packageProductDependencies = (
+DD000000000000000000000002 /* FeedKit */,
+);
 productName = WondayWall;
 productReference = FF000000000000000000000006 /* WondayWall.app */;
 productType = "com.apple.product-type.application";
@@ -258,6 +265,9 @@ en,
 Base,
 );
 mainGroup = CC000000000000000000000001;
+packageReferences = (
+DD000000000000000000000001 /* XCRemoteSwiftPackageReference "FeedKit" */,
+);
 productRefGroup = CC000000000000000000000002 /* Products */;
 projectDirPath = "";
 projectRoot = "";
@@ -305,6 +315,7 @@ BB000000000000000000000013 /* FileHelper.swift in Sources */,
 BB000000000000000000000014 /* KeychainHelper.swift in Sources */,
 				BB000000000000000000000021 /* NetworkHelper.swift in Sources */,
 BB000000000000000000000015 /* ContentView.swift in Sources */,
+BB000000000000000000000022 /* FaviconImage.swift in Sources */,
 BB000000000000000000000016 /* HomeView.swift in Sources */,
 BB000000000000000000000017 /* HomeViewModel.swift in Sources */,
 BB000000000000000000000018 /* DataView.swift in Sources */,
@@ -324,6 +335,7 @@ FF000000000000000000000005 /* Frameworks */ = {
 isa = PBXFrameworksBuildPhase;
 buildActionMask = 2147483647;
 files = (
+DD000000000000000000000003 /* FeedKit in Frameworks */,
 );
 runOnlyForDeploymentPostprocessing = 0;
 };
@@ -513,6 +525,25 @@ defaultConfigurationIsVisible = 0;
 defaultConfigurationName = Release;
 };
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+DD000000000000000000000001 /* XCRemoteSwiftPackageReference "FeedKit" */ = {
+isa = XCRemoteSwiftPackageReference;
+repositoryURL = "https://github.com/nmdias/FeedKit.git";
+requirement = {
+kind = upToNextMajorVersion;
+minimumVersion = "9.0.0";
+};
+};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+DD000000000000000000000002 /* FeedKit */ = {
+isa = XCSwiftPackageProductDependency;
+package = DD000000000000000000000001 /* XCRemoteSwiftPackageReference "FeedKit" */;
+productName = FeedKit;
+};
+/* End XCSwiftPackageProductDependency section */
 
 };
 rootObject = FF000000000000000000000001 /* Project object */;

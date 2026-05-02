@@ -73,8 +73,9 @@ private struct HistoryContentView: View {
     @ViewBuilder
     private func historyRow(_ item: HistoryItem) -> some View {
         HStack(spacing: 12) {
-            // サムネイル
-            if let path = item.imagePath,
+            // サムネイル（成功時のみ表示）
+            if item.isSuccess,
+               let path = item.imagePath,
                FileManager.default.fileExists(atPath: path),
                let image = UIImage(contentsOfFile: path)
             {
@@ -83,14 +84,6 @@ private struct HistoryContentView: View {
                     .scaledToFill()
                     .frame(width: 56, height: 56)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
-            } else {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color(.systemGray5))
-                        .frame(width: 56, height: 56)
-                    Image(systemName: statusIcon(item))
-                        .foregroundStyle(statusColor(item))
-                }
             }
 
             VStack(alignment: .leading, spacing: 4) {

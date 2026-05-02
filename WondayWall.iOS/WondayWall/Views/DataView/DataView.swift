@@ -61,9 +61,12 @@ private struct DataContentView: View {
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(sources, id: \.self) { source in
-                        Text(source)
-                            .font(.caption)
-                            .lineLimit(1)
+                        HStack(spacing: 8) {
+                            FaviconImage(urlString: source)
+                            Text(source)
+                                .font(.caption)
+                                .lineLimit(1)
+                        }
                     }
                 }
             } header: {
@@ -175,21 +178,25 @@ private struct DataContentView: View {
     // ニュース行
     @ViewBuilder
     private func newsRow(_ news: NewsTopicItem) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(news.title)
-                .font(.body)
-                .lineLimit(2)
-            HStack {
-                Text(news.publishedAt, style: .relative)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                if let summary = news.summary {
-                    Text("·")
-                        .foregroundStyle(.secondary)
-                    Text(summary)
+        HStack(alignment: .top, spacing: 8) {
+            FaviconImage(urlString: news.url)
+                .padding(.top, 2)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(news.title)
+                    .font(.body)
+                    .lineLimit(2)
+                HStack {
+                    Text(news.publishedAt, style: .relative)
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                    if let summary = news.summary {
+                        Text("·")
+                            .foregroundStyle(.secondary)
+                        Text(summary)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
                 }
             }
         }
