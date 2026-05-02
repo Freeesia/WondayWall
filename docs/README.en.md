@@ -99,6 +99,8 @@ See [dev.md](https://github.com/Freeesia/WondayWall/blob/main/dev.md) for develo
 
 [Terms of Use](Terms_of_Use.en.md)
 
+[Generated Image Usage](GeneratedImageUsage.en.md)
+
 ## License
 
 [MIT License](https://github.com/Freeesia/WondayWall/blob/main/LICENSE)
