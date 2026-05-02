@@ -318,4 +318,7 @@
   <data name="UseCurrentWallpaperAsBaseHeader" xml:space="preserve">
     <value>現在の壁紙をベースに生成</value>
   </data>
+  <data name="UserPromptHeader" xml:space="preserve">
+    <value>ユーザープロンプト（追加の指示）</value>
+  </data>
 </root>

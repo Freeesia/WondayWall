@@ -318,4 +318,7 @@
   <data name="UseCurrentWallpaperAsBaseHeader" xml:space="preserve">
     <value>Generate from current wallpaper</value>
   </data>
+  <data name="UserPromptHeader" xml:space="preserve">
+    <value>User prompt (additional instructions)</value>
+  </data>
 </root>

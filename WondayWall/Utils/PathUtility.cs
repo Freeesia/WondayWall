@@ -19,6 +19,5 @@ public static class PathUtility
     /// <summary>壁紙保存フォルダパス（MyPictures フォルダ配下。OneDrive 有効時は自動的に OneDrive にも保存される）</summary>
     public static string WallpaperDirectory => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.MyPictures),
-        AppDirectoryName,
-        "wallpapers");
+        AppDirectoryName);
 }
