@@ -3,13 +3,13 @@
     "Id": "Microsoft-WindowsAPICodePack-Core",
     "Version": "1.1.4",
     "License": "Microsoft-Windows-API-Code-Pack",
-    "LicenseUrl": "https://github.com/contre/Windows-API-Code-Pack-1.1/LICENSE"
+    "LicenseUrl": "https://raw.githubusercontent.com/contre/Windows-API-Code-Pack-1.1/master/LICENSE"
   },
   {
     "Id": "Microsoft-WindowsAPICodePack-Shell",
     "Version": "1.1.4",
     "License": "Microsoft-Windows-API-Code-Pack",
-    "LicenseUrl": "https://github.com/contre/Windows-API-Code-Pack-1.1/LICENSE"
+    "LicenseUrl": "https://raw.githubusercontent.com/contre/Windows-API-Code-Pack-1.1/master/LICENSE"
   },
   {
     "Id": "Microsoft.Windows.SDK.Win32Docs",

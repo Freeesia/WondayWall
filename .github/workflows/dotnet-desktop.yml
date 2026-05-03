@@ -37,7 +37,7 @@ jobs:
 
       - name: Generate third-party notices
         run: |
-          mkdir artifacts\licenses
+          New-Item -ItemType Directory -Force artifacts\licenses\files
           dotnet tool run nuget-license `
             -i WondayWall.sln `
             -t `
@@ -45,6 +45,18 @@ jobs:
             -override eng\licenses\package-overrides.json `
             -o Markdown `
             -fo artifacts\licenses\THIRD-PARTY-NOTICES.md
+          dotnet tool run nuget-license `
+            -i WondayWall.sln `
+            -t `
+            -ignore eng\licenses\license-download-ignored-packages.json `
+            -o JsonPretty `
+            -fo artifacts\licenses\license-downloads.json `
+            -d artifacts\licenses\files
+          .\scripts\append-third-party-license-texts.ps1 `
+            -NoticesPath artifacts\licenses\THIRD-PARTY-NOTICES.md `
+            -LicenseFilesDirectory artifacts\licenses\files `
+            -NuGetPackagesDirectory $env:NUGET_PACKAGES `
+            -OverridePackageInformationPath eng\licenses\package-overrides.json
 
       - name: Verify THIRD-PARTY-NOTICES.md is not empty
         run: |
@@ -53,6 +65,13 @@ jobs:
           }
           if ((Get-Item "artifacts\licenses\THIRD-PARTY-NOTICES.md").Length -eq 0) {
             throw "THIRD-PARTY-NOTICES.md is empty."
+          }
+          $notices = Get-Content "artifacts\licenses\THIRD-PARTY-NOTICES.md" -Raw
+          if ($notices -notmatch "## License Texts and Notices") {
+            throw "THIRD-PARTY-NOTICES.md does not include license text sections."
+          }
+          if ($notices -notmatch "### .*: .*" -and $notices -notmatch "### Downloaded license file:") {
+            throw "THIRD-PARTY-NOTICES.md does not include collected license or NOTICE file contents."
           }
 
       - uses: actions/upload-artifact@v4
@@ -108,6 +127,9 @@ jobs:
           if (!(Test-Path "publish\THIRD-PARTY-NOTICES.md")) {
             throw "THIRD-PARTY-NOTICES.md was not found in publish output."
           }
+          if ((Get-Content "publish\THIRD-PARTY-NOTICES.md" -Raw) -notmatch "## License Texts and Notices") {
+            throw "THIRD-PARTY-NOTICES.md in publish output does not include license text sections."
+          }
       - uses: actions/upload-artifact@v4
         with:
           name: WondayWall${{ matrix.self && '-full' || '' }}-${{ steps.gitversion.outputs.fullSemVer }}
@@ -141,6 +163,9 @@ jobs:
           if (!(Test-Path "artifacts\THIRD-PARTY-NOTICES.md")) {
             throw "THIRD-PARTY-NOTICES.md was not found in artifacts."
           }
+          if ((Get-Content "artifacts\THIRD-PARTY-NOTICES.md" -Raw) -notmatch "## License Texts and Notices") {
+            throw "THIRD-PARTY-NOTICES.md in artifacts does not include license text sections."
+          }
       - run: |
           dotnet run --project WondayWall.Wix.csproj -c Release
           dotnet build WondayWall.Installer.wixproj -p:OutputName=WondayWall-${{ needs.build.outputs.version }}
@@ -172,6 +197,10 @@ jobs:
           for zip in WondayWall-*.zip; do
             if ! unzip -l "$zip" | grep -q "THIRD-PARTY-NOTICES.md"; then
               echo "THIRD-PARTY-NOTICES.md not found in $zip"
+              exit 1
+            fi
+            if ! unzip -p "$zip" THIRD-PARTY-NOTICES.md | grep -q "## License Texts and Notices"; then
+              echo "License text sections not found in $zip"
               exit 1
             fi
           done
