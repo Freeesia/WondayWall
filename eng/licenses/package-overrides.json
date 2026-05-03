@@ -1,0 +1,32 @@
+[
+  {
+    "Id": "Microsoft-WindowsAPICodePack-Core",
+    "Version": "1.1.4",
+    "License": "Microsoft-Windows-API-Code-Pack",
+    "LicenseUrl": "https://github.com/contre/Windows-API-Code-Pack-1.1/LICENSE"
+  },
+  {
+    "Id": "Microsoft-WindowsAPICodePack-Shell",
+    "Version": "1.1.4",
+    "License": "Microsoft-Windows-API-Code-Pack",
+    "LicenseUrl": "https://github.com/contre/Windows-API-Code-Pack-1.1/LICENSE"
+  },
+  {
+    "Id": "Microsoft.Windows.SDK.Win32Docs",
+    "Version": "0.1.42-alpha",
+    "License": "Microsoft-Windows-SDK",
+    "LicenseUrl": "https://aka.ms/WinSDKLicenseURL"
+  },
+  {
+    "Id": "Microsoft.Windows.SDK.Win32Metadata",
+    "Version": "70.0.11-preview",
+    "License": "Microsoft-Windows-SDK",
+    "LicenseUrl": "https://aka.ms/WinSDKLicenseURL"
+  },
+  {
+    "Id": "Microsoft.Windows.WDK.Win32Metadata",
+    "Version": "0.13.25-experimental",
+    "License": "Microsoft-Windows-SDK",
+    "LicenseUrl": "https://aka.ms/WinSDKLicenseURL"
+  }
+]

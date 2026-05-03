@@ -25,7 +25,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ${{ env.NUGET_PACKAGES }}
-          key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json', '**/*.csproj', '**/*.wixproj', '.config/dotnet-tools.json', 'Directory.Packages.props', 'Directory.Build.props', 'NuGet.config', 'global.json') }}
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json', '**/*.csproj', '**/*.wixproj', '.config/dotnet-tools.json', 'eng/licenses/*.json', 'Directory.Packages.props', 'Directory.Build.props', 'NuGet.config', 'global.json') }}
           restore-keys: |
             ${{ runner.os }}-nuget-
 
@@ -42,6 +42,7 @@ jobs:
             -i WondayWall.sln `
             -t `
             -a eng\licenses\allowed-licenses.json `
+            -override eng\licenses\package-overrides.json `
             -o Markdown `
             -fo artifacts\licenses\THIRD-PARTY-NOTICES.md
 
@@ -78,7 +79,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ${{ env.NUGET_PACKAGES }}
-          key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json', '**/*.csproj', '**/*.wixproj', '.config/dotnet-tools.json', 'Directory.Packages.props', 'Directory.Build.props', 'NuGet.config', 'global.json') }}
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json', '**/*.csproj', '**/*.wixproj', '.config/dotnet-tools.json', 'eng/licenses/*.json', 'Directory.Packages.props', 'Directory.Build.props', 'NuGet.config', 'global.json') }}
           restore-keys: |
             ${{ runner.os }}-nuget-
       - uses: actions/setup-dotnet@v4
@@ -127,7 +128,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ${{ env.NUGET_PACKAGES }}
-          key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json', '**/*.csproj', '**/*.wixproj', '.config/dotnet-tools.json', 'Directory.Packages.props', 'Directory.Build.props', 'NuGet.config', 'global.json') }}
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json', '**/*.csproj', '**/*.wixproj', '.config/dotnet-tools.json', 'eng/licenses/*.json', 'Directory.Packages.props', 'Directory.Build.props', 'NuGet.config', 'global.json') }}
           restore-keys: |
             ${{ runner.os }}-nuget-
       - uses: actions/setup-dotnet@v4
