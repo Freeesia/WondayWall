@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import EventKit
 
 // 設定画面の ViewModel
 @MainActor
@@ -16,9 +17,11 @@ final class SettingsViewModel {
         didSet { environment.configService.googleAiApiKey = googleAiApiKey }
     }
 
-    var isConnectingCalendar = false
-    var isLoadingCalendars = false
-    var availableCalendars: [AvailableCalendar] = []
+    // カレンダーアクセス権限
+    var calendarAuthStatus: EKAuthorizationStatus = .notDetermined
+    var isRequestingCalendarAccess = false
+    // 端末に登録されているカレンダー一覧
+    var availableCalendars: [CalendarSourceItem] = []
     var showAddRssSheet = false
     var newRssURL = ""
     var errorMessage: String?
@@ -29,16 +32,24 @@ final class SettingsViewModel {
         self.environment = environment
         self.config = environment.configService.config
         self.googleAiApiKey = environment.configService.googleAiApiKey
+        self.calendarAuthStatus = environment.calendarService.authorizationStatus()
     }
 
     // カレンダー一覧を取得する
-    func loadAvailableCalendars() async {
-        isLoadingCalendars = true
-        defer { isLoadingCalendars = false }
+    func loadAvailableCalendars() {
+        availableCalendars = environment.contextService.fetchAvailableCalendars()
+    }
+
+    // EventKit アクセス許可をリクエストする
+    func requestCalendarAccess() async {
+        isRequestingCalendarAccess = true
+        defer { isRequestingCalendarAccess = false }
         do {
-            availableCalendars = try await environment.contextService.fetchAvailableCalendars()
+            _ = try await environment.calendarService.requestAccess()
+            calendarAuthStatus = environment.calendarService.authorizationStatus()
+            loadAvailableCalendars()
         } catch {
-            // 未接続でも画面を表示するためエラーは無視する
+            errorMessage = error.localizedDescription
         }
     }
 
@@ -67,15 +78,17 @@ final class SettingsViewModel {
         config.rssSources.remove(atOffsets: offsets)
     }
 
-    // Google Calendar 接続を解除する
-    func disconnectCalendar() {
-        environment.contextService.disconnectCalendar()
-        availableCalendars = []
-        config.targetCalendarIds = []
-    }
-
     // 自動生成設定変更時にバックグラウンドタスクを更新する
     func onAutoGenerationChanged() {
         environment.backgroundTaskService.scheduleNextBackgroundTask()
+    }
+
+    // カレンダーアクセスが許可されているか
+    var isCalendarAccessGranted: Bool {
+        if #available(iOS 17.0, *) {
+            return calendarAuthStatus == .fullAccess
+        } else {
+            return calendarAuthStatus == .authorized
+        }
     }
 }

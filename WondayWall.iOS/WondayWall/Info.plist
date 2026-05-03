@@ -18,21 +18,6 @@
 <string>$(MARKETING_VERSION)</string>
 <key>CFBundleVersion</key>
 <string>$(CURRENT_PROJECT_VERSION)</string>
-<!-- Google Sign-In クライアント ID -->
-<key>GIDClientID</key>
-<string>1032289774423-97qnlp8qkh7vca159jvq1ohggcn4qaqm.apps.googleusercontent.com</string>
-<!-- Google OAuth リダイレクト URI 用カスタム URL スキーム -->
-<key>CFBundleURLTypes</key>
-<array>
-<dict>
-<key>CFBundleTypeRole</key>
-<string>Editor</string>
-<key>CFBundleURLSchemes</key>
-<array>
-<string>com.googleusercontent.apps.1032289774423-97qnlp8qkh7vca159jvq1ohggcn4qaqm</string>
-</array>
-</dict>
-</array>
 <!-- バックグラウンド処理タスクの許可 ID -->
 <key>BGTaskSchedulerPermittedIdentifiers</key>
 <array>
@@ -44,6 +29,12 @@
 <string>processing</string>
 <string>fetch</string>
 </array>
+<!-- カレンダーアクセス権限（iOS 17+: フルアクセス） -->
+<key>NSCalendarsFullAccessUsageDescription</key>
+<string>壁紙生成の文脈作成のために、カレンダーの予定タイトル・日時・場所・メモを読み取ります。予定の作成・編集・削除は行いません。</string>
+<!-- iOS 16 以前向けカレンダーアクセス権限 -->
+<key>NSCalendarsUsageDescription</key>
+<string>壁紙生成の文脈作成のために、カレンダーの予定タイトル・日時・場所・メモを読み取ります。予定の作成・編集・削除は行いません。</string>
 <!-- 写真ライブラリへの書き込み権限 -->
 <key>NSPhotoLibraryAddUsageDescription</key>
 <string>生成した壁紙を写真ライブラリに保存するために使用します。</string>

@@ -1,7 +1,6 @@
 import UIKit
 import BackgroundTasks
 import UserNotifications
-import GoogleSignIn
 
 // UIApplicationDelegate — バックグラウンドタスクの登録・通知デリゲート処理を行う
 // BGTaskScheduler の登録は application(_:didFinishLaunchingWithOptions:) で行う必要がある
@@ -35,15 +34,6 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         UNUserNotificationCenter.current().delegate = self
 
         return true
-    }
-
-    // Google Sign-In コールバック URL を処理する
-    func application(
-        _ app: UIApplication,
-        open url: URL,
-        options: [UIApplication.OpenURLOptionsKey: Any] = [:]
-    ) -> Bool {
-        return GIDSignIn.sharedInstance.handle(url)
     }
 }
 

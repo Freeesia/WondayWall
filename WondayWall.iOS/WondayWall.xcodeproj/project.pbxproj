@@ -41,7 +41,9 @@ BB00000000000000000000001E /* SettingsViewModel.swift in Sources */ = {isa = PBX
 BB00000000000000000000001F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000000001F /* Assets.xcassets */; };
 BB000000000000000000000022 /* FaviconImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000022 /* FaviconImage.swift */; };
 DD000000000000000000000003 /* FeedKit in Frameworks */ = {isa = PBXBuildFile; productRef = DD000000000000000000000002 /* FeedKit */; };
-DD000000000000000000000006 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = DD000000000000000000000005 /* GoogleSignIn */; };
+EE000000000000000000000001 /* EventKitCalendarService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE000000000000000000000002 /* EventKitCalendarService.swift */; };
+EE000000000000000000000003 /* CalendarSourceItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE000000000000000000000004 /* CalendarSourceItem.swift */; };
+EE000000000000000000000005 /* ColorExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE000000000000000000000006 /* ColorExtensions.swift */; };
 DD000000000000000000000009 /* KeychainAccess in Frameworks */ = {isa = PBXBuildFile; productRef = DD000000000000000000000008 /* KeychainAccess */; };
 DD00000000000000000000000C /* Defaults in Frameworks */ = {isa = PBXBuildFile; productRef = DD00000000000000000000000B /* Defaults */; };
 DD00000000000000000000000F /* SwiftSoup in Frameworks */ = {isa = PBXBuildFile; productRef = DD00000000000000000000000E /* SwiftSoup */; };
@@ -54,6 +56,9 @@ AA000000000000000000000003 /* AppEnvironment.swift */ = {isa = PBXFileReference;
 AA000000000000000000000004 /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
 AA000000000000000000000005 /* HistoryItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryItem.swift; sourceTree = "<group>"; };
 AA000000000000000000000006 /* CalendarEventItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarEventItem.swift; sourceTree = "<group>"; };
+EE000000000000000000000002 /* EventKitCalendarService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventKitCalendarService.swift; sourceTree = "<group>"; };
+EE000000000000000000000004 /* CalendarSourceItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarSourceItem.swift; sourceTree = "<group>"; };
+EE000000000000000000000006 /* ColorExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorExtensions.swift; sourceTree = "<group>"; };
 AA000000000000000000000007 /* NewsTopicItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewsTopicItem.swift; sourceTree = "<group>"; };
 AA000000000000000000000008 /* PromptContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptContext.swift; sourceTree = "<group>"; };
 AA000000000000000000000009 /* AppConfigService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfigService.swift; sourceTree = "<group>"; };
@@ -132,6 +137,7 @@ children = (
 AA000000000000000000000004 /* AppConfig.swift */,
 AA000000000000000000000005 /* HistoryItem.swift */,
 AA000000000000000000000006 /* CalendarEventItem.swift */,
+EE000000000000000000000004 /* CalendarSourceItem.swift */,
 AA000000000000000000000007 /* NewsTopicItem.swift */,
 AA000000000000000000000008 /* PromptContext.swift */,
 );
@@ -143,6 +149,7 @@ isa = PBXGroup;
 children = (
 AA000000000000000000000009 /* AppConfigService.swift */,
 AA00000000000000000000000A /* ContextService.swift */,
+EE000000000000000000000002 /* EventKitCalendarService.swift */,
 AA00000000000000000000000B /* GoogleAiService.swift */,
 AA00000000000000000000000C /* GenerationCoordinator.swift */,
 AA00000000000000000000000D /* WallpaperService.swift */,
@@ -211,6 +218,7 @@ AA000000000000000000000012 /* ScheduleHelper.swift */,
 AA000000000000000000000013 /* FileHelper.swift */,
 AA000000000000000000000014 /* KeychainHelper.swift */,
 				AA000000000000000000000021 /* NetworkHelper.swift */,
+EE000000000000000000000006 /* ColorExtensions.swift */,
 );
 path = Utils;
 sourceTree = "<group>";
@@ -239,7 +247,6 @@ dependencies = ();
 name = WondayWall;
 packageProductDependencies = (
 DD000000000000000000000002 /* FeedKit */,
-DD000000000000000000000005 /* GoogleSignIn */,
 DD000000000000000000000008 /* KeychainAccess */,
 DD00000000000000000000000B /* Defaults */,
 DD00000000000000000000000E /* SwiftSoup */,
@@ -275,7 +282,6 @@ Base,
 mainGroup = CC000000000000000000000001;
 packageReferences = (
 DD000000000000000000000001 /* XCRemoteSwiftPackageReference "FeedKit" */,
-DD000000000000000000000004 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
 DD000000000000000000000007 /* XCRemoteSwiftPackageReference "KeychainAccess" */,
 DD00000000000000000000000A /* XCRemoteSwiftPackageReference "Defaults" */,
 DD00000000000000000000000D /* XCRemoteSwiftPackageReference "SwiftSoup" */,
@@ -311,10 +317,12 @@ BB000000000000000000000003 /* AppEnvironment.swift in Sources */,
 BB000000000000000000000004 /* AppConfig.swift in Sources */,
 BB000000000000000000000005 /* HistoryItem.swift in Sources */,
 BB000000000000000000000006 /* CalendarEventItem.swift in Sources */,
+EE000000000000000000000003 /* CalendarSourceItem.swift in Sources */,
 BB000000000000000000000007 /* NewsTopicItem.swift in Sources */,
 BB000000000000000000000008 /* PromptContext.swift in Sources */,
 BB000000000000000000000009 /* AppConfigService.swift in Sources */,
 BB00000000000000000000000A /* ContextService.swift in Sources */,
+EE000000000000000000000001 /* EventKitCalendarService.swift in Sources */,
 BB00000000000000000000000B /* GoogleAiService.swift in Sources */,
 BB00000000000000000000000C /* GenerationCoordinator.swift in Sources */,
 BB00000000000000000000000D /* WallpaperService.swift in Sources */,
@@ -326,6 +334,7 @@ BB000000000000000000000012 /* ScheduleHelper.swift in Sources */,
 BB000000000000000000000013 /* FileHelper.swift in Sources */,
 BB000000000000000000000014 /* KeychainHelper.swift in Sources */,
 				BB000000000000000000000021 /* NetworkHelper.swift in Sources */,
+EE000000000000000000000005 /* ColorExtensions.swift in Sources */,
 BB000000000000000000000015 /* ContentView.swift in Sources */,
 BB000000000000000000000022 /* FaviconImage.swift in Sources */,
 BB000000000000000000000016 /* HomeView.swift in Sources */,
@@ -348,7 +357,6 @@ isa = PBXFrameworksBuildPhase;
 buildActionMask = 2147483647;
 files = (
 DD000000000000000000000003 /* FeedKit in Frameworks */,
-DD000000000000000000000006 /* GoogleSignIn in Frameworks */,
 DD000000000000000000000009 /* KeychainAccess in Frameworks */,
 DD00000000000000000000000C /* Defaults in Frameworks */,
 DD00000000000000000000000F /* SwiftSoup in Frameworks */,
@@ -551,14 +559,6 @@ kind = upToNextMajorVersion;
 minimumVersion = "9.0.0";
 };
 };
-DD000000000000000000000004 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
-isa = XCRemoteSwiftPackageReference;
-repositoryURL = "https://github.com/google/GoogleSignIn-iOS.git";
-requirement = {
-kind = upToNextMajorVersion;
-minimumVersion = "8.0.0";
-};
-};
 DD000000000000000000000007 /* XCRemoteSwiftPackageReference "KeychainAccess" */ = {
 isa = XCRemoteSwiftPackageReference;
 repositoryURL = "https://github.com/kishikawakatsumi/KeychainAccess.git";
@@ -590,11 +590,6 @@ DD000000000000000000000002 /* FeedKit */ = {
 isa = XCSwiftPackageProductDependency;
 package = DD000000000000000000000001 /* XCRemoteSwiftPackageReference "FeedKit" */;
 productName = FeedKit;
-};
-DD000000000000000000000005 /* GoogleSignIn */ = {
-isa = XCSwiftPackageProductDependency;
-package = DD000000000000000000000004 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
-productName = GoogleSignIn;
 };
 DD000000000000000000000008 /* KeychainAccess */ = {
 isa = XCSwiftPackageProductDependency;

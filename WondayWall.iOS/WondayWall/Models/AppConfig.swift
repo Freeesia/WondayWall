@@ -2,7 +2,7 @@ import Foundation
 
 // アプリ設定モデル
 struct AppConfig: Codable {
-    // 取得対象の Google カレンダー ID 一覧
+    // 取得対象のカレンダー識別子一覧（EKCalendar.calendarIdentifier）
     var targetCalendarIds: [String] = []
     // RSS ソース URL 一覧
     var rssSources: [String] = []

@@ -1,110 +1,67 @@
 import Foundation
+import EventKit
 import FeedKit
-import GoogleSignIn
 import SwiftSoup
 
-// Google Calendar への接続と RSS フィードからコンテキストを構築するサービス
+// RSS フィードからコンテキストを構築し、EventKit 経由でカレンダーイベントを取得するサービス
 final class ContextService {
-    // Google Calendar 読み取りスコープ
-    private static let calendarScope = "https://www.googleapis.com/auth/calendar.readonly"
-
     private let configService: AppConfigService
     private let historyService: HistoryService
+    private let calendarService: EventKitCalendarService
 
-    init(configService: AppConfigService, historyService: HistoryService) {
+    init(
+        configService: AppConfigService,
+        historyService: HistoryService,
+        calendarService: EventKitCalendarService
+    ) {
         self.configService = configService
         self.historyService = historyService
+        self.calendarService = calendarService
     }
 
-    // サイレントにカレンダーへアクセス可能かを確認する
-    func canAccessCalendarSilently() async -> Bool {
-        if GIDSignIn.sharedInstance.currentUser != nil { return true }
-        do {
-            try await GIDSignIn.sharedInstance.restorePreviousSignIn()
-            return GIDSignIn.sharedInstance.currentUser != nil
-        } catch {
-            return false
+    // カレンダーへアクセス許可済みかを確認する
+    func canAccessCalendarSilently() -> Bool {
+        let status = calendarService.authorizationStatus()
+        if #available(iOS 17.0, *) {
+            return status == .fullAccess
+        } else {
+            return status == .authorized
         }
     }
 
-    // Google Sign-In でブラウザ認証を行い、Calendar スコープを取得する
-    @MainActor
-    func authorizeCalendarInteractive(presentingViewController: UIViewController) async throws {
-        _ = try await GIDSignIn.sharedInstance.signIn(
-            withPresenting: presentingViewController,
-            hint: nil,
-            additionalScopes: [Self.calendarScope]
-        )
-    }
-
-    // Google Calendar 認証情報を削除する
-    func disconnectCalendar() {
-        GIDSignIn.sharedInstance.signOut()
-    }
-
-    // 利用可能なカレンダー一覧を取得する
-    func fetchAvailableCalendars() async throws -> [AvailableCalendar] {
-        let accessToken = try await getValidAccessToken()
-        var request = URLRequest(
-            url: URL(string: "https://www.googleapis.com/calendar/v3/users/me/calendarList")!
-        )
-        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        let (data, _) = try await URLSession.shared.data(for: request)
-        let response = try JSONDecoder().decode(CalendarListResponse.self, from: data)
-        return response.items.map {
-            AvailableCalendar(
-                id: $0.id,
-                summary: $0.summary ?? $0.id,
-                isPrimary: $0.primary ?? false
+    // 端末に登録されているカレンダー一覧を返す
+    func fetchAvailableCalendars() -> [CalendarSourceItem] {
+        calendarService.fetchCalendars().map { cal in
+            CalendarSourceItem(
+                id: cal.calendarIdentifier,
+                title: cal.title,
+                sourceTitle: cal.source.title,
+                sourceType: sourceTypeDescription(cal.source.sourceType),
+                colorHex: colorHex(cal.cgColor)
             )
         }
     }
 
-    // 直近 7 日間のカレンダーイベントを取得する
-    func fetchCalendarEvents() async throws -> [CalendarEventItem] {
-        let accessToken = try await getValidAccessToken()
-        let now = Date()
-        let end = now.addingTimeInterval(7 * 24 * 3600)
-        let formatter = ISO8601DateFormatter()
-
-        var results: [CalendarEventItem] = []
-        for calId in configService.config.targetCalendarIds {
-            let encodedId =
-                calId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? calId
-            var components = URLComponents(
-                string:
-                    "https://www.googleapis.com/calendar/v3/calendars/\(encodedId)/events"
-            )!
-            components.queryItems = [
-                URLQueryItem(name: "timeMin", value: formatter.string(from: now)),
-                URLQueryItem(name: "timeMax", value: formatter.string(from: end)),
-                URLQueryItem(name: "singleEvents", value: "true"),
-                URLQueryItem(name: "orderBy", value: "startTime"),
-                URLQueryItem(name: "maxResults", value: "10"),
-            ]
-            var request = URLRequest(url: components.url!)
-            request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-            guard let (data, _) = try? await URLSession.shared.data(for: request),
-                let response = try? JSONDecoder().decode(CalendarEventsResponse.self, from: data)
-            else {
-                continue
-            }
-            for event in response.items {
-                let startTime = parseCalendarDateTime(event.start)
-                let endTime: Date? = event.end.map { parseCalendarDateTime($0) }
-                results.append(
-                    CalendarEventItem(
-                        id: event.id,
-                        title: event.summary ?? "(タイトルなし)",
-                        startTime: startTime,
-                        endTime: endTime,
-                        location: event.location,
-                        calendarDescription: event.description
-                    )
-                )
-            }
+    // 取得対象カレンダーの直近 7 日間のイベントを返す
+    func fetchCalendarEvents() -> [CalendarEventItem] {
+        let targetIds = Set(configService.config.targetCalendarIds)
+        let allCalendars = calendarService.fetchCalendars()
+        let calendars = targetIds.isEmpty ? nil : allCalendars.filter { targetIds.contains($0.calendarIdentifier) }
+        return calendarService.fetchEvents(calendars: calendars).map { event in
+            // eventIdentifier が nil の場合はタイトル・開始日・カレンダー ID のハッシュで代替する
+            let eventId = event.eventIdentifier
+                ?? "\(event.calendar.calendarIdentifier)-\(event.title ?? "")-\(event.startDate.timeIntervalSince1970)"
+            return CalendarEventItem(
+                id: eventId,
+                calendarId: event.calendar.calendarIdentifier,
+                title: event.title ?? "(タイトルなし)",
+                startTime: event.startDate,
+                endTime: event.endDate,
+                isAllDay: event.isAllDay,
+                location: event.location,
+                notes: event.notes
+            )
         }
-        return results
     }
 
     // RSS/Atom フィードからニュースを取得し、OGP 画像 URL を付与する
@@ -238,7 +195,7 @@ final class ContextService {
         let cal = Calendar.current
 
         // カレンダーイベントを最大5件取得
-        let allEvents = (try? await fetchCalendarEvents()) ?? []
+        let allEvents = fetchCalendarEvents()
         let events = Array(allEvents.prefix(5))
 
         // ニューストピックを取得して選別する
@@ -265,7 +222,7 @@ final class ContextService {
                     startTime: e.startTime,
                     endTime: e.endTime,
                     location: e.location,
-                    description: e.calendarDescription
+                    description: e.notes
                 )
             },
             newsTopics: news.enumerated().map { index, n in
@@ -326,79 +283,6 @@ final class ContextService {
         return selected.sorted { $0.publishedAt > $1.publishedAt }
     }
 
-    // 有効なアクセストークンを返す（GIDSignIn が自動リフレッシュ）
-    private func getValidAccessToken() async throws -> String {
-        if let user = GIDSignIn.sharedInstance.currentUser {
-            try await user.refreshTokensIfNeeded()
-            return user.accessToken.tokenString
-        }
-        // サイレント復元を試みる
-        try await GIDSignIn.sharedInstance.restorePreviousSignIn()
-        guard let user = GIDSignIn.sharedInstance.currentUser else {
-            throw NSError(
-                domain: "WondayWall",
-                code: 401,
-                userInfo: [
-                    NSLocalizedDescriptionKey:
-                        "Googleカレンダーが未接続です。設定から接続してください。"
-                ]
-            )
-        }
-        try await user.refreshTokensIfNeeded()
-        return user.accessToken.tokenString
-    }
-
-    // カレンダー API の日時フィールドを Date に変換する
-    private func parseCalendarDateTime(_ dt: CalendarDateTime) -> Date {
-        let isoFormatter = ISO8601DateFormatter()
-        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let dateTimeStr = dt.dateTime, let date = isoFormatter.date(from: dateTimeStr) {
-            return date
-        }
-        isoFormatter.formatOptions = [.withInternetDateTime]
-        if let dateTimeStr = dt.dateTime, let date = isoFormatter.date(from: dateTimeStr) {
-            return date
-        }
-        // 終日イベントは "yyyy-MM-dd" 形式
-        if let dateStr = dt.date {
-            let df = DateFormatter()
-            df.dateFormat = "yyyy-MM-dd"
-            df.locale = Locale(identifier: "en_US_POSIX")
-            return df.date(from: dateStr) ?? Date()
-        }
-        return Date()
-    }
-
-    // MARK: - 内部モデル（Google Calendar REST API レスポンス）
-
-    private struct CalendarListResponse: Codable {
-        let items: [CalendarListEntry]
-    }
-
-    private struct CalendarListEntry: Codable {
-        let id: String
-        let summary: String?
-        let primary: Bool?
-    }
-
-    private struct CalendarEventsResponse: Codable {
-        let items: [CalendarEvent]
-    }
-
-    private struct CalendarEvent: Codable {
-        let id: String
-        let summary: String?
-        let start: CalendarDateTime
-        let end: CalendarDateTime?
-        let location: String?
-        let description: String?
-    }
-
-    private struct CalendarDateTime: Codable {
-        let dateTime: String?
-        let date: String?
-    }
-
     // RSS フィードアイテム（内部用）
     private struct RssItem {
         let title: String
@@ -406,11 +290,29 @@ final class ContextService {
         let url: String?
         let publishedAt: Date
     }
-}
 
-// 利用可能なカレンダー
-struct AvailableCalendar: Identifiable {
-    let id: String
-    let summary: String
-    let isPrimary: Bool
+    // EKSourceType を表示用文字列に変換する
+    private func sourceTypeDescription(_ type: EKSourceType) -> String {
+        switch type {
+        case .local: return "ローカル"
+        case .exchange: return "Exchange"
+        case .calDAV: return "CalDAV"
+        case .mobileMe: return "iCloud"
+        case .subscribed: return "購読"
+        case .birthdays: return "誕生日"
+        @unknown default: return "不明"
+        }
+    }
+
+    // CGColor を "#RRGGBB" 16進数文字列に変換する
+    private func colorHex(_ cgColor: CGColor?) -> String? {
+        guard let cgColor,
+              let components = cgColor.components,
+              components.count >= 3
+        else { return nil }
+        let r = Int(components[0] * 255)
+        let g = Int(components[1] * 255)
+        let b = Int(components[2] * 255)
+        return String(format: "#%02X%02X%02X", r, g, b)
+    }
 }

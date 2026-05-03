@@ -19,7 +19,9 @@ struct SettingsView: View {
         .task {
             if viewModel == nil {
                 viewModel = SettingsViewModel(environment: environment)
-                await viewModel?.loadAvailableCalendars()
+                if viewModel?.isCalendarAccessGranted == true {
+                    viewModel?.loadAvailableCalendars()
+                }
             }
         }
     }
@@ -44,12 +46,12 @@ private struct SettingsContentView: View {
                     .font(.caption)
             }
 
-            // Google Calendar セクション
+            // カレンダーセクション
             Section {
-                if !vm.availableCalendars.isEmpty {
+                if vm.isCalendarAccessGranted {
                     // カレンダー選択
                     ForEach(vm.availableCalendars) { calendar in
-                        HStack {
+                        HStack(spacing: 8) {
                             Image(
                                 systemName: vm.config.targetCalendarIds.contains(calendar.id)
                                     ? "checkmark.circle.fill" : "circle"
@@ -58,64 +60,51 @@ private struct SettingsContentView: View {
                                 vm.config.targetCalendarIds.contains(calendar.id)
                                     ? .blue : .secondary
                             )
+                            if let hex = calendar.colorHex, let color = Color(hex: hex) {
+                                Circle()
+                                    .fill(color)
+                                    .frame(width: 10, height: 10)
+                            }
                             VStack(alignment: .leading) {
-                                Text(calendar.summary)
-                                if calendar.isPrimary {
-                                    Text("プライマリ")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
+                                Text(calendar.title)
+                                Text(calendar.sourceTitle)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
                             }
                             Spacer()
                         }
                         .contentShape(Rectangle())
                         .onTapGesture { vm.toggleCalendar(calendar.id) }
                     }
-
-                    // 接続解除ボタン
-                    Button(role: .destructive) {
-                        vm.disconnectCalendar()
-                    } label: {
-                        Label("カレンダー連携を解除", systemImage: "link.badge.minus")
-                    }
                 } else {
-                    // カレンダー接続ボタン
+                    // カレンダーアクセス許可ボタン
                     Button {
-                        Task { @MainActor in
-                            guard
-                                let rootVC = UIApplication.shared.connectedScenes
-                                    .compactMap({ $0 as? UIWindowScene })
-                                    .first?
-                                    .windows
-                                    .first(where: \.isKeyWindow)?
-                                    .rootViewController
-                            else { return }
-                            vm.isConnectingCalendar = true
-                            defer { vm.isConnectingCalendar = false }
-                            do {
-                                try await environment.contextService
-                                    .authorizeCalendarInteractive(presentingViewController: rootVC)
-                                await vm.loadAvailableCalendars()
-                            } catch {
-                                vm.errorMessage = error.localizedDescription
-                            }
-                        }
+                        Task { await vm.requestCalendarAccess() }
                     } label: {
-                        if vm.isLoadingCalendars || vm.isConnectingCalendar {
+                        if vm.isRequestingCalendarAccess {
                             HStack {
                                 ProgressView()
-                                Text("接続中...")
+                                Text("許可をリクエスト中...")
                             }
                         } else {
-                            Label("Google Calendar と連携", systemImage: "calendar.badge.plus")
+                            Label("カレンダーへのアクセスを許可", systemImage: "calendar.badge.plus")
                         }
                     }
+                    .disabled(vm.isRequestingCalendarAccess)
                 }
             } header: {
-                Text("Google カレンダー")
+                Text("カレンダー")
             } footer: {
-                Text("取得対象のカレンダーにチェックを入れてください。")
+                if vm.isCalendarAccessGranted {
+                    Text("取得対象のカレンダーにチェックを入れてください（未選択時は全カレンダーを取得します）。")
+                        .font(.caption)
+                } else {
+                    Text("""
+                        WondayWall は壁紙生成の文脈作成のために、カレンダーの予定タイトル・日時・場所・メモを読み取ります。\
+                        予定の作成・編集・削除は行いません。
+                        """)
                     .font(.caption)
+                }
             }
 
             // RSS ソースセクション

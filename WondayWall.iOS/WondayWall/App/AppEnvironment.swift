@@ -6,6 +6,7 @@ import Foundation
 final class AppEnvironment: ObservableObject {
     let configService: AppConfigService
     let historyService: HistoryService
+    let calendarService: EventKitCalendarService
     let contextService: ContextService
     let googleAiService: GoogleAiService
     let wallpaperService: WallpaperService
@@ -17,7 +18,12 @@ final class AppEnvironment: ObservableObject {
     init() {
         let config = AppConfigService()
         let history = HistoryService()
-        let context = ContextService(configService: config, historyService: history)
+        let calendar = EventKitCalendarService()
+        let context = ContextService(
+            configService: config,
+            historyService: history,
+            calendarService: calendar
+        )
         let googleAi = GoogleAiService(configService: config)
         let wallpaper = WallpaperService()
         let notifications = NotificationService()
@@ -35,6 +41,7 @@ final class AppEnvironment: ObservableObject {
 
         self.configService = config
         self.historyService = history
+        self.calendarService = calendar
         self.contextService = context
         self.googleAiService = googleAi
         self.wallpaperService = wallpaper

@@ -1,6 +1,6 @@
 import SwiftUI
 
-// データ画面 — Google Calendar接続・カレンダー・ニュース・RSSソース・ユーザープロンプト
+// データ画面 — カレンダー接続状態・カレンダー・ニュース・RSSソース・ユーザープロンプト
 struct DataView: View {
     @EnvironmentObject private var environment: AppEnvironment
     @State private var viewModel: DataViewModel?
@@ -32,14 +32,14 @@ private struct DataContentView: View {
 
     var body: some View {
         List {
-            // Google Calendar セクション
+            // カレンダーセクション
             Section {
-                calendarConnectionRow
-                if vm.calendarConnected {
+                calendarAccessRow
+                if vm.calendarAccessGranted {
                     calendarRows
                 }
             } header: {
-                Text("Google カレンダー")
+                Text("カレンダー")
             }
 
             // 直近予定セクション
@@ -119,32 +119,43 @@ private struct DataContentView: View {
         }
     }
 
-    // カレンダー接続状態行
+    // カレンダーアクセス許可状態行
     @ViewBuilder
-    private var calendarConnectionRow: some View {
+    private var calendarAccessRow: some View {
         HStack {
-            Image(systemName: vm.calendarConnected ? "checkmark.circle.fill" : "xmark.circle")
-                .foregroundStyle(vm.calendarConnected ? .green : .red)
-            Text(vm.calendarConnected ? "接続済み" : "未接続")
+            Image(
+                systemName: vm.calendarAccessGranted
+                    ? "checkmark.circle.fill" : "xmark.circle"
+            )
+            .foregroundStyle(vm.calendarAccessGranted ? .green : .secondary)
+            Text(vm.calendarAccessGranted ? "アクセス許可済み" : "未許可")
         }
     }
 
     // 取得対象カレンダー一覧
     @ViewBuilder
     private var calendarRows: some View {
-        let selected = environment.configService.config.targetCalendarIds
-        if selected.isEmpty {
+        let selectedIds = Set(environment.configService.config.targetCalendarIds)
+        let shown = selectedIds.isEmpty
+            ? vm.availableCalendars
+            : vm.availableCalendars.filter { selectedIds.contains($0.id) }
+        if shown.isEmpty {
             Text("カレンダーが選択されていません")
                 .foregroundStyle(.secondary)
         } else {
-            ForEach(vm.availableCalendars.filter { selected.contains($0.id) }) { calendar in
-                HStack {
-                    Image(systemName: "calendar")
-                        .foregroundStyle(.blue)
-                    Text(calendar.summary)
-                    if calendar.isPrimary {
-                        Spacer()
-                        Text("プライマリ")
+            ForEach(shown) { cal in
+                HStack(spacing: 8) {
+                    if let hex = cal.colorHex, let color = Color(hex: hex) {
+                        Circle()
+                            .fill(color)
+                            .frame(width: 10, height: 10)
+                    } else {
+                        Image(systemName: "calendar")
+                            .foregroundStyle(.blue)
+                    }
+                    VStack(alignment: .leading) {
+                        Text(cal.title)
+                        Text(cal.sourceTitle)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -160,9 +171,21 @@ private struct DataContentView: View {
             Text(event.title)
                 .font(.body)
             HStack {
-                Text(event.startTime, style: .date)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                if event.isAllDay {
+                    Text(event.startTime, style: .date)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("終日")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text(event.startTime, style: .date)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text(event.startTime, style: .time)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 if let location = event.location {
                     Text("·")
                         .foregroundStyle(.secondary)
