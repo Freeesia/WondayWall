@@ -508,9 +508,141 @@
                         </ScrollViewer>
                     </DockPanel>
                 </TabItem>
+
+                <!--  Aboutタブ  -->
+                <TabItem>
+                    <TabItem.Header>
+                        <StackPanel Orientation="Horizontal">
+                            <ui:SymbolIcon Margin="0,0,8,0" Symbol="Info24" />
+                            <TextBlock Text="{x:Static properties:Resources.AboutTab}" />
+                        </StackPanel>
+                    </TabItem.Header>
+                    <ScrollViewer Margin="0,0,0,8">
+                        <StackPanel Margin="0,24,0,0" HorizontalAlignment="Center">
+                            <!--  アプリ情報  -->
+                            <Image
+                                Width="80"
+                                Height="80"
+                                HorizontalAlignment="Center"
+                                Source="/Assets/icon_512.png" />
+                            <TextBlock
+                                Margin="0,12,0,0"
+                                HorizontalAlignment="Center"
+                                FontSize="24"
+                                FontWeight="SemiBold"
+                                Text="{x:Static properties:Resources.AboutAppName}" />
+                            <TextBlock
+                                Margin="0,4,0,0"
+                                HorizontalAlignment="Center"
+                                Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                Text="{Binding AppVersion, StringFormat='Version {0}'}" />
+                            <TextBlock
+                                Margin="0,2,0,24"
+                                HorizontalAlignment="Center"
+                                Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                Text="{x:Static properties:Resources.AboutDeveloper}" />
+
+                            <!--  リンク一覧  -->
+                            <ui:CardControl Margin="0,0,0,4" Header="{x:Static properties:Resources.AboutOfficialDocs}">
+                                <ui:CardControl.Icon>
+                                    <ui:SymbolIcon Symbol="Globe24" />
+                                </ui:CardControl.Icon>
+                                <ui:Button
+                                    Appearance="Secondary"
+                                    Command="{Binding OpenLinkCommand}"
+                                    CommandParameter="{x:Static utils:AppLinks.OfficialDocs}"
+                                    Content="{x:Static properties:Resources.AboutOfficialDocs}"
+                                    Icon="{ui:SymbolIcon Symbol=Open24}" />
+                            </ui:CardControl>
+
+                            <ui:CardControl Margin="0,0,0,4" Header="{x:Static properties:Resources.AboutPrivacyPolicy}">
+                                <ui:CardControl.Icon>
+                                    <ui:SymbolIcon Symbol="ShieldLock24" />
+                                </ui:CardControl.Icon>
+                                <ui:Button
+                                    Appearance="Secondary"
+                                    Command="{Binding OpenLinkCommand}"
+                                    CommandParameter="{x:Static utils:AppLinks.PrivacyPolicy}"
+                                    Content="{x:Static properties:Resources.AboutPrivacyPolicy}"
+                                    Icon="{ui:SymbolIcon Symbol=Open24}" />
+                            </ui:CardControl>
+
+                            <ui:CardControl Margin="0,0,0,4" Header="{x:Static properties:Resources.AboutTermsOfUse}">
+                                <ui:CardControl.Icon>
+                                    <ui:SymbolIcon Symbol="Document24" />
+                                </ui:CardControl.Icon>
+                                <ui:Button
+                                    Appearance="Secondary"
+                                    Command="{Binding OpenLinkCommand}"
+                                    CommandParameter="{x:Static utils:AppLinks.TermsOfUse}"
+                                    Content="{x:Static properties:Resources.AboutTermsOfUse}"
+                                    Icon="{ui:SymbolIcon Symbol=Open24}" />
+                            </ui:CardControl>
+
+                            <ui:CardControl Margin="0,0,0,4" Header="{x:Static properties:Resources.AboutGeneratedImageUsage}">
+                                <ui:CardControl.Icon>
+                                    <ui:SymbolIcon Symbol="DrawImage24" />
+                                </ui:CardControl.Icon>
+                                <ui:Button
+                                    Appearance="Secondary"
+                                    Command="{Binding OpenLinkCommand}"
+                                    CommandParameter="{x:Static utils:AppLinks.GeneratedImageUsage}"
+                                    Content="{x:Static properties:Resources.AboutGeneratedImageUsage}"
+                                    Icon="{ui:SymbolIcon Symbol=Open24}" />
+                            </ui:CardControl>
+
+                            <ui:CardControl Margin="0,0,0,4" Header="{x:Static properties:Resources.AboutOpenSourceLicenses}">
+                                <ui:CardControl.Icon>
+                                    <ui:SymbolIcon Symbol="Certificate24" />
+                                </ui:CardControl.Icon>
+                                <ui:Button
+                                    Appearance="Secondary"
+                                    Command="{Binding OpenLicensesFolderCommand}"
+                                    Content="{x:Static properties:Resources.AboutOpenSourceLicenses}"
+                                    Icon="{ui:SymbolIcon Symbol=FolderOpen24}" />
+                            </ui:CardControl>
+
+                            <ui:CardControl Margin="0,0,0,4" Header="{x:Static properties:Resources.AboutReleaseNotes}">
+                                <ui:CardControl.Icon>
+                                    <ui:SymbolIcon Symbol="Megaphone24" />
+                                </ui:CardControl.Icon>
+                                <ui:Button
+                                    Appearance="Secondary"
+                                    Command="{Binding OpenLinkCommand}"
+                                    CommandParameter="{x:Static utils:AppLinks.ReleaseNotes}"
+                                    Content="{x:Static properties:Resources.AboutReleaseNotes}"
+                                    Icon="{ui:SymbolIcon Symbol=Open24}" />
+                            </ui:CardControl>
+
+                            <ui:CardControl Margin="0,0,0,4" Header="{x:Static properties:Resources.AboutGitHub}">
+                                <ui:CardControl.Icon>
+                                    <ui:SymbolIcon Symbol="Code24" />
+                                </ui:CardControl.Icon>
+                                <ui:Button
+                                    Appearance="Secondary"
+                                    Command="{Binding OpenLinkCommand}"
+                                    CommandParameter="{x:Static utils:AppLinks.GitHub}"
+                                    Content="{x:Static properties:Resources.AboutGitHub}"
+                                    Icon="{ui:SymbolIcon Symbol=Open24}" />
+                            </ui:CardControl>
+
+                            <ui:CardControl Margin="0,0,0,24" Header="{x:Static properties:Resources.AboutDeveloperX}">
+                                <ui:CardControl.Icon>
+                                    <ui:SymbolIcon Symbol="Person24" />
+                                </ui:CardControl.Icon>
+                                <ui:Button
+                                    Appearance="Secondary"
+                                    Command="{Binding OpenLinkCommand}"
+                                    CommandParameter="{x:Static utils:AppLinks.DeveloperX}"
+                                    Content="{x:Static properties:Resources.AboutDeveloperX}"
+                                    Icon="{ui:SymbolIcon Symbol=Open24}" />
+                            </ui:CardControl>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
             </TabControl>
 
-            <Border Background="#CC10161F" Visibility="{Binding ShowSetupWizard, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Border Background="{DynamicResource SmokeFillColorDefaultBrush}" Visibility="{Binding ShowSetupWizard, Converter={StaticResource BooleanToVisibilityConverter}}">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <Border
                         MaxWidth="860"
