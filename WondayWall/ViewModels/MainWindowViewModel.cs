@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
+using System.Reflection;
 using System.Security;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -77,6 +78,13 @@ public partial class MainWindowViewModel : ObservableObject
     public ObservableCollection<AvailableCalendar> AvailableCalendars { get; } = [];
     public IReadOnlyList<int> AvailableRunsPerDayOptions => ScheduleHelper.SupportedRunsPerDay;
     public string TaskSchedulerScheduleDescription => ScheduleHelper.FormatScheduleDescription(SelectedRunsPerDay);
+
+    /// <summary>アセンブリのインフォメーションバージョン</summary>
+    public string AppVersion { get; } =
+        Assembly.GetExecutingAssembly()
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+            ?.InformationalVersion
+        ?? "0.0.0";
 
     public MainWindowViewModel(
         AppConfigService configService,
@@ -503,6 +511,52 @@ public partial class MainWindowViewModel : ObservableObject
         {
             _logger.LogWarning(ex, "履歴画像を開けませんでした: {ImagePath}", imagePath);
             LastResultMessage = AppResources.Format(AppResources.HistoryImageOpenFailed, ex.Message);
+        }
+    }
+
+    [RelayCommand]
+    private void OpenLink(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            return;
+
+        try
+        {
+            Process.Start(new ProcessStartInfo(url)
+            {
+                UseShellExecute = true,
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "リンクを開けませんでした: {Url}", url);
+            LastResultMessage = AppResources.Format(AppResources.AboutLinkOpenFailed, ex.Message);
+        }
+    }
+
+    [RelayCommand]
+    private void OpenLicensesFolder()
+    {
+        var licensesPath = Path.Combine(AppContext.BaseDirectory, "licenses");
+        if (!Directory.Exists(licensesPath))
+        {
+            _logger.LogWarning("ライセンスフォルダが見つかりません: {Path}", licensesPath);
+            LastResultMessage = AppResources.AboutLicensesFolderNotFound;
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = licensesPath,
+                UseShellExecute = true,
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "ライセンスフォルダを開けませんでした: {Path}", licensesPath);
+            LastResultMessage = AppResources.Format(AppResources.AboutLicensesFolderOpenFailed, ex.Message);
         }
     }
 
