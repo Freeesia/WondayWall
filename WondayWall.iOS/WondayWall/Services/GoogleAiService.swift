@@ -18,7 +18,7 @@ final class GoogleAiService {
 
     // 壁紙画像を生成してローカルに保存し、ファイルパスを返す
     func generateWallpaper(context: PromptContext) async throws -> GeneratedImageResult {
-        let apiKey = configService.config.googleAiApiKey
+        let apiKey = configService.googleAiApiKey
         guard !apiKey.isEmpty else {
             throw NSError(
                 domain: "WondayWall", code: 400,

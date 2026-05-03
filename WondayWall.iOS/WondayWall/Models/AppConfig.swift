@@ -2,8 +2,6 @@ import Foundation
 
 // アプリ設定モデル
 struct AppConfig: Codable {
-    // Google AI API キー
-    var googleAiApiKey: String = ""
     // 取得対象の Google カレンダー ID 一覧
     var targetCalendarIds: [String] = []
     // RSS ソース URL 一覧

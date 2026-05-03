@@ -11,6 +11,11 @@ final class SettingsViewModel {
         didSet { environment.configService.update { $0 = config } }
     }
 
+    // Google AI API キー（Keychain に保存；@Bindable でバインドするため stored property にする）
+    var googleAiApiKey: String {
+        didSet { environment.configService.googleAiApiKey = googleAiApiKey }
+    }
+
     var isConnectingCalendar = false
     var isLoadingCalendars = false
     var availableCalendars: [AvailableCalendar] = []
@@ -23,6 +28,7 @@ final class SettingsViewModel {
     init(environment: AppEnvironment) {
         self.environment = environment
         self.config = environment.configService.config
+        self.googleAiApiKey = environment.configService.googleAiApiKey
     }
 
     // カレンダー一覧を取得する

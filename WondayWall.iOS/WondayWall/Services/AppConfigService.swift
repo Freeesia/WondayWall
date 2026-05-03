@@ -1,22 +1,40 @@
 import Foundation
 import Observation
+import Defaults
+import KeychainAccess
+
+// Defaults キー定義
+extension Defaults.Keys {
+    static let appConfig = Key<AppConfig>("appConfig", default: AppConfig())
+}
+
+// Defaults.Serializable への適合（Codable を橋渡しする）
+extension AppConfig: Defaults.Serializable {}
 
 // 設定の読み書きを担当するサービス
 @Observable
 final class AppConfigService {
-    private let configURL: URL
+    private static let keychain = Keychain(service: "com.studiofreesia.wondaywall")
+    private static let apiKeyKeychainKey = "google_ai_api_key"
 
     // 現在の設定（監視可能）
     private(set) var config: AppConfig
 
-    init() {
-        configURL = FileHelper.appDataDirectory.appendingPathComponent("config.json")
-        config = FileHelper.load(AppConfig.self, from: configURL) ?? AppConfig()
+    // Google AI API キー（Keychain に保存）
+    var googleAiApiKey: String {
+        didSet {
+            Self.keychain[Self.apiKeyKeychainKey] = googleAiApiKey.isEmpty ? nil : googleAiApiKey
+        }
     }
 
-    // 設定をファイルに保存する
+    init() {
+        config = Defaults[.appConfig]
+        googleAiApiKey = Self.keychain[Self.apiKeyKeychainKey] ?? ""
+    }
+
+    // 設定を保存する
     func save() {
-        FileHelper.save(config, to: configURL)
+        Defaults[.appConfig] = config
     }
 
     // クロージャで設定を変更してから保存する

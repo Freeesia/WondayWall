@@ -18,6 +18,9 @@
 <string>$(MARKETING_VERSION)</string>
 <key>CFBundleVersion</key>
 <string>$(CURRENT_PROJECT_VERSION)</string>
+<!-- Google Sign-In クライアント ID -->
+<key>GIDClientID</key>
+<string>1032289774423-97qnlp8qkh7vca159jvq1ohggcn4qaqm.apps.googleusercontent.com</string>
 <!-- Google OAuth リダイレクト URI 用カスタム URL スキーム -->
 <key>CFBundleURLTypes</key>
 <array>

@@ -1,39 +1,15 @@
 import Foundation
-import AuthenticationServices
 import FeedKit
+import GoogleSignIn
+import SwiftSoup
 
 // Google Calendar への接続と RSS フィードからコンテキストを構築するサービス
 final class ContextService {
-    // Google OAuth クライアント情報
-    private static let clientId =
-        "1032289774423-97qnlp8qkh7vca159jvq1ohggcn4qaqm.apps.googleusercontent.com"
-    private static let redirectUri =
-        "com.googleusercontent.apps.1032289774423-97qnlp8qkh7vca159jvq1ohggcn4qaqm:/"
-
-    // XOR スクランブルされたクライアントシークレット（Windows 版と同一）
-    private static let scrambledClientSecret: [UInt8] = [
-        16, 33, 39, 42, 7, 52, 122, 25, 21, 77, 7, 95, 38, 87, 23, 72,
-        49, 0, 13, 13, 5, 74, 31, 30, 54, 60, 23, 61, 27, 43, 4, 2, 35, 84, 52,
-    ]
-
-    private static var clientSecret: String {
-        let key = Array("WndyWl".utf8)
-        let decoded = scrambledClientSecret.enumerated().map { i, b in
-            b ^ key[i % key.count]
-        }
-        return String(bytes: decoded, encoding: .ascii) ?? ""
-    }
-
-    // Keychain キー
-    private static let accessTokenKey = "google_access_token"
-    private static let refreshTokenKey = "google_refresh_token"
-    private static let tokenExpiryKey = "google_token_expiry"
+    // Google Calendar 読み取りスコープ
+    private static let calendarScope = "https://www.googleapis.com/auth/calendar.readonly"
 
     private let configService: AppConfigService
     private let historyService: HistoryService
-    // ASWebAuthenticationSession は weak で保持されないため、強参照で保持する
-    private var authSession: ASWebAuthenticationSession?
-    private var authContextProvider: PresentationContextProvider?
 
     init(configService: AppConfigService, historyService: HistoryService) {
         self.configService = configService
@@ -42,165 +18,35 @@ final class ContextService {
 
     // サイレントにカレンダーへアクセス可能かを確認する
     func canAccessCalendarSilently() async -> Bool {
-        guard KeychainHelper.load(forKey: Self.refreshTokenKey) != nil else { return false }
+        if GIDSignIn.sharedInstance.currentUser != nil { return true }
         do {
-            _ = try await getValidAccessToken()
-            return true
+            try await GIDSignIn.sharedInstance.restorePreviousSignIn()
+            return GIDSignIn.sharedInstance.currentUser != nil
         } catch {
             return false
         }
     }
 
-    // ASWebAuthenticationSession でブラウザ認証を行い、OAuth トークンを取得する
+    // Google Sign-In でブラウザ認証を行い、Calendar スコープを取得する
     @MainActor
-    func authorizeCalendarInteractive(presentingAnchor: ASPresentationAnchor) async throws {
-        var components = URLComponents(
-            string: "https://accounts.google.com/o/oauth2/v2/auth"
-        )!
-        components.queryItems = [
-            URLQueryItem(name: "client_id", value: Self.clientId),
-            URLQueryItem(name: "redirect_uri", value: Self.redirectUri),
-            URLQueryItem(name: "response_type", value: "code"),
-            URLQueryItem(
-                name: "scope",
-                value: "https://www.googleapis.com/auth/calendar.readonly"
-            ),
-            URLQueryItem(name: "access_type", value: "offline"),
-            URLQueryItem(name: "prompt", value: "consent"),
-        ]
-        let authURL = components.url!
-        let callbackScheme =
-            "com.googleusercontent.apps.1032289774423-97qnlp8qkh7vca159jvq1ohggcn4qaqm"
-
-        let callbackURL: URL = try await withCheckedThrowingContinuation { continuation in
-            let provider = PresentationContextProvider(anchor: presentingAnchor)
-            let session = ASWebAuthenticationSession(
-                url: authURL,
-                callbackURLScheme: callbackScheme
-            ) { [weak self] url, error in
-                // 認証完了後に参照を解放
-                self?.authSession = nil
-                self?.authContextProvider = nil
-                if let error {
-                    continuation.resume(throwing: error)
-                } else if let url {
-                    continuation.resume(returning: url)
-                } else {
-                    continuation.resume(throwing: URLError(.cancelled))
-                }
-            }
-            session.presentationContextProvider = provider
-            session.prefersEphemeralWebBrowserSession = false
-            // セッションとプロバイダーをプロパティで強参照保持（ARCによる早期解放を防ぐ）
-            self.authContextProvider = provider
-            self.authSession = session
-            session.start()
-        }
-
-        guard
-            let code = URLComponents(url: callbackURL, resolvingAgainstBaseURL: false)?
-                .queryItems?.first(where: { $0.name == "code" })?.value
-        else {
-            throw URLError(.badServerResponse)
-        }
-
-        try await exchangeCodeForTokens(code: code)
-    }
-
-    // 認証コードをアクセストークンとリフレッシュトークンに交換する
-    private func exchangeCodeForTokens(code: String) async throws {
-        var request = URLRequest(url: URL(string: "https://oauth2.googleapis.com/token")!)
-        request.httpMethod = "POST"
-        request.setValue(
-            "application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type"
+    func authorizeCalendarInteractive(presentingViewController: UIViewController) async throws {
+        _ = try await GIDSignIn.sharedInstance.signIn(
+            withPresenting: presentingViewController,
+            hint: nil,
+            additionalScopes: [Self.calendarScope]
         )
-        let params = [
-            "client_id": Self.clientId,
-            "client_secret": Self.clientSecret,
-            "code": code,
-            "redirect_uri": Self.redirectUri,
-            "grant_type": "authorization_code",
-        ]
-        request.httpBody = params.map { "\($0.key)=\($0.value)" }.joined(separator: "&")
-            .data(using: .utf8)
-        let (data, _) = try await URLSession.shared.data(for: request)
-        let tokenResponse = try JSONDecoder().decode(OAuthTokenResponse.self, from: data)
-        storeTokens(tokenResponse)
     }
 
-    // リフレッシュトークンで新しいアクセストークンを取得する
-    private func refreshAccessToken(refreshToken: String) async throws -> String {
-        var request = URLRequest(url: URL(string: "https://oauth2.googleapis.com/token")!)
-        request.httpMethod = "POST"
-        request.setValue(
-            "application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type"
-        )
-        let params = [
-            "client_id": Self.clientId,
-            "client_secret": Self.clientSecret,
-            "refresh_token": refreshToken,
-            "grant_type": "refresh_token",
-        ]
-        request.httpBody = params.map { "\($0.key)=\($0.value)" }.joined(separator: "&")
-            .data(using: .utf8)
-        let (data, _) = try await URLSession.shared.data(for: request)
-        let tokenResponse = try JSONDecoder().decode(OAuthTokenResponse.self, from: data)
-        storeTokens(tokenResponse)
-        return tokenResponse.accessToken
-    }
-
-    // 有効なアクセストークンを返す（期限切れなら自動更新）
-    private func getValidAccessToken() async throws -> String {
-        let now = Date()
-        if let expiryString = KeychainHelper.load(forKey: Self.tokenExpiryKey),
-            let expiry = ISO8601DateFormatter().date(from: expiryString),
-            expiry > now.addingTimeInterval(60),
-            let accessToken = KeychainHelper.load(forKey: Self.accessTokenKey)
-        {
-            return accessToken
-        }
-        guard let refreshToken = KeychainHelper.load(forKey: Self.refreshTokenKey) else {
-            throw NSError(
-                domain: "WondayWall",
-                code: 401,
-                userInfo: [
-                    NSLocalizedDescriptionKey:
-                        "Googleカレンダーが未接続です。設定から接続してください。"
-                ]
-            )
-        }
-        return try await refreshAccessToken(refreshToken: refreshToken)
-    }
-
-    // トークンを Keychain に保存する
-    private func storeTokens(_ response: OAuthTokenResponse) {
-        KeychainHelper.save(response.accessToken, forKey: Self.accessTokenKey)
-        if let refreshToken = response.refreshToken {
-            KeychainHelper.save(refreshToken, forKey: Self.refreshTokenKey)
-        }
-        if let expiresIn = response.expiresIn {
-            let expiry = Date().addingTimeInterval(TimeInterval(expiresIn))
-            KeychainHelper.save(
-                ISO8601DateFormatter().string(from: expiry),
-                forKey: Self.tokenExpiryKey
-            )
-        }
-    }
-
-    // Google Calendar OAuth 認証情報を削除する
+    // Google Calendar 認証情報を削除する
     func disconnectCalendar() {
-        KeychainHelper.delete(forKey: Self.accessTokenKey)
-        KeychainHelper.delete(forKey: Self.refreshTokenKey)
-        KeychainHelper.delete(forKey: Self.tokenExpiryKey)
+        GIDSignIn.sharedInstance.signOut()
     }
 
     // 利用可能なカレンダー一覧を取得する
     func fetchAvailableCalendars() async throws -> [AvailableCalendar] {
         let accessToken = try await getValidAccessToken()
         var request = URLRequest(
-            url: URL(
-                string: "https://www.googleapis.com/calendar/v3/users/me/calendarList"
-            )!
+            url: URL(string: "https://www.googleapis.com/calendar/v3/users/me/calendarList")!
         )
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         let (data, _) = try await URLSession.shared.data(for: request)
@@ -261,12 +107,14 @@ final class ContextService {
         return results
     }
 
-    // RSS/Atom フィードからニュースを取得する
+    // RSS/Atom フィードからニュースを取得し、OGP 画像 URL を付与する
     func fetchNews() async -> [NewsTopicItem] {
         let rssSources = configService.config.rssSources
         guard !rssSources.isEmpty else { return [] }
         let weekAgo = Date().addingTimeInterval(-7 * 24 * 3600)
-        let results = await withTaskGroup(of: [RssItem].self) { group in
+
+        // RSS フィードから記事を並列取得
+        let rssItems = await withTaskGroup(of: [RssItem].self) { group in
             for url in rssSources {
                 group.addTask { await self.fetchRssItems(from: url, since: weekAgo) }
             }
@@ -274,18 +122,35 @@ final class ContextService {
             for await items in group { all.append(contentsOf: items) }
             return all
         }
-        return results
-            .sorted { $0.publishedAt > $1.publishedAt }
-            .map {
-                NewsTopicItem(
-                    id: $0.url ?? $0.title,
-                    title: $0.title,
-                    summary: $0.summary,
-                    url: $0.url,
-                    publishedAt: $0.publishedAt,
-                    ogpImageUrl: nil
-                )
+
+        // 日付でソートして一意化
+        let sortedItems = rssItems.sorted { $0.publishedAt > $1.publishedAt }
+
+        // 上位 10 件について OGP 画像 URL を並列取得する
+        let ogpURLs = await withTaskGroup(of: (String, String?).self) { group in
+            for item in sortedItems.prefix(10) {
+                if let url = item.url {
+                    group.addTask { (url, await self.fetchOGPImageURL(from: url)) }
+                }
             }
+            var map: [String: String] = [:]
+            for await (key, ogp) in group {
+                if let ogp { map[key] = ogp }
+            }
+            return map
+        }
+
+        return sortedItems.map { item in
+            let ogp = item.url.flatMap { ogpURLs[$0] }
+            return NewsTopicItem(
+                id: item.url ?? item.title,
+                title: item.title,
+                summary: item.summary,
+                url: item.url,
+                publishedAt: item.publishedAt,
+                ogpImageUrl: ogp
+            )
+        }
     }
 
     // 1つの RSS ソースからアイテムを取得してパースする（FeedKit使用）
@@ -338,6 +203,33 @@ final class ContextService {
         }
 
         return items.filter { $0.publishedAt >= since }
+    }
+
+    // SwiftSoup で記事 HTML から OGP 画像 URL を抽出する
+    private func fetchOGPImageURL(from urlString: String) async -> String? {
+        guard let url = URL(string: urlString) else { return nil }
+        var request = URLRequest(url: url, timeoutInterval: 10)
+        request.setValue(
+            "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)",
+            forHTTPHeaderField: "User-Agent"
+        )
+        guard let (data, _) = try? await URLSession.shared.data(for: request) else { return nil }
+        guard let html = String(data: data, encoding: .utf8) else { return nil }
+        guard let doc = try? SwiftSoup.parse(html) else { return nil }
+        let selectors = [
+            "meta[property='og:image']",
+            "meta[property='og:image:url']",
+            "meta[name='twitter:image']",
+            "meta[name='twitter:image:src']",
+        ]
+        for selector in selectors {
+            if let content = try? doc.select(selector).first()?.attr("content"),
+               !content.isEmpty
+            {
+                return content
+            }
+        }
+        return nil
     }
 
     // 画像生成用コンテキストを構築する
@@ -434,6 +326,28 @@ final class ContextService {
         return selected.sorted { $0.publishedAt > $1.publishedAt }
     }
 
+    // 有効なアクセストークンを返す（GIDSignIn が自動リフレッシュ）
+    private func getValidAccessToken() async throws -> String {
+        if let user = GIDSignIn.sharedInstance.currentUser {
+            try await user.refreshTokensIfNeeded()
+            return user.accessToken.tokenString
+        }
+        // サイレント復元を試みる
+        try await GIDSignIn.sharedInstance.restorePreviousSignIn()
+        guard let user = GIDSignIn.sharedInstance.currentUser else {
+            throw NSError(
+                domain: "WondayWall",
+                code: 401,
+                userInfo: [
+                    NSLocalizedDescriptionKey:
+                        "Googleカレンダーが未接続です。設定から接続してください。"
+                ]
+            )
+        }
+        try await user.refreshTokensIfNeeded()
+        return user.accessToken.tokenString
+    }
+
     // カレンダー API の日時フィールドを Date に変換する
     private func parseCalendarDateTime(_ dt: CalendarDateTime) -> Date {
         let isoFormatter = ISO8601DateFormatter()
@@ -456,17 +370,6 @@ final class ContextService {
     }
 
     // MARK: - 内部モデル（Google Calendar REST API レスポンス）
-
-    private struct OAuthTokenResponse: Codable {
-        let accessToken: String
-        let refreshToken: String?
-        let expiresIn: Int?
-        enum CodingKeys: String, CodingKey {
-            case accessToken = "access_token"
-            case refreshToken = "refresh_token"
-            case expiresIn = "expires_in"
-        }
-    }
 
     private struct CalendarListResponse: Codable {
         let items: [CalendarListEntry]
@@ -510,15 +413,4 @@ struct AvailableCalendar: Identifiable {
     let id: String
     let summary: String
     let isPrimary: Bool
-}
-
-// ASWebAuthenticationSession のプレゼンテーションコンテキスト
-private final class PresentationContextProvider: NSObject,
-    ASWebAuthenticationPresentationContextProviding
-{
-    let anchor: ASPresentationAnchor
-    init(anchor: ASPresentationAnchor) { self.anchor = anchor }
-    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
-        anchor
-    }
 }

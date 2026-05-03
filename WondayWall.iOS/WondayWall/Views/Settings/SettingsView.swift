@@ -1,5 +1,4 @@
 import SwiftUI
-import AuthenticationServices
 
 // 設定画面 — API キー・カレンダー・RSS・生成設定・通知
 struct SettingsView: View {
@@ -36,7 +35,7 @@ private struct SettingsContentView: View {
             // Google AI API キーセクション
             Section {
                 HStack {
-                    SecureField("API キーを入力", text: $vm.config.googleAiApiKey)
+                    SecureField("API キーを入力", text: $vm.googleAiApiKey)
                 }
             } header: {
                 Text("Google AI API キー")
@@ -84,17 +83,18 @@ private struct SettingsContentView: View {
                     Button {
                         Task { @MainActor in
                             guard
-                                let anchor = UIApplication.shared.connectedScenes
+                                let rootVC = UIApplication.shared.connectedScenes
                                     .compactMap({ $0 as? UIWindowScene })
                                     .first?
                                     .windows
-                                    .first(where: \.isKeyWindow)
+                                    .first(where: \.isKeyWindow)?
+                                    .rootViewController
                             else { return }
                             vm.isConnectingCalendar = true
                             defer { vm.isConnectingCalendar = false }
                             do {
                                 try await environment.contextService
-                                    .authorizeCalendarInteractive(presentingAnchor: anchor)
+                                    .authorizeCalendarInteractive(presentingViewController: rootVC)
                                 await vm.loadAvailableCalendars()
                             } catch {
                                 vm.errorMessage = error.localizedDescription

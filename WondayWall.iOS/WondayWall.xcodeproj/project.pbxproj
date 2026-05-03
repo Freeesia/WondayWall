@@ -41,6 +41,10 @@ BB00000000000000000000001E /* SettingsViewModel.swift in Sources */ = {isa = PBX
 BB00000000000000000000001F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000000001F /* Assets.xcassets */; };
 BB000000000000000000000022 /* FaviconImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000022 /* FaviconImage.swift */; };
 DD000000000000000000000003 /* FeedKit in Frameworks */ = {isa = PBXBuildFile; productRef = DD000000000000000000000002 /* FeedKit */; };
+DD000000000000000000000006 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = DD000000000000000000000005 /* GoogleSignIn */; };
+DD000000000000000000000009 /* KeychainAccess in Frameworks */ = {isa = PBXBuildFile; productRef = DD000000000000000000000008 /* KeychainAccess */; };
+DD00000000000000000000000C /* Defaults in Frameworks */ = {isa = PBXBuildFile; productRef = DD00000000000000000000000B /* Defaults */; };
+DD00000000000000000000000F /* SwiftSoup in Frameworks */ = {isa = PBXBuildFile; productRef = DD00000000000000000000000E /* SwiftSoup */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -235,6 +239,10 @@ dependencies = ();
 name = WondayWall;
 packageProductDependencies = (
 DD000000000000000000000002 /* FeedKit */,
+DD000000000000000000000005 /* GoogleSignIn */,
+DD000000000000000000000008 /* KeychainAccess */,
+DD00000000000000000000000B /* Defaults */,
+DD00000000000000000000000E /* SwiftSoup */,
 );
 productName = WondayWall;
 productReference = FF000000000000000000000006 /* WondayWall.app */;
@@ -267,6 +275,10 @@ Base,
 mainGroup = CC000000000000000000000001;
 packageReferences = (
 DD000000000000000000000001 /* XCRemoteSwiftPackageReference "FeedKit" */,
+DD000000000000000000000004 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
+DD000000000000000000000007 /* XCRemoteSwiftPackageReference "KeychainAccess" */,
+DD00000000000000000000000A /* XCRemoteSwiftPackageReference "Defaults" */,
+DD00000000000000000000000D /* XCRemoteSwiftPackageReference "SwiftSoup" */,
 );
 productRefGroup = CC000000000000000000000002 /* Products */;
 projectDirPath = "";
@@ -336,6 +348,10 @@ isa = PBXFrameworksBuildPhase;
 buildActionMask = 2147483647;
 files = (
 DD000000000000000000000003 /* FeedKit in Frameworks */,
+DD000000000000000000000006 /* GoogleSignIn in Frameworks */,
+DD000000000000000000000009 /* KeychainAccess in Frameworks */,
+DD00000000000000000000000C /* Defaults in Frameworks */,
+DD00000000000000000000000F /* SwiftSoup in Frameworks */,
 );
 runOnlyForDeploymentPostprocessing = 0;
 };
@@ -535,6 +551,38 @@ kind = upToNextMajorVersion;
 minimumVersion = "9.0.0";
 };
 };
+DD000000000000000000000004 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
+isa = XCRemoteSwiftPackageReference;
+repositoryURL = "https://github.com/google/GoogleSignIn-iOS.git";
+requirement = {
+kind = upToNextMajorVersion;
+minimumVersion = "8.0.0";
+};
+};
+DD000000000000000000000007 /* XCRemoteSwiftPackageReference "KeychainAccess" */ = {
+isa = XCRemoteSwiftPackageReference;
+repositoryURL = "https://github.com/kishikawakatsumi/KeychainAccess.git";
+requirement = {
+kind = upToNextMajorVersion;
+minimumVersion = "4.2.2";
+};
+};
+DD00000000000000000000000A /* XCRemoteSwiftPackageReference "Defaults" */ = {
+isa = XCRemoteSwiftPackageReference;
+repositoryURL = "https://github.com/sindresorhus/Defaults.git";
+requirement = {
+kind = upToNextMajorVersion;
+minimumVersion = "8.0.0";
+};
+};
+DD00000000000000000000000D /* XCRemoteSwiftPackageReference "SwiftSoup" */ = {
+isa = XCRemoteSwiftPackageReference;
+repositoryURL = "https://github.com/scinfu/SwiftSoup.git";
+requirement = {
+kind = upToNextMajorVersion;
+minimumVersion = "2.7.5";
+};
+};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -542,6 +590,26 @@ DD000000000000000000000002 /* FeedKit */ = {
 isa = XCSwiftPackageProductDependency;
 package = DD000000000000000000000001 /* XCRemoteSwiftPackageReference "FeedKit" */;
 productName = FeedKit;
+};
+DD000000000000000000000005 /* GoogleSignIn */ = {
+isa = XCSwiftPackageProductDependency;
+package = DD000000000000000000000004 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+productName = GoogleSignIn;
+};
+DD000000000000000000000008 /* KeychainAccess */ = {
+isa = XCSwiftPackageProductDependency;
+package = DD000000000000000000000007 /* XCRemoteSwiftPackageReference "KeychainAccess" */;
+productName = KeychainAccess;
+};
+DD00000000000000000000000B /* Defaults */ = {
+isa = XCSwiftPackageProductDependency;
+package = DD00000000000000000000000A /* XCRemoteSwiftPackageReference "Defaults" */;
+productName = Defaults;
+};
+DD00000000000000000000000E /* SwiftSoup */ = {
+isa = XCSwiftPackageProductDependency;
+package = DD00000000000000000000000D /* XCRemoteSwiftPackageReference "SwiftSoup" */;
+productName = SwiftSoup;
 };
 /* End XCSwiftPackageProductDependency section */
 
