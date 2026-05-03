@@ -1,0 +1,7 @@
+[
+  "Microsoft-WindowsAPICodePack-Core",
+  "Microsoft-WindowsAPICodePack-Shell",
+  "Microsoft.Windows.SDK.Win32Docs",
+  "Microsoft.Windows.SDK.Win32Metadata",
+  "Microsoft.Windows.WDK.Win32Metadata"
+]
