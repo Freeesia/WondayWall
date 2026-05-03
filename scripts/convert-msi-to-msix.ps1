@@ -204,7 +204,7 @@ function New-StarterTemplate {
 
     $installLocationAttribute = ''
     if (-not [string]::IsNullOrWhiteSpace($installLocation)) {
-        $installLocationAttribute = "`n    InstallLocation=\"$installLocation\""
+        $installLocationAttribute = "`n    InstallLocation=`"$installLocation`""
     }
 
     return @"

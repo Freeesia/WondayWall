@@ -148,10 +148,56 @@ jobs:
           dotnet run --project WondayWall.Wix.csproj -c Release
           dotnet build WondayWall.Installer.wixproj -p:OutputName=WondayWall-${{ needs.build.outputs.version }}
         working-directory: WondayWall.Wix
+      - name: Generate MSIX
+        shell: pwsh
+        run: |
+          $version = '${{ needs.build.outputs.version }}'
+
+          # Windows SDK に同梱の makeappx.exe を検索
+          $makeappx = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin' -Filter 'makeappx.exe' -Recurse -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -match 'x64' } |
+            Sort-Object FullName -Descending |
+            Select-Object -First 1 -ExpandProperty FullName
+
+          if (-not $makeappx) {
+            throw 'makeappx.exe が見つかりません。Windows SDK が必要です。'
+          }
+
+          Write-Host "makeappx.exe: $makeappx"
+
+          # MSIX 用アイコン画像を 512px PNG から生成
+          $iconSrc = 'docs\assets\icon_512.png'
+          $imagesDir = 'msix-staging\Images'
+          New-Item -ItemType Directory -Force -Path $imagesDir | Out-Null
+          Copy-Item $iconSrc "$imagesDir\Square44x44Logo.png"
+          Copy-Item $iconSrc "$imagesDir\Square150x150Logo.png"
+          Copy-Item $iconSrc "$imagesDir\Wide310x150Logo.png"
+          Copy-Item $iconSrc "$imagesDir\StoreLogo.png"
+
+          # アプリバイナリをステージングへコピー
+          Copy-Item 'artifacts\*' 'msix-staging\' -Recurse -Force
+
+          # マニフェストのバージョン文字列を差し替えてステージングへ配置
+          $manifest = Get-Content 'WondayWall.Package\AppxManifest.xml' -Raw -Encoding UTF8
+          $manifest = $manifest.Replace('Version="0.0.0.0"', "Version=`"$version`"")
+          Set-Content 'msix-staging\AppxManifest.xml' $manifest -Encoding UTF8
+
+          # MSIX をパック（/nv = 署名検証スキップ）
+          New-Item -ItemType Directory -Force -Path publish | Out-Null
+          & $makeappx pack /d msix-staging /p "publish\WondayWall-$version.msix" /nv
+          if ($LASTEXITCODE -ne 0) {
+            throw "makeappx failed with exit code $LASTEXITCODE"
+          }
+
+          Write-Host "MSIX generated: publish\WondayWall-$version.msix"
       - uses: actions/upload-artifact@v4
         with:
           name: WondayWall-${{ needs.build.outputs.version }}.msi
-          path: publish\
+          path: publish\*.msi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WondayWall-${{ needs.build.outputs.version }}.msix
+          path: publish\*.msix
 
   release:
     if: ${{ success() && startsWith(github.ref, 'refs/tags/') }}
@@ -186,4 +232,4 @@ jobs:
           files: |
             WondayWall-*.zip
             WondayWall-*.msi/WondayWall-*.msi
-
+            WondayWall-*.msix/WondayWall-*.msix
