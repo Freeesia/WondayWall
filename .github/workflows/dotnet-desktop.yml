@@ -117,7 +117,6 @@ jobs:
           path: publish\
 
   installer:
-    if: ${{ startsWith(github.ref, 'refs/tags/') }}
     needs:
       - build
     runs-on: windows-latest
@@ -134,7 +133,8 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
-      - uses: actions/download-artifact@v8
+      # WondayWall-full-* は SelfContained=true のビルド成果物
+      - uses: actions/download-artifact@v4
         with:
           path: artifacts
           pattern: WondayWall-full-*
@@ -165,14 +165,14 @@ jobs:
 
           Write-Host "makeappx.exe: $makeappx"
 
-          # MSIX 用アイコン画像を 512px PNG から生成
+          # MSIX 用アイコン画像を各ロゴサイズへリサイズして生成
           $iconSrc = 'docs\assets\icon_512.png'
           $imagesDir = 'msix-staging\Images'
           New-Item -ItemType Directory -Force -Path $imagesDir | Out-Null
-          Copy-Item $iconSrc "$imagesDir\Square44x44Logo.png"
-          Copy-Item $iconSrc "$imagesDir\Square150x150Logo.png"
-          Copy-Item $iconSrc "$imagesDir\Wide310x150Logo.png"
-          Copy-Item $iconSrc "$imagesDir\StoreLogo.png"
+          magick $iconSrc -resize 44x44 "$imagesDir\Square44x44Logo.png"
+          magick $iconSrc -resize 150x150 "$imagesDir\Square150x150Logo.png"
+          magick $iconSrc -resize 310x150 -background transparent -gravity center -extent 310x150 "$imagesDir\Wide310x150Logo.png"
+          magick $iconSrc -resize 50x50 "$imagesDir\StoreLogo.png"
 
           # アプリバイナリをステージングへコピー
           Copy-Item 'artifacts\*' 'msix-staging\' -Recurse -Force
@@ -208,7 +208,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@v4
       - run: |
           for dir in WondayWall-*/; do
             base=$(basename "$dir")
