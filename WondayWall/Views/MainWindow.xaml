@@ -518,7 +518,7 @@
                         </StackPanel>
                     </TabItem.Header>
                     <ScrollViewer Margin="0,0,0,8">
-                        <StackPanel HorizontalAlignment="Center" MaxWidth="480" Margin="0,24,0,0">
+                        <StackPanel Margin="0,24,0,0" HorizontalAlignment="Center">
                             <!--  アプリ情報  -->
                             <Image
                                 Width="80"
@@ -581,7 +581,7 @@
 
                             <ui:CardControl Margin="0,0,0,4" Header="{x:Static properties:Resources.AboutGeneratedImageUsage}">
                                 <ui:CardControl.Icon>
-                                    <ui:SymbolIcon Symbol="ImageSparkle24" />
+                                    <ui:SymbolIcon Symbol="DrawImage24" />
                                 </ui:CardControl.Icon>
                                 <ui:Button
                                     Appearance="Secondary"
@@ -642,7 +642,7 @@
                 </TabItem>
             </TabControl>
 
-            <Border Background="#CC10161F" Visibility="{Binding ShowSetupWizard, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Border Background="{DynamicResource SmokeFillColorDefaultBrush}" Visibility="{Binding ShowSetupWizard, Converter={StaticResource BooleanToVisibilityConverter}}">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <Border
                         MaxWidth="860"
