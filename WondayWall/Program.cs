@@ -1,5 +1,6 @@
 using ConsoleAppFramework;
 using Kamishibai;
+using System.IO;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.Hosting;
@@ -18,7 +19,24 @@ Thread.CurrentThread.SetApartmentState(ApartmentState.Unknown);
 Thread.CurrentThread.SetApartmentState(ApartmentState.STA);
 
 
-if (args is [] || IsToastActivation(args))
+var cafApp = ConsoleApp.Create()
+    .ConfigureServices((context, _, services) =>
+    {
+        if (!string.IsNullOrEmpty(context.CommandName))
+            AttachConsole();
+
+        ConfigureCommonServices(services);
+    });
+cafApp.Add("", RunGuiAsync);
+cafApp.Add<CliCommands>();
+
+await cafApp.RunAsync(args).ConfigureAwait(false);
+
+/// <summary>
+/// GUI を起動します。
+/// </summary>
+/// <param name="toastActivated">-ToastActivated, Windows トースト通知から起動されたことを示します。</param>
+static async Task RunGuiAsync(bool toastActivated = false)
 {
     var builder = KamishibaiApplication<App, MainWindow>.CreateBuilder();
     ConfigureCommonServices(builder.Services);
@@ -27,22 +45,6 @@ if (args is [] || IsToastActivation(args))
         .AddPresentation<MainWindow, MainWindowViewModel>();
     var wpfApp = builder.Build();
     await wpfApp.RunAsync();
-}
-else
-{
-    if (!PInvoke.AttachConsole(PInvoke.ATTACH_PARENT_PROCESS))
-    {
-#if DEBUG // デバッグビルドの場合はログ見たいのでコンソールを割り当てる
-        PInvoke.AllocConsole();
-#endif
-    }
-
-    var cafApp = ConsoleApp.Create()
-        .ConfigureServices(ConfigureCommonServices);
-
-    cafApp.Add<CliCommands>();
-
-    await cafApp.RunAsync(args).ConfigureAwait(false);
 }
 
 static void ConfigureCommonServices(IServiceCollection services)
@@ -80,6 +82,17 @@ static void ConfigureGuiServices(IServiceCollection services)
     services.AddHostedService(sp => sp.GetRequiredService<UpdateChecker>());
 }
 
-static bool IsToastActivation(string[] args)
-    // Toast から起動された場合は CLI ではなく GUI として起動する
-    => args.Contains("-ToastActivated", StringComparer.OrdinalIgnoreCase);
+static void AttachConsole()
+{
+    if (!PInvoke.AttachConsole(PInvoke.ATTACH_PARENT_PROCESS))
+    {
+#if DEBUG // デバッグビルドの場合はログ見たいのでコンソールを割り当てる
+        PInvoke.AllocConsole();
+#endif
+    }
+
+    var outputWriter = new StreamWriter(Console.OpenStandardOutput()) { AutoFlush = true };
+    var errorWriter = new StreamWriter(Console.OpenStandardError()) { AutoFlush = true };
+    Console.SetOut(outputWriter);
+    Console.SetError(errorWriter);
+}
