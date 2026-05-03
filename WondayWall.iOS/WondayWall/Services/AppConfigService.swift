@@ -23,6 +23,7 @@ final class AppConfigService {
     // Google AI API キー（Keychain に保存）
     var googleAiApiKey: String {
         didSet {
+            // 空文字は Keychain から削除し、秘密情報を残さない
             Self.keychain[Self.apiKeyKeychainKey] = googleAiApiKey.isEmpty ? nil : googleAiApiKey
         }
     }

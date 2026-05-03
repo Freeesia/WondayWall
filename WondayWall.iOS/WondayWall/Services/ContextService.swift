@@ -126,7 +126,7 @@ final class ContextService {
         // 日付でソートして一意化
         let sortedItems = rssItems.sorted { $0.publishedAt > $1.publishedAt }
 
-        // 上位 10 件について OGP 画像 URL を並列取得する
+        // 上位 10 件について OGP 画像 URL を並列取得する（それ以降は nil）
         let ogpURLs = await withTaskGroup(of: (String, String?).self) { group in
             for item in sortedItems.prefix(10) {
                 if let url = item.url {
@@ -208,7 +208,7 @@ final class ContextService {
     // SwiftSoup で記事 HTML から OGP 画像 URL を抽出する
     private func fetchOGPImageURL(from urlString: String) async -> String? {
         guard let url = URL(string: urlString) else { return nil }
-        var request = URLRequest(url: url, timeoutInterval: 10)
+        var request = URLRequest(url: url, timeoutInterval: 5)
         request.setValue(
             "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)",
             forHTTPHeaderField: "User-Agent"
