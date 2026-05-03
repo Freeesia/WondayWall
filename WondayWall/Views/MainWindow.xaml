@@ -503,6 +503,7 @@
                                         </ui:CardControl>
                                     </StackPanel>
                                 </GroupBox>
+
                             </StackPanel>
                         </ScrollViewer>
                     </DockPanel>
