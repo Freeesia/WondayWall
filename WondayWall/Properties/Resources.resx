@@ -267,6 +267,45 @@
   <data name="TaskSchedulerError" xml:space="preserve">
     <value>Task Scheduler error: {0}</value>
   </data>
+  <data name="CheckNewVersion" xml:space="preserve">
+    <value>Check for updates</value>
+  </data>
+  <data name="CheckUpdateNotes" xml:space="preserve">
+    <value>View release notes</value>
+  </data>
+  <data name="InstallNewVersion" xml:space="preserve">
+    <value>Install version {0}</value>
+  </data>
+  <data name="NewVersionAvailable" xml:space="preserve">
+    <value>Version {0} is available</value>
+  </data>
+  <data name="UpdateAvailableMessage" xml:space="preserve">
+    <value>Version {0} is available.</value>
+  </data>
+  <data name="UpdateCheckFailed" xml:space="preserve">
+    <value>Update check failed: {0}</value>
+  </data>
+  <data name="UpdateInstallStartFailed" xml:space="preserve">
+    <value>Could not start the installer: {0}</value>
+  </data>
+  <data name="UpdateInstallButton" xml:space="preserve">
+    <value>Install</value>
+  </data>
+  <data name="UpdateNotAvailable" xml:space="preserve">
+    <value>You are using the latest version.</value>
+  </data>
+  <data name="UpdateNotificationMessage" xml:space="preserve">
+    <value>Do you want to install the update?</value>
+  </data>
+  <data name="UpdateNotificationTitle" xml:space="preserve">
+    <value>WondayWall {0} has been released</value>
+  </data>
+  <data name="UpdateReleaseNotesOpenFailed" xml:space="preserve">
+    <value>Could not open release notes: {0}</value>
+  </data>
+  <data name="UpdateSkipVersion" xml:space="preserve">
+    <value>Skip this version</value>
+  </data>
   <data name="UpdateLockScreen" xml:space="preserve">
     <value>Update the lock screen in addition to the desktop wallpaper</value>
   </data>

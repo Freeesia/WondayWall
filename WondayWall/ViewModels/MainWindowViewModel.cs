@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Security;
+using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
@@ -19,6 +20,7 @@ public partial class MainWindowViewModel : ObservableObject
     private readonly ContextService _contextService;
     private readonly GenerationCoordinator _coordinator;
     private readonly TaskSchedulerService _taskSchedulerService;
+    private readonly UpdateChecker _updateChecker;
     private readonly ILogger<MainWindowViewModel> _logger;
 
     [ObservableProperty]
@@ -38,6 +40,18 @@ public partial class MainWindowViewModel : ObservableObject
 
     [ObservableProperty]
     public partial bool IsTaskSchedulerEnabled { get; set; }
+
+    [ObservableProperty]
+    public partial bool ShowUpdateControls { get; set; }
+
+    [ObservableProperty]
+    public partial bool HasUpdate { get; set; }
+
+    [ObservableProperty]
+    public partial string? LatestVersion { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsCheckingUpdate { get; set; }
 
     [ObservableProperty]
     public partial bool ShowSetupWizard { get; set; }
@@ -70,6 +84,7 @@ public partial class MainWindowViewModel : ObservableObject
         ContextService contextService,
         GenerationCoordinator coordinator,
         TaskSchedulerService taskSchedulerService,
+        UpdateChecker updateChecker,
         ILogger<MainWindowViewModel> logger)
     {
         _configService = configService;
@@ -77,8 +92,12 @@ public partial class MainWindowViewModel : ObservableObject
         _contextService = contextService;
         _coordinator = coordinator;
         _taskSchedulerService = taskSchedulerService;
+        _updateChecker = updateChecker;
         _logger = logger;
 
+        ShowUpdateControls = _updateChecker.IsInstalled;
+        _updateChecker.UpdateAvailable += UpdateChecker_UpdateAvailable;
+        SyncUpdateInfo();
         AppConfig = configService.Load();
         ShowSetupWizard = !configService.HasSavedConfig;
         SelectedRunsPerDay = ScheduleHelper.NormalizeRunsPerDay(AppConfig.RunsPerDay);
@@ -92,6 +111,24 @@ public partial class MainWindowViewModel : ObservableObject
         }
         LoadHistory();
         _ = InitializeDataAsync();
+    }
+
+    private void UpdateChecker_UpdateAvailable(object? sender, EventArgs e)
+    {
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is null || dispatcher.CheckAccess())
+        {
+            SyncUpdateInfo();
+            return;
+        }
+
+        dispatcher.Invoke(SyncUpdateInfo);
+    }
+
+    private void SyncUpdateInfo()
+    {
+        HasUpdate = _updateChecker.HasUpdate;
+        LatestVersion = _updateChecker.LatestVersion;
     }
 
     /// <summary>起動時にカレンダー一覧・カレンダーイベント・ニュースをバックグラウンドで取得する</summary>
@@ -157,10 +194,65 @@ public partial class MainWindowViewModel : ObservableObject
 
     private bool CanGenerate() => !IsGenerating;
 
+    private bool CanCheckUpdate() => ShowUpdateControls && !IsCheckingUpdate;
+
     partial void OnIsGeneratingChanged(bool value)
     {
         GenerateCommand.NotifyCanExecuteChanged();
         CompleteSetupCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnIsCheckingUpdateChanged(bool value)
+    {
+        CheckUpdateCommand.NotifyCanExecuteChanged();
+    }
+
+    [RelayCommand(CanExecute = nameof(CanCheckUpdate))]
+    private async Task CheckUpdateAsync(CancellationToken ct = default)
+    {
+        IsCheckingUpdate = true;
+        try
+        {
+            await _updateChecker.CheckAsync(ct);
+            SyncUpdateInfo();
+            LastResultMessage = HasUpdate
+                ? AppResources.Format(AppResources.UpdateAvailableMessage, LatestVersion)
+                : AppResources.UpdateNotAvailable;
+        }
+        catch (Exception ex)
+        {
+            LastResultMessage = AppResources.Format(AppResources.UpdateCheckFailed, ex.Message);
+        }
+        finally
+        {
+            IsCheckingUpdate = false;
+        }
+    }
+
+    [RelayCommand]
+    private void InstallUpdate()
+    {
+        try
+        {
+            _updateChecker.InstallUpdate();
+        }
+        catch (Exception ex)
+        {
+            LastResultMessage = AppResources.Format(AppResources.UpdateInstallStartFailed, ex.Message);
+        }
+    }
+
+    [RelayCommand]
+    private void OpenReleaseNotes()
+    {
+        try
+        {
+            _updateChecker.OpenReleaseNotes();
+        }
+        catch (Exception ex)
+        {
+            LastResultMessage = AppResources.Format(AppResources.UpdateReleaseNotesOpenFailed, ex.Message);
+        }
     }
 
     [RelayCommand]
