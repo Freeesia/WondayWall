@@ -117,6 +117,7 @@ jobs:
           path: publish\
 
   installer:
+    if: ${{ startsWith(github.ref, 'refs/tags/') }}
     needs:
       - build
     runs-on: windows-latest
