@@ -134,7 +134,8 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
-      - uses: actions/download-artifact@v8
+      # WondayWall-full-* は SelfContained=true のビルド成果物
+      - uses: actions/download-artifact@v4
         with:
           path: artifacts
           pattern: WondayWall-full-*
@@ -148,10 +149,56 @@ jobs:
           dotnet run --project WondayWall.Wix.csproj -c Release
           dotnet build WondayWall.Installer.wixproj -p:OutputName=WondayWall-${{ needs.build.outputs.version }}
         working-directory: WondayWall.Wix
+      - name: Generate MSIX
+        shell: pwsh
+        run: |
+          $version = '${{ needs.build.outputs.version }}'
+
+          # Windows SDK に同梱の makeappx.exe を検索
+          $makeappx = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin' -Filter 'makeappx.exe' -Recurse -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -match 'x64' } |
+            Sort-Object FullName -Descending |
+            Select-Object -First 1 -ExpandProperty FullName
+
+          if (-not $makeappx) {
+            throw 'makeappx.exe が見つかりません。Windows SDK が必要です。'
+          }
+
+          Write-Host "makeappx.exe: $makeappx"
+
+          # MSIX 用アイコン画像を各ロゴサイズへリサイズして生成
+          $iconSrc = 'docs\assets\icon_512.png'
+          $imagesDir = 'msix-staging\Images'
+          New-Item -ItemType Directory -Force -Path $imagesDir | Out-Null
+          magick $iconSrc -resize 44x44 "$imagesDir\Square44x44Logo.png"
+          magick $iconSrc -resize 150x150 "$imagesDir\Square150x150Logo.png"
+          magick $iconSrc -resize 310x150 -background transparent -gravity center -extent 310x150 "$imagesDir\Wide310x150Logo.png"
+          magick $iconSrc -resize 50x50 "$imagesDir\StoreLogo.png"
+
+          # アプリバイナリをステージングへコピー
+          Copy-Item 'artifacts\*' 'msix-staging\' -Recurse -Force
+
+          # マニフェストのバージョン文字列を差し替えてステージングへ配置
+          $manifest = Get-Content 'WondayWall.Package\AppxManifest.xml' -Raw -Encoding UTF8
+          $manifest = $manifest.Replace('Version="0.0.0.0"', "Version=`"$version`"")
+          Set-Content 'msix-staging\AppxManifest.xml' $manifest -Encoding UTF8
+
+          # MSIX をパック（/nv = 署名検証スキップ）
+          New-Item -ItemType Directory -Force -Path publish | Out-Null
+          & $makeappx pack /d msix-staging /p "publish\WondayWall-$version.msix" /nv
+          if ($LASTEXITCODE -ne 0) {
+            throw "makeappx failed with exit code $LASTEXITCODE"
+          }
+
+          Write-Host "MSIX generated: publish\WondayWall-$version.msix"
       - uses: actions/upload-artifact@v4
         with:
           name: WondayWall-${{ needs.build.outputs.version }}.msi
-          path: publish\
+          path: publish\*.msi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WondayWall-${{ needs.build.outputs.version }}.msix
+          path: publish\*.msix
 
   release:
     if: ${{ success() && startsWith(github.ref, 'refs/tags/') }}
@@ -162,7 +209,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@v4
       - run: |
           for dir in WondayWall-*/; do
             base=$(basename "$dir")
@@ -186,4 +233,4 @@ jobs:
           files: |
             WondayWall-*.zip
             WondayWall-*.msi/WondayWall-*.msi
-
+            WondayWall-*.msix/WondayWall-*.msix
