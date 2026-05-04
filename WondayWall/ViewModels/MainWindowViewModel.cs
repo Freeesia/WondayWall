@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
+using System.Reflection;
 using System.Security;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -70,13 +71,41 @@ public partial class MainWindowViewModel : ObservableObject
 
     [ObservableProperty]
     public partial string? SelectedRssSource { get; set; }
+
+    [ObservableProperty]
+    public partial PromptTemplate? SelectedPromptTemplate { get; set; }
+
     public ObservableCollection<CalendarEventItem> RecentEvents { get; } = [];
     public ObservableCollection<NewsTopicItem> RecentNews { get; } = [];
     public ObservableCollection<HistoryItem> History { get; } = [];
     public ObservableCollection<string> RssSources { get; } = [];
     public ObservableCollection<AvailableCalendar> AvailableCalendars { get; } = [];
     public IReadOnlyList<int> AvailableRunsPerDayOptions => ScheduleHelper.SupportedRunsPerDay;
+
+    /// <summary>追加プロンプトのプリセットテンプレート一覧</summary>
+    public IReadOnlyList<PromptTemplate> PromptTemplates { get; } =
+    [
+        new(AppResources.PromptTemplateWatercolor,
+            "Use a soft watercolor painting style with translucent washes, delicate brush strokes, and a gentle pastel color palette."),
+        new(AppResources.PromptTemplateAnime,
+            "Use a vibrant anime illustration style with bold outlines, cel-shading, and dynamic composition."),
+        new(AppResources.PromptTemplatePhotorealistic,
+            "Generate a photorealistic scene with natural lighting, rich textures, sharp details, and cinematic depth."),
+        new(AppResources.PromptTemplateMinimalist,
+            "Use a minimalist design with clean geometry, generous negative space, and a subtle two- or three-tone color palette."),
+        new(AppResources.PromptTemplateDark,
+            "Use a dark color scheme with deep blacks, navy blues, and charcoal grays. Add dramatic contrast with carefully placed highlights."),
+        new(AppResources.PromptTemplateFantasy,
+            "Create a magical fantasy atmosphere with ethereal glows, soft bokeh, mystical lighting, and dreamlike scenery."),
+    ];
     public string TaskSchedulerScheduleDescription => ScheduleHelper.FormatScheduleDescription(SelectedRunsPerDay);
+
+    /// <summary>アセンブリのインフォメーションバージョン</summary>
+    public string AppVersion { get; } =
+        Assembly.GetExecutingAssembly()
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+            ?.InformationalVersion
+        ?? "0.0.0";
 
     public MainWindowViewModel(
         AppConfigService configService,
@@ -475,6 +504,16 @@ public partial class MainWindowViewModel : ObservableObject
             RssSources.Remove(url);
     }
 
+    /// <summary>選択されているテンプレートの内容をユーザープロンプトに適用する</summary>
+    [RelayCommand]
+    private void ApplyPromptTemplate()
+    {
+        if (SelectedPromptTemplate is null)
+            return;
+        AppConfig.UserPrompt = SelectedPromptTemplate.Content;
+        OnPropertyChanged(nameof(AppConfig));
+    }
+
     [RelayCommand]
     private void OpenHistoryImage(HistoryItem? item)
     {
@@ -503,6 +542,52 @@ public partial class MainWindowViewModel : ObservableObject
         {
             _logger.LogWarning(ex, "履歴画像を開けませんでした: {ImagePath}", imagePath);
             LastResultMessage = AppResources.Format(AppResources.HistoryImageOpenFailed, ex.Message);
+        }
+    }
+
+    [RelayCommand]
+    private void OpenLink(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            return;
+
+        try
+        {
+            Process.Start(new ProcessStartInfo(url)
+            {
+                UseShellExecute = true,
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "リンクを開けませんでした: {Url}", url);
+            LastResultMessage = AppResources.Format(AppResources.AboutLinkOpenFailed, ex.Message);
+        }
+    }
+
+    [RelayCommand]
+    private void OpenLicensesFolder()
+    {
+        var licensesPath = Path.Combine(AppContext.BaseDirectory, "licenses");
+        if (!Directory.Exists(licensesPath))
+        {
+            _logger.LogWarning("ライセンスフォルダが見つかりません: {Path}", licensesPath);
+            LastResultMessage = AppResources.AboutLicensesFolderNotFound;
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = licensesPath,
+                UseShellExecute = true,
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "ライセンスフォルダを開けませんでした: {Path}", licensesPath);
+            LastResultMessage = AppResources.Format(AppResources.AboutLicensesFolderOpenFailed, ex.Message);
         }
     }
 

@@ -36,6 +36,21 @@ public static class Resources
         => ResourceManager.GetString(name, resourceCulture)!;
 
     public static string Add => GetString(nameof(Add));
+    public static string ApplyTemplate => GetString(nameof(ApplyTemplate));
+    public static string AboutAppName => GetString(nameof(AboutAppName));
+    public static string AboutDeveloper => GetString(nameof(AboutDeveloper));
+    public static string AboutDeveloperX => GetString(nameof(AboutDeveloperX));
+    public static string AboutGeneratedImageUsage => GetString(nameof(AboutGeneratedImageUsage));
+    public static string AboutGitHub => GetString(nameof(AboutGitHub));
+    public static string AboutLinkOpenFailed => GetString(nameof(AboutLinkOpenFailed));
+    public static string AboutLicensesFolderNotFound => GetString(nameof(AboutLicensesFolderNotFound));
+    public static string AboutLicensesFolderOpenFailed => GetString(nameof(AboutLicensesFolderOpenFailed));
+    public static string AboutOfficialDocs => GetString(nameof(AboutOfficialDocs));
+    public static string AboutOpenSourceLicenses => GetString(nameof(AboutOpenSourceLicenses));
+    public static string AboutPrivacyPolicy => GetString(nameof(AboutPrivacyPolicy));
+    public static string AboutReleaseNotes => GetString(nameof(AboutReleaseNotes));
+    public static string AboutTab => GetString(nameof(AboutTab));
+    public static string AboutTermsOfUse => GetString(nameof(AboutTermsOfUse));
     public static string AutomaticExecution => GetString(nameof(AutomaticExecution));
     public static string CalendarNotConnected => GetString(nameof(CalendarNotConnected));
     public static string CalendarStatusConnecting => GetString(nameof(CalendarStatusConnecting));
@@ -138,4 +153,10 @@ public static class Resources
     public static string UseCurrentWallpaperAsBase => GetString(nameof(UseCurrentWallpaperAsBase));
     public static string UseCurrentWallpaperAsBaseHeader => GetString(nameof(UseCurrentWallpaperAsBaseHeader));
     public static string UserPromptHeader => GetString(nameof(UserPromptHeader));
+    public static string PromptTemplateAnime => GetString(nameof(PromptTemplateAnime));
+    public static string PromptTemplateDark => GetString(nameof(PromptTemplateDark));
+    public static string PromptTemplateFantasy => GetString(nameof(PromptTemplateFantasy));
+    public static string PromptTemplateMinimalist => GetString(nameof(PromptTemplateMinimalist));
+    public static string PromptTemplatePhotorealistic => GetString(nameof(PromptTemplatePhotorealistic));
+    public static string PromptTemplateWatercolor => GetString(nameof(PromptTemplateWatercolor));
 }

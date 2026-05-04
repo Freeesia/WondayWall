@@ -10,7 +10,7 @@
 ## 画面イメージ
 
 <p align="center">
-  <img src="assets/store_super_hero_placeholder.png" alt="WondayWall が生成した壁紙イメージ" width="100%">
+  <img src="assets/store_hero.png" alt="WondayWall が生成した壁紙イメージ" width="100%">
 </p>
 
 <p align="center">

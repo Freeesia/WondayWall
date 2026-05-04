@@ -12,6 +12,48 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <data name="AboutAppName" xml:space="preserve">
+    <value>WondayWall</value>
+  </data>
+  <data name="AboutDeveloper" xml:space="preserve">
+    <value>StudioFreesia</value>
+  </data>
+  <data name="AboutDeveloperX" xml:space="preserve">
+    <value>Developer X</value>
+  </data>
+  <data name="AboutGeneratedImageUsage" xml:space="preserve">
+    <value>Generated Image Usage</value>
+  </data>
+  <data name="AboutGitHub" xml:space="preserve">
+    <value>GitHub</value>
+  </data>
+  <data name="AboutLinkOpenFailed" xml:space="preserve">
+    <value>Could not open the link: {0}</value>
+  </data>
+  <data name="AboutLicensesFolderNotFound" xml:space="preserve">
+    <value>The licenses folder was not found.</value>
+  </data>
+  <data name="AboutLicensesFolderOpenFailed" xml:space="preserve">
+    <value>Could not open the licenses folder: {0}</value>
+  </data>
+  <data name="AboutOfficialDocs" xml:space="preserve">
+    <value>Official Documentation</value>
+  </data>
+  <data name="AboutOpenSourceLicenses" xml:space="preserve">
+    <value>Open Source Licenses</value>
+  </data>
+  <data name="AboutPrivacyPolicy" xml:space="preserve">
+    <value>Privacy Policy</value>
+  </data>
+  <data name="AboutReleaseNotes" xml:space="preserve">
+    <value>Release Notes</value>
+  </data>
+  <data name="AboutTab" xml:space="preserve">
+    <value>About</value>
+  </data>
+  <data name="AboutTermsOfUse" xml:space="preserve">
+    <value>Terms of Use</value>
+  </data>
   <data name="Add" xml:space="preserve">
     <value>Add</value>
   </data>
@@ -317,6 +359,27 @@
   </data>
   <data name="UseCurrentWallpaperAsBaseHeader" xml:space="preserve">
     <value>Generate from current wallpaper</value>
+  </data>
+  <data name="ApplyTemplate" xml:space="preserve">
+    <value>Apply</value>
+  </data>
+  <data name="PromptTemplateDark" xml:space="preserve">
+    <value>Dark theme</value>
+  </data>
+  <data name="PromptTemplateAnime" xml:space="preserve">
+    <value>Anime</value>
+  </data>
+  <data name="PromptTemplateFantasy" xml:space="preserve">
+    <value>Fantasy</value>
+  </data>
+  <data name="PromptTemplateMinimalist" xml:space="preserve">
+    <value>Minimalist</value>
+  </data>
+  <data name="PromptTemplatePhotorealistic" xml:space="preserve">
+    <value>Photorealistic</value>
+  </data>
+  <data name="PromptTemplateWatercolor" xml:space="preserve">
+    <value>Watercolor</value>
   </data>
   <data name="UserPromptHeader" xml:space="preserve">
     <value>User prompt (additional instructions)</value>
