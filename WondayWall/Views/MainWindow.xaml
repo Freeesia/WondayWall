@@ -431,13 +431,28 @@
                                             <ui:CardControl.Icon>
                                                 <ui:SymbolIcon Symbol="NoteEdit24" />
                                             </ui:CardControl.Icon>
-                                            <TextBox
-                                                Width="320"
-                                                Height="80"
-                                                AcceptsReturn="True"
-                                                Text="{Binding AppConfig.UserPrompt, UpdateSourceTrigger=PropertyChanged}"
-                                                TextWrapping="Wrap"
-                                                VerticalScrollBarVisibility="Auto" />
+                                            <StackPanel Width="320">
+                                                <StackPanel
+                                                    Margin="0,0,0,4"
+                                                    Orientation="Horizontal">
+                                                    <ComboBox
+                                                        Width="232"
+                                                        AutomationProperties.Name="{x:Static properties:Resources.UserPromptHeader}"
+                                                        DisplayMemberPath="Name"
+                                                        ItemsSource="{Binding PromptTemplates}"
+                                                        SelectedItem="{Binding SelectedPromptTemplate}" />
+                                                    <ui:Button
+                                                        Margin="8,0,0,0"
+                                                        Command="{Binding ApplyPromptTemplateCommand}"
+                                                        Content="{x:Static properties:Resources.ApplyTemplate}" />
+                                                </StackPanel>
+                                                <TextBox
+                                                    Height="80"
+                                                    AcceptsReturn="True"
+                                                    Text="{Binding AppConfig.UserPrompt, UpdateSourceTrigger=PropertyChanged}"
+                                                    TextWrapping="Wrap"
+                                                    VerticalScrollBarVisibility="Auto" />
+                                            </StackPanel>
                                         </ui:CardControl>
                                         <ui:CardControl Header="{x:Static properties:Resources.UseCurrentWallpaperAsBaseHeader}">
                                             <ui:CardControl.Icon>

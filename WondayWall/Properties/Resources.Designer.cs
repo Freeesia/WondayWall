@@ -36,6 +36,7 @@ public static class Resources
         => ResourceManager.GetString(name, resourceCulture)!;
 
     public static string Add => GetString(nameof(Add));
+    public static string ApplyTemplate => GetString(nameof(ApplyTemplate));
     public static string AboutAppName => GetString(nameof(AboutAppName));
     public static string AboutDeveloper => GetString(nameof(AboutDeveloper));
     public static string AboutDeveloperX => GetString(nameof(AboutDeveloperX));
@@ -152,4 +153,10 @@ public static class Resources
     public static string UseCurrentWallpaperAsBase => GetString(nameof(UseCurrentWallpaperAsBase));
     public static string UseCurrentWallpaperAsBaseHeader => GetString(nameof(UseCurrentWallpaperAsBaseHeader));
     public static string UserPromptHeader => GetString(nameof(UserPromptHeader));
+    public static string PromptTemplateAnime => GetString(nameof(PromptTemplateAnime));
+    public static string PromptTemplateDark => GetString(nameof(PromptTemplateDark));
+    public static string PromptTemplateFantasy => GetString(nameof(PromptTemplateFantasy));
+    public static string PromptTemplateMinimalist => GetString(nameof(PromptTemplateMinimalist));
+    public static string PromptTemplatePhotorealistic => GetString(nameof(PromptTemplatePhotorealistic));
+    public static string PromptTemplateWatercolor => GetString(nameof(PromptTemplateWatercolor));
 }
