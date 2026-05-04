@@ -1,0 +1,227 @@
+import SwiftUI
+
+// データ画面 — カレンダー接続状態・カレンダー・ニュース・RSSソース・ユーザープロンプト
+struct DataView: View {
+    @EnvironmentObject private var environment: AppEnvironment
+    @State private var viewModel: DataViewModel?
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if let vm = viewModel {
+                    DataContentView(vm: vm)
+                } else {
+                    ProgressView()
+                }
+            }
+            .navigationTitle("データ")
+        }
+        .task {
+            if viewModel == nil {
+                viewModel = DataViewModel(environment: environment)
+                await viewModel?.refresh()
+            }
+        }
+    }
+}
+
+// データ画面のコンテンツ本体
+private struct DataContentView: View {
+    @EnvironmentObject private var environment: AppEnvironment
+    var vm: DataViewModel
+
+    var body: some View {
+        List {
+            // カレンダーセクション
+            Section {
+                calendarAccessRow
+                if vm.calendarAccessGranted {
+                    calendarRows
+                }
+            } header: {
+                Text("カレンダー")
+            }
+
+            // 直近予定セクション
+            if !vm.upcomingEvents.isEmpty {
+                Section {
+                    ForEach(vm.upcomingEvents) { event in
+                        calendarEventRow(event)
+                    }
+                } header: {
+                    Text("直近の予定")
+                }
+            }
+
+            // RSS ソースセクション
+            Section {
+                let sources = environment.configService.config.rssSources
+                if sources.isEmpty {
+                    Text("RSS ソースが設定されていません")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(sources, id: \.self) { source in
+                        HStack(spacing: 8) {
+                            FaviconImage(urlString: source)
+                            Text(source)
+                                .font(.caption)
+                                .lineLimit(1)
+                        }
+                    }
+                }
+            } header: {
+                Text("RSS ソース")
+            }
+
+            // ニュースセクション
+            Section {
+                if vm.isLoadingNews {
+                    HStack {
+                        ProgressView()
+                        Text("取得中...")
+                            .foregroundStyle(.secondary)
+                    }
+                } else if vm.recentNews.isEmpty {
+                    Text("ニュースがありません")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(vm.recentNews) { news in
+                        newsRow(news)
+                    }
+                }
+            } header: {
+                Text("取得ニュース (\(vm.recentNews.count)件)")
+            }
+
+            // ユーザープロンプトセクション
+            Section {
+                let prompt = environment.configService.config.userPrompt
+                if prompt.isEmpty {
+                    Text("プロンプトが設定されていません")
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text(prompt)
+                }
+            } header: {
+                Text("ユーザープロンプト")
+            }
+        }
+        .refreshable {
+            await vm.refresh()
+        }
+        .alert("エラー", isPresented: Binding(
+            get: { vm.errorMessage != nil },
+            set: { if !$0 { vm.errorMessage = nil } }
+        )) {
+            Button("OK") { vm.errorMessage = nil }
+        } message: {
+            Text(vm.errorMessage ?? "")
+        }
+    }
+
+    // カレンダーアクセス許可状態行
+    @ViewBuilder
+    private var calendarAccessRow: some View {
+        HStack {
+            Image(
+                systemName: vm.calendarAccessGranted
+                    ? "checkmark.circle.fill" : "xmark.circle"
+            )
+            .foregroundStyle(vm.calendarAccessGranted ? .green : .secondary)
+            Text(vm.calendarAccessGranted ? "アクセス許可済み" : "未許可")
+        }
+    }
+
+    // 取得対象カレンダー一覧
+    @ViewBuilder
+    private var calendarRows: some View {
+        let selectedIds = Set(environment.configService.config.targetCalendarIds)
+        let shown = selectedIds.isEmpty
+            ? vm.availableCalendars
+            : vm.availableCalendars.filter { selectedIds.contains($0.id) }
+        if shown.isEmpty {
+            Text("カレンダーが選択されていません")
+                .foregroundStyle(.secondary)
+        } else {
+            ForEach(shown) { cal in
+                HStack(spacing: 8) {
+                    if let hex = cal.colorHex, let color = Color(hex: hex) {
+                        Circle()
+                            .fill(color)
+                            .frame(width: 10, height: 10)
+                    } else {
+                        Image(systemName: "calendar")
+                            .foregroundStyle(.blue)
+                    }
+                    VStack(alignment: .leading) {
+                        Text(cal.title)
+                        Text(cal.sourceTitle)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+    }
+
+    // カレンダーイベント行
+    @ViewBuilder
+    private func calendarEventRow(_ event: CalendarEventItem) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(event.title)
+                .font(.body)
+            HStack {
+                if event.isAllDay {
+                    Text(event.startTime, style: .date)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("終日")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text(event.startTime, style: .date)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text(event.startTime, style: .time)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                if let location = event.location {
+                    Text("·")
+                        .foregroundStyle(.secondary)
+                    Text(location)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+        }
+    }
+
+    // ニュース行
+    @ViewBuilder
+    private func newsRow(_ news: NewsTopicItem) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            FaviconImage(urlString: news.url)
+                .padding(.top, 2)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(news.title)
+                    .font(.body)
+                    .lineLimit(2)
+                HStack {
+                    Text(news.publishedAt, style: .relative)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if let summary = news.summary {
+                        Text("·")
+                            .foregroundStyle(.secondary)
+                        Text(summary)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                }
+            }
+        }
+    }
+}

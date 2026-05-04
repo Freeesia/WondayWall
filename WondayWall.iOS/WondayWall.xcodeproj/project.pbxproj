@@ -1,0 +1,613 @@
+// !$*UTF8*$!
+{
+archiveVersion = 1;
+classes = {
+};
+objectVersion = 56;
+objects = {
+
+/* Begin PBXBuildFile section */
+BB000000000000000000000001 /* WondayWallApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000001 /* WondayWallApp.swift */; };
+BB000000000000000000000002 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000002 /* AppDelegate.swift */; };
+BB000000000000000000000003 /* AppEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000003 /* AppEnvironment.swift */; };
+BB000000000000000000000004 /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000004 /* AppConfig.swift */; };
+BB000000000000000000000005 /* HistoryItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000005 /* HistoryItem.swift */; };
+BB000000000000000000000006 /* CalendarEventItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000006 /* CalendarEventItem.swift */; };
+BB000000000000000000000007 /* NewsTopicItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000007 /* NewsTopicItem.swift */; };
+BB000000000000000000000008 /* PromptContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000008 /* PromptContext.swift */; };
+BB000000000000000000000009 /* AppConfigService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000009 /* AppConfigService.swift */; };
+BB00000000000000000000000A /* ContextService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000000000A /* ContextService.swift */; };
+BB00000000000000000000000B /* GoogleAiService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000000000B /* GoogleAiService.swift */; };
+BB00000000000000000000000C /* GenerationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000000000C /* GenerationCoordinator.swift */; };
+BB00000000000000000000000D /* WallpaperService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000000000D /* WallpaperService.swift */; };
+BB00000000000000000000000E /* HistoryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000000000E /* HistoryService.swift */; };
+BB00000000000000000000000F /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000000000F /* NotificationService.swift */; };
+BB000000000000000000000010 /* BackgroundTaskService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000010 /* BackgroundTaskService.swift */; };
+BB000000000000000000000011 /* ForegroundBackgroundTaskService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000011 /* ForegroundBackgroundTaskService.swift */; };
+BB000000000000000000000012 /* ScheduleHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000012 /* ScheduleHelper.swift */; };
+BB000000000000000000000013 /* FileHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000013 /* FileHelper.swift */; };
+BB000000000000000000000014 /* KeychainHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000014 /* KeychainHelper.swift */; };
+BB000000000000000000000015 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000015 /* ContentView.swift */; };
+		BB000000000000000000000021 /* NetworkHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000021 /* NetworkHelper.swift */; };
+BB000000000000000000000016 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000016 /* HomeView.swift */; };
+BB000000000000000000000017 /* HomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000017 /* HomeViewModel.swift */; };
+BB000000000000000000000018 /* DataView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000018 /* DataView.swift */; };
+BB000000000000000000000019 /* DataViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000019 /* DataViewModel.swift */; };
+BB00000000000000000000001A /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000000001A /* HistoryView.swift */; };
+BB00000000000000000000001B /* HistoryDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000000001B /* HistoryDetailView.swift */; };
+BB00000000000000000000001C /* HistoryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000000001C /* HistoryViewModel.swift */; };
+BB00000000000000000000001D /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000000001D /* SettingsView.swift */; };
+BB00000000000000000000001E /* SettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000000001E /* SettingsViewModel.swift */; };
+BB00000000000000000000001F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000000001F /* Assets.xcassets */; };
+BB000000000000000000000022 /* FaviconImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000022 /* FaviconImage.swift */; };
+DD000000000000000000000003 /* FeedKit in Frameworks */ = {isa = PBXBuildFile; productRef = DD000000000000000000000002 /* FeedKit */; };
+EE000000000000000000000001 /* EventKitCalendarService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE000000000000000000000002 /* EventKitCalendarService.swift */; };
+EE000000000000000000000003 /* CalendarSourceItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE000000000000000000000004 /* CalendarSourceItem.swift */; };
+EE000000000000000000000005 /* ColorExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE000000000000000000000006 /* ColorExtensions.swift */; };
+DD000000000000000000000009 /* KeychainAccess in Frameworks */ = {isa = PBXBuildFile; productRef = DD000000000000000000000008 /* KeychainAccess */; };
+DD00000000000000000000000C /* Defaults in Frameworks */ = {isa = PBXBuildFile; productRef = DD00000000000000000000000B /* Defaults */; };
+DD00000000000000000000000F /* SwiftSoup in Frameworks */ = {isa = PBXBuildFile; productRef = DD00000000000000000000000E /* SwiftSoup */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+AA000000000000000000000001 /* WondayWallApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WondayWallApp.swift; sourceTree = "<group>"; };
+AA000000000000000000000002 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+AA000000000000000000000003 /* AppEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEnvironment.swift; sourceTree = "<group>"; };
+AA000000000000000000000004 /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
+AA000000000000000000000005 /* HistoryItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryItem.swift; sourceTree = "<group>"; };
+AA000000000000000000000006 /* CalendarEventItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarEventItem.swift; sourceTree = "<group>"; };
+EE000000000000000000000002 /* EventKitCalendarService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventKitCalendarService.swift; sourceTree = "<group>"; };
+EE000000000000000000000004 /* CalendarSourceItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarSourceItem.swift; sourceTree = "<group>"; };
+EE000000000000000000000006 /* ColorExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorExtensions.swift; sourceTree = "<group>"; };
+AA000000000000000000000007 /* NewsTopicItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewsTopicItem.swift; sourceTree = "<group>"; };
+AA000000000000000000000008 /* PromptContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptContext.swift; sourceTree = "<group>"; };
+AA000000000000000000000009 /* AppConfigService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfigService.swift; sourceTree = "<group>"; };
+AA00000000000000000000000A /* ContextService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextService.swift; sourceTree = "<group>"; };
+AA00000000000000000000000B /* GoogleAiService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleAiService.swift; sourceTree = "<group>"; };
+AA00000000000000000000000C /* GenerationCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenerationCoordinator.swift; sourceTree = "<group>"; };
+AA00000000000000000000000D /* WallpaperService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WallpaperService.swift; sourceTree = "<group>"; };
+AA00000000000000000000000E /* HistoryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryService.swift; sourceTree = "<group>"; };
+AA00000000000000000000000F /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
+AA000000000000000000000010 /* BackgroundTaskService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundTaskService.swift; sourceTree = "<group>"; };
+AA000000000000000000000011 /* ForegroundBackgroundTaskService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForegroundBackgroundTaskService.swift; sourceTree = "<group>"; };
+AA000000000000000000000012 /* ScheduleHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleHelper.swift; sourceTree = "<group>"; };
+AA000000000000000000000013 /* FileHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileHelper.swift; sourceTree = "<group>"; };
+AA000000000000000000000014 /* KeychainHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainHelper.swift; sourceTree = "<group>"; };
+		AA000000000000000000000021 /* NetworkHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkHelper.swift; sourceTree = "<group>"; };
+AA000000000000000000000015 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+AA000000000000000000000016 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+AA000000000000000000000017 /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModel.swift; sourceTree = "<group>"; };
+AA000000000000000000000018 /* DataView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataView.swift; sourceTree = "<group>"; };
+AA000000000000000000000019 /* DataViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataViewModel.swift; sourceTree = "<group>"; };
+AA00000000000000000000001A /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
+AA00000000000000000000001B /* HistoryDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryDetailView.swift; sourceTree = "<group>"; };
+AA00000000000000000000001C /* HistoryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryViewModel.swift; sourceTree = "<group>"; };
+AA00000000000000000000001D /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+AA00000000000000000000001E /* SettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewModel.swift; sourceTree = "<group>"; };
+AA00000000000000000000001F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+AA000000000000000000000020 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+AA000000000000000000000022 /* FaviconImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaviconImage.swift; sourceTree = "<group>"; };
+FF000000000000000000000006 /* WondayWall.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WondayWall.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+CC000000000000000000000001 /* WondayWall.iOS */ = {
+isa = PBXGroup;
+children = (
+CC000000000000000000000003 /* WondayWall */,
+CC000000000000000000000002 /* Products */,
+);
+sourceTree = "<group>";
+};
+CC000000000000000000000002 /* Products */ = {
+isa = PBXGroup;
+children = (
+FF000000000000000000000006 /* WondayWall.app */,
+);
+name = Products;
+sourceTree = "<group>";
+};
+CC000000000000000000000003 /* WondayWall */ = {
+isa = PBXGroup;
+children = (
+CC000000000000000000000004 /* App */,
+CC000000000000000000000005 /* Models */,
+CC000000000000000000000006 /* Services */,
+CC000000000000000000000007 /* Views */,
+CC00000000000000000000000C /* Utils */,
+CC00000000000000000000000D /* Resources */,
+AA000000000000000000000020 /* Info.plist */,
+);
+path = WondayWall;
+sourceTree = "<group>";
+};
+CC000000000000000000000004 /* App */ = {
+isa = PBXGroup;
+children = (
+AA000000000000000000000001 /* WondayWallApp.swift */,
+AA000000000000000000000002 /* AppDelegate.swift */,
+AA000000000000000000000003 /* AppEnvironment.swift */,
+);
+path = App;
+sourceTree = "<group>";
+};
+CC000000000000000000000005 /* Models */ = {
+isa = PBXGroup;
+children = (
+AA000000000000000000000004 /* AppConfig.swift */,
+AA000000000000000000000005 /* HistoryItem.swift */,
+AA000000000000000000000006 /* CalendarEventItem.swift */,
+EE000000000000000000000004 /* CalendarSourceItem.swift */,
+AA000000000000000000000007 /* NewsTopicItem.swift */,
+AA000000000000000000000008 /* PromptContext.swift */,
+);
+path = Models;
+sourceTree = "<group>";
+};
+CC000000000000000000000006 /* Services */ = {
+isa = PBXGroup;
+children = (
+AA000000000000000000000009 /* AppConfigService.swift */,
+AA00000000000000000000000A /* ContextService.swift */,
+EE000000000000000000000002 /* EventKitCalendarService.swift */,
+AA00000000000000000000000B /* GoogleAiService.swift */,
+AA00000000000000000000000C /* GenerationCoordinator.swift */,
+AA00000000000000000000000D /* WallpaperService.swift */,
+AA00000000000000000000000E /* HistoryService.swift */,
+AA00000000000000000000000F /* NotificationService.swift */,
+AA000000000000000000000010 /* BackgroundTaskService.swift */,
+AA000000000000000000000011 /* ForegroundBackgroundTaskService.swift */,
+);
+path = Services;
+sourceTree = "<group>";
+};
+CC000000000000000000000007 /* Views */ = {
+isa = PBXGroup;
+children = (
+AA000000000000000000000015 /* ContentView.swift */,
+AA000000000000000000000022 /* FaviconImage.swift */,
+CC000000000000000000000008 /* Home */,
+CC000000000000000000000009 /* DataView */,
+CC00000000000000000000000A /* History */,
+CC00000000000000000000000B /* Settings */,
+);
+path = Views;
+sourceTree = "<group>";
+};
+CC000000000000000000000008 /* Home */ = {
+isa = PBXGroup;
+children = (
+AA000000000000000000000016 /* HomeView.swift */,
+AA000000000000000000000017 /* HomeViewModel.swift */,
+);
+path = Home;
+sourceTree = "<group>";
+};
+CC000000000000000000000009 /* DataView */ = {
+isa = PBXGroup;
+children = (
+AA000000000000000000000018 /* DataView.swift */,
+AA000000000000000000000019 /* DataViewModel.swift */,
+);
+path = DataView;
+sourceTree = "<group>";
+};
+CC00000000000000000000000A /* History */ = {
+isa = PBXGroup;
+children = (
+AA00000000000000000000001A /* HistoryView.swift */,
+AA00000000000000000000001B /* HistoryDetailView.swift */,
+AA00000000000000000000001C /* HistoryViewModel.swift */,
+);
+path = History;
+sourceTree = "<group>";
+};
+CC00000000000000000000000B /* Settings */ = {
+isa = PBXGroup;
+children = (
+AA00000000000000000000001D /* SettingsView.swift */,
+AA00000000000000000000001E /* SettingsViewModel.swift */,
+);
+path = Settings;
+sourceTree = "<group>";
+};
+CC00000000000000000000000C /* Utils */ = {
+isa = PBXGroup;
+children = (
+AA000000000000000000000012 /* ScheduleHelper.swift */,
+AA000000000000000000000013 /* FileHelper.swift */,
+AA000000000000000000000014 /* KeychainHelper.swift */,
+				AA000000000000000000000021 /* NetworkHelper.swift */,
+EE000000000000000000000006 /* ColorExtensions.swift */,
+);
+path = Utils;
+sourceTree = "<group>";
+};
+CC00000000000000000000000D /* Resources */ = {
+isa = PBXGroup;
+children = (
+AA00000000000000000000001F /* Assets.xcassets */,
+);
+path = Resources;
+sourceTree = "<group>";
+};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+FF000000000000000000000002 /* WondayWall */ = {
+isa = PBXNativeTarget;
+buildConfigurationList = FF000000000000000000000009 /* Build configuration list for PBXNativeTarget "WondayWall" */;
+buildPhases = (
+FF000000000000000000000003 /* Sources */,
+FF000000000000000000000004 /* Resources */,
+FF000000000000000000000005 /* Frameworks */,
+);
+buildRules = ();
+dependencies = ();
+name = WondayWall;
+packageProductDependencies = (
+DD000000000000000000000002 /* FeedKit */,
+DD000000000000000000000008 /* KeychainAccess */,
+DD00000000000000000000000B /* Defaults */,
+DD00000000000000000000000E /* SwiftSoup */,
+);
+productName = WondayWall;
+productReference = FF000000000000000000000006 /* WondayWall.app */;
+productType = "com.apple.product-type.application";
+};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+FF000000000000000000000001 /* Project object */ = {
+isa = PBXProject;
+attributes = {
+BuildIndependentTargetsInParallel = 1;
+LastSwiftUpdateCheck = 1600;
+LastUpgradeCheck = 1600;
+TargetAttributes = {
+FF000000000000000000000002 = {
+CreatedOnToolsVersion = 16.0;
+};
+};
+};
+buildConfigurationList = FF000000000000000000000008 /* Build configuration list for PBXProject "WondayWall" */;
+compatibilityVersion = "Xcode 14.0";
+developmentRegion = ja;
+hasScannedForEncodings = 0;
+knownRegions = (
+ja,
+en,
+Base,
+);
+mainGroup = CC000000000000000000000001;
+packageReferences = (
+DD000000000000000000000001 /* XCRemoteSwiftPackageReference "FeedKit" */,
+DD000000000000000000000007 /* XCRemoteSwiftPackageReference "KeychainAccess" */,
+DD00000000000000000000000A /* XCRemoteSwiftPackageReference "Defaults" */,
+DD00000000000000000000000D /* XCRemoteSwiftPackageReference "SwiftSoup" */,
+);
+productRefGroup = CC000000000000000000000002 /* Products */;
+projectDirPath = "";
+projectRoot = "";
+targets = (
+FF000000000000000000000002 /* WondayWall */,
+);
+};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+FF000000000000000000000004 /* Resources */ = {
+isa = PBXResourcesBuildPhase;
+buildActionMask = 2147483647;
+files = (
+BB00000000000000000000001F /* Assets.xcassets in Resources */,
+);
+runOnlyForDeploymentPostprocessing = 0;
+};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+FF000000000000000000000003 /* Sources */ = {
+isa = PBXSourcesBuildPhase;
+buildActionMask = 2147483647;
+files = (
+BB000000000000000000000001 /* WondayWallApp.swift in Sources */,
+BB000000000000000000000002 /* AppDelegate.swift in Sources */,
+BB000000000000000000000003 /* AppEnvironment.swift in Sources */,
+BB000000000000000000000004 /* AppConfig.swift in Sources */,
+BB000000000000000000000005 /* HistoryItem.swift in Sources */,
+BB000000000000000000000006 /* CalendarEventItem.swift in Sources */,
+EE000000000000000000000003 /* CalendarSourceItem.swift in Sources */,
+BB000000000000000000000007 /* NewsTopicItem.swift in Sources */,
+BB000000000000000000000008 /* PromptContext.swift in Sources */,
+BB000000000000000000000009 /* AppConfigService.swift in Sources */,
+BB00000000000000000000000A /* ContextService.swift in Sources */,
+EE000000000000000000000001 /* EventKitCalendarService.swift in Sources */,
+BB00000000000000000000000B /* GoogleAiService.swift in Sources */,
+BB00000000000000000000000C /* GenerationCoordinator.swift in Sources */,
+BB00000000000000000000000D /* WallpaperService.swift in Sources */,
+BB00000000000000000000000E /* HistoryService.swift in Sources */,
+BB00000000000000000000000F /* NotificationService.swift in Sources */,
+BB000000000000000000000010 /* BackgroundTaskService.swift in Sources */,
+BB000000000000000000000011 /* ForegroundBackgroundTaskService.swift in Sources */,
+BB000000000000000000000012 /* ScheduleHelper.swift in Sources */,
+BB000000000000000000000013 /* FileHelper.swift in Sources */,
+BB000000000000000000000014 /* KeychainHelper.swift in Sources */,
+				BB000000000000000000000021 /* NetworkHelper.swift in Sources */,
+EE000000000000000000000005 /* ColorExtensions.swift in Sources */,
+BB000000000000000000000015 /* ContentView.swift in Sources */,
+BB000000000000000000000022 /* FaviconImage.swift in Sources */,
+BB000000000000000000000016 /* HomeView.swift in Sources */,
+BB000000000000000000000017 /* HomeViewModel.swift in Sources */,
+BB000000000000000000000018 /* DataView.swift in Sources */,
+BB000000000000000000000019 /* DataViewModel.swift in Sources */,
+BB00000000000000000000001A /* HistoryView.swift in Sources */,
+BB00000000000000000000001B /* HistoryDetailView.swift in Sources */,
+BB00000000000000000000001C /* HistoryViewModel.swift in Sources */,
+BB00000000000000000000001D /* SettingsView.swift in Sources */,
+BB00000000000000000000001E /* SettingsViewModel.swift in Sources */,
+);
+runOnlyForDeploymentPostprocessing = 0;
+};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXFrameworksBuildPhase section */
+FF000000000000000000000005 /* Frameworks */ = {
+isa = PBXFrameworksBuildPhase;
+buildActionMask = 2147483647;
+files = (
+DD000000000000000000000003 /* FeedKit in Frameworks */,
+DD000000000000000000000009 /* KeychainAccess in Frameworks */,
+DD00000000000000000000000C /* Defaults in Frameworks */,
+DD00000000000000000000000F /* SwiftSoup in Frameworks */,
+);
+runOnlyForDeploymentPostprocessing = 0;
+};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+EE000000000000000000000001 /* Debug */ = {
+isa = XCBuildConfiguration;
+buildSettings = {
+ALWAYS_SEARCH_USER_PATHS = NO;
+ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+CLANG_ANALYZER_NONNULL = YES;
+CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+CLANG_ENABLE_MODULES = YES;
+CLANG_ENABLE_OBJC_ARC = YES;
+CLANG_ENABLE_OBJC_WEAK = YES;
+CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+CLANG_WARN_BOOL_CONVERSION = YES;
+CLANG_WARN_COMMA = YES;
+CLANG_WARN_CONSTANT_CONVERSION = YES;
+CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+CLANG_WARN_EMPTY_BODY = YES;
+CLANG_WARN_ENUM_CONVERSION = YES;
+CLANG_WARN_INFINITE_LOOPS = YES;
+CLANG_WARN_INT_CONVERSION = YES;
+CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+CLANG_WARN_STRICT_PROTOTYPES = YES;
+CLANG_WARN_SUSPICIOUS_MOVE = YES;
+CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+CLANG_WARN_UNREACHABLE_CODE = YES;
+CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+COPY_PHASE_STRIP = NO;
+DEBUG_INFORMATION_FORMAT = dwarf;
+ENABLE_STRICT_OBJC_MSGSEND = YES;
+ENABLE_TESTABILITY = YES;
+ENABLE_USER_SCRIPT_SANDBOXING = YES;
+GCC_C_LANGUAGE_STANDARD = gnu17;
+GCC_DYNAMIC_NO_PIC = NO;
+GCC_NO_COMMON_BLOCKS = YES;
+GCC_OPTIMIZATION_LEVEL = 0;
+GCC_PREPROCESSOR_DEFINITIONS = (
+"DEBUG=1",
+"$(inherited)",
+);
+GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+GCC_WARN_UNDECLARED_SELECTOR = YES;
+GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+GCC_WARN_UNUSED_FUNCTION = YES;
+GCC_WARN_UNUSED_VARIABLE = YES;
+IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+MTL_FAST_MATH = YES;
+ONLY_ACTIVE_ARCH = YES;
+SDKROOT = iphoneos;
+SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+};
+name = Debug;
+};
+EE000000000000000000000002 /* Release */ = {
+isa = XCBuildConfiguration;
+buildSettings = {
+ALWAYS_SEARCH_USER_PATHS = NO;
+ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+CLANG_ANALYZER_NONNULL = YES;
+CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+CLANG_ENABLE_MODULES = YES;
+CLANG_ENABLE_OBJC_ARC = YES;
+CLANG_ENABLE_OBJC_WEAK = YES;
+CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+CLANG_WARN_BOOL_CONVERSION = YES;
+CLANG_WARN_COMMA = YES;
+CLANG_WARN_CONSTANT_CONVERSION = YES;
+CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+CLANG_WARN_EMPTY_BODY = YES;
+CLANG_WARN_ENUM_CONVERSION = YES;
+CLANG_WARN_INFINITE_LOOPS = YES;
+CLANG_WARN_INT_CONVERSION = YES;
+CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+CLANG_WARN_STRICT_PROTOTYPES = YES;
+CLANG_WARN_SUSPICIOUS_MOVE = YES;
+CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+CLANG_WARN_UNREACHABLE_CODE = YES;
+CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+COPY_PHASE_STRIP = NO;
+DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+ENABLE_NS_ASSERTIONS = NO;
+ENABLE_STRICT_OBJC_MSGSEND = YES;
+ENABLE_USER_SCRIPT_SANDBOXING = YES;
+GCC_C_LANGUAGE_STANDARD = gnu17;
+GCC_NO_COMMON_BLOCKS = YES;
+GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+GCC_WARN_UNDECLARED_SELECTOR = YES;
+GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+GCC_WARN_UNUSED_FUNCTION = YES;
+GCC_WARN_UNUSED_VARIABLE = YES;
+IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+MTL_FAST_MATH = YES;
+SDKROOT = iphoneos;
+SWIFT_COMPILATION_MODE = wholemodule;
+SWIFT_OPTIMIZATION_LEVEL = "-O";
+VALIDATE_PRODUCT = YES;
+};
+name = Release;
+};
+EE000000000000000000000003 /* Debug */ = {
+isa = XCBuildConfiguration;
+buildSettings = {
+ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+CODE_SIGN_STYLE = Automatic;
+CURRENT_PROJECT_VERSION = 1;
+DEVELOPMENT_ASSET_PATHS = "";
+GENERATE_INFOPLIST_FILE = NO;
+INFOPLIST_FILE = "WondayWall/Info.plist";
+LD_RUNPATH_SEARCH_PATHS = (
+"$(inherited)",
+"@executable_path/Frameworks",
+);
+MARKETING_VERSION = 1.0;
+PRODUCT_BUNDLE_IDENTIFIER = "com.studiofreesia.wondaywall";
+PRODUCT_NAME = "$(TARGET_NAME)";
+SWIFT_EMIT_LOC_STRINGS = YES;
+SWIFT_VERSION = 5.0;
+TARGETED_DEVICE_FAMILY = 1;
+};
+name = Debug;
+};
+EE000000000000000000000004 /* Release */ = {
+isa = XCBuildConfiguration;
+buildSettings = {
+ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+CODE_SIGN_STYLE = Automatic;
+CURRENT_PROJECT_VERSION = 1;
+DEVELOPMENT_ASSET_PATHS = "";
+GENERATE_INFOPLIST_FILE = NO;
+INFOPLIST_FILE = "WondayWall/Info.plist";
+LD_RUNPATH_SEARCH_PATHS = (
+"$(inherited)",
+"@executable_path/Frameworks",
+);
+MARKETING_VERSION = 1.0;
+PRODUCT_BUNDLE_IDENTIFIER = "com.studiofreesia.wondaywall";
+PRODUCT_NAME = "$(TARGET_NAME)";
+SWIFT_EMIT_LOC_STRINGS = YES;
+SWIFT_VERSION = 5.0;
+TARGETED_DEVICE_FAMILY = 1;
+};
+name = Release;
+};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+FF000000000000000000000008 /* Build configuration list for PBXProject "WondayWall" */ = {
+isa = XCConfigurationList;
+buildConfigurations = (
+EE000000000000000000000001 /* Debug */,
+EE000000000000000000000002 /* Release */,
+);
+defaultConfigurationIsVisible = 0;
+defaultConfigurationName = Release;
+};
+FF000000000000000000000009 /* Build configuration list for PBXNativeTarget "WondayWall" */ = {
+isa = XCConfigurationList;
+buildConfigurations = (
+EE000000000000000000000003 /* Debug */,
+EE000000000000000000000004 /* Release */,
+);
+defaultConfigurationIsVisible = 0;
+defaultConfigurationName = Release;
+};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+DD000000000000000000000001 /* XCRemoteSwiftPackageReference "FeedKit" */ = {
+isa = XCRemoteSwiftPackageReference;
+repositoryURL = "https://github.com/nmdias/FeedKit.git";
+requirement = {
+kind = upToNextMajorVersion;
+minimumVersion = "9.0.0";
+};
+};
+DD000000000000000000000007 /* XCRemoteSwiftPackageReference "KeychainAccess" */ = {
+isa = XCRemoteSwiftPackageReference;
+repositoryURL = "https://github.com/kishikawakatsumi/KeychainAccess.git";
+requirement = {
+kind = upToNextMajorVersion;
+minimumVersion = "4.2.2";
+};
+};
+DD00000000000000000000000A /* XCRemoteSwiftPackageReference "Defaults" */ = {
+isa = XCRemoteSwiftPackageReference;
+repositoryURL = "https://github.com/sindresorhus/Defaults.git";
+requirement = {
+kind = upToNextMajorVersion;
+minimumVersion = "8.0.0";
+};
+};
+DD00000000000000000000000D /* XCRemoteSwiftPackageReference "SwiftSoup" */ = {
+isa = XCRemoteSwiftPackageReference;
+repositoryURL = "https://github.com/scinfu/SwiftSoup.git";
+requirement = {
+kind = upToNextMajorVersion;
+minimumVersion = "2.7.5";
+};
+};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+DD000000000000000000000002 /* FeedKit */ = {
+isa = XCSwiftPackageProductDependency;
+package = DD000000000000000000000001 /* XCRemoteSwiftPackageReference "FeedKit" */;
+productName = FeedKit;
+};
+DD000000000000000000000008 /* KeychainAccess */ = {
+isa = XCSwiftPackageProductDependency;
+package = DD000000000000000000000007 /* XCRemoteSwiftPackageReference "KeychainAccess" */;
+productName = KeychainAccess;
+};
+DD00000000000000000000000B /* Defaults */ = {
+isa = XCSwiftPackageProductDependency;
+package = DD00000000000000000000000A /* XCRemoteSwiftPackageReference "Defaults" */;
+productName = Defaults;
+};
+DD00000000000000000000000E /* SwiftSoup */ = {
+isa = XCSwiftPackageProductDependency;
+package = DD00000000000000000000000D /* XCRemoteSwiftPackageReference "SwiftSoup" */;
+productName = SwiftSoup;
+};
+/* End XCSwiftPackageProductDependency section */
+
+};
+rootObject = FF000000000000000000000001 /* Project object */;
+}

@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+<key>CFBundleDevelopmentRegion</key>
+<string>$(DEVELOPMENT_LANGUAGE)</string>
+<key>CFBundleExecutable</key>
+<string>$(EXECUTABLE_NAME)</string>
+<key>CFBundleIdentifier</key>
+<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+<key>CFBundleInfoDictionaryVersion</key>
+<string>6.0</string>
+<key>CFBundleName</key>
+<string>$(PRODUCT_NAME)</string>
+<key>CFBundlePackageType</key>
+<string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
+<key>CFBundleShortVersionString</key>
+<string>$(MARKETING_VERSION)</string>
+<key>CFBundleVersion</key>
+<string>$(CURRENT_PROJECT_VERSION)</string>
+<!-- バックグラウンド処理タスクの許可 ID -->
+<key>BGTaskSchedulerPermittedIdentifiers</key>
+<array>
+<string>com.studiofreesia.wondaywall.generation</string>
+</array>
+<!-- バックグラウンドモード -->
+<key>UIBackgroundModes</key>
+<array>
+<string>processing</string>
+<string>fetch</string>
+</array>
+<!-- カレンダーアクセス権限（iOS 17+: フルアクセス） -->
+<key>NSCalendarsFullAccessUsageDescription</key>
+<string>壁紙生成の文脈作成のために、カレンダーの予定タイトル・日時・場所・メモを読み取ります。予定の作成・編集・削除は行いません。</string>
+<!-- iOS 16 以前向けカレンダーアクセス権限 -->
+<key>NSCalendarsUsageDescription</key>
+<string>壁紙生成の文脈作成のために、カレンダーの予定タイトル・日時・場所・メモを読み取ります。予定の作成・編集・削除は行いません。</string>
+<!-- 写真ライブラリへの書き込み権限 -->
+<key>NSPhotoLibraryAddUsageDescription</key>
+<string>生成した壁紙を写真ライブラリに保存するために使用します。</string>
+<key>UIApplicationSceneManifest</key>
+<dict>
+<key>UIApplicationSupportsMultipleScenes</key>
+<false/>
+<key>UISceneConfigurations</key>
+<dict/>
+</dict>
+<key>UILaunchScreen</key>
+<dict/>
+<key>UISupportedInterfaceOrientations</key>
+<array>
+<string>UIInterfaceOrientationPortrait</string>
+</array>
+</dict>
+</plist>
