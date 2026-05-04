@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="rescap">
+
+  <!-- Version は CI ビルド時に assemblySemFileVer で上書きされる -->
+  <Identity
+    Name="StudioFreesia.WondayWall"
+    Publisher="CN=C2D29EED-29D7-4F36-AEC7-317709A7150C"
+    Version="0.0.0.0"
+    ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>WondayWall</DisplayName>
+    <PublisherDisplayName>StudioFreesia</PublisherDisplayName>
+    <Logo>Images\StoreLogo.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <!-- Windows 10 1809 (17763) 以降をサポート -->
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.22621.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="ja-JP" />
+    <Resource Language="en-US" />
+  </Resources>
+
+  <Applications>
+    <!-- WPF アプリを Win32 フルトラスト アプリケーションとして登録 -->
+    <Application Id="WondayWall" Executable="WondayWall.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        DisplayName="WondayWall"
+        Description="予定や興味に基づいて壁紙を自動生成する"
+        BackgroundColor="transparent"
+        Square150x150Logo="Images\Square150x150Logo.png"
+        Square44x44Logo="Images\Square44x44Logo.png">
+        <uap:DefaultTile Wide310x150Logo="Images\Wide310x150Logo.png" />
+      </uap:VisualElements>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <!-- Win32 デスクトップアプリの実行に必要 -->
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>
