@@ -360,6 +360,27 @@
   <data name="UseCurrentWallpaperAsBaseHeader" xml:space="preserve">
     <value>Generate from current wallpaper</value>
   </data>
+  <data name="ApplyTemplate" xml:space="preserve">
+    <value>Apply</value>
+  </data>
+  <data name="PromptTemplateDark" xml:space="preserve">
+    <value>Dark theme</value>
+  </data>
+  <data name="PromptTemplateAnime" xml:space="preserve">
+    <value>Anime</value>
+  </data>
+  <data name="PromptTemplateFantasy" xml:space="preserve">
+    <value>Fantasy</value>
+  </data>
+  <data name="PromptTemplateMinimalist" xml:space="preserve">
+    <value>Minimalist</value>
+  </data>
+  <data name="PromptTemplatePhotorealistic" xml:space="preserve">
+    <value>Photorealistic</value>
+  </data>
+  <data name="PromptTemplateWatercolor" xml:space="preserve">
+    <value>Watercolor</value>
+  </data>
   <data name="UserPromptHeader" xml:space="preserve">
     <value>User prompt (additional instructions)</value>
   </data>

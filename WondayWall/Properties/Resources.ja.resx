@@ -360,6 +360,27 @@
   <data name="UseCurrentWallpaperAsBaseHeader" xml:space="preserve">
     <value>現在の壁紙をベースに生成</value>
   </data>
+  <data name="ApplyTemplate" xml:space="preserve">
+    <value>適用</value>
+  </data>
+  <data name="PromptTemplateDark" xml:space="preserve">
+    <value>ダークテーマ</value>
+  </data>
+  <data name="PromptTemplateAnime" xml:space="preserve">
+    <value>アニメ・イラスト風</value>
+  </data>
+  <data name="PromptTemplateFantasy" xml:space="preserve">
+    <value>ファンタジー</value>
+  </data>
+  <data name="PromptTemplateMinimalist" xml:space="preserve">
+    <value>ミニマリスト</value>
+  </data>
+  <data name="PromptTemplatePhotorealistic" xml:space="preserve">
+    <value>写真リアル風</value>
+  </data>
+  <data name="PromptTemplateWatercolor" xml:space="preserve">
+    <value>水彩画風</value>
+  </data>
   <data name="UserPromptHeader" xml:space="preserve">
     <value>ユーザープロンプト（追加の指示）</value>
   </data>
