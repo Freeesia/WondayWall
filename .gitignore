@@ -20,3 +20,6 @@ WondayWall.Wix/generated/
 # パッケージ出力
 publish/
 artifacts/
+
+## User settings
+xcuserdata/
