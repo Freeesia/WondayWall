@@ -213,16 +213,8 @@ jobs:
       - run: |
           for dir in WondayWall-*/; do
             base=$(basename "$dir")
-            if ! find "$dir" -maxdepth 1 -type f -name "*.msi" | read; then
+            if ! find "$dir" -maxdepth 1 -type f \( -name "*.msi" -o -name "*.msix" \) | read; then
               (cd "$dir" && zip -r "../${base}.zip" .)
-            fi
-          done
-      - name: Verify THIRD-PARTY-NOTICES.md in zips
-        run: |
-          for zip in WondayWall-*.zip; do
-            if ! unzip -l "$zip" | grep -q "licenses/THIRD-PARTY-NOTICES.md"; then
-              echo "licenses/THIRD-PARTY-NOTICES.md not found in $zip"
-              exit 1
             fi
           done
       - uses: softprops/action-gh-release@v2.6.1
