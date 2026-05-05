@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:asyncImageLoader="clr-namespace:AsyncImageLoader;assembly=AsyncImageLoader.Avalonia"
     xmlns:models="using:WondayWall.Models"
     xmlns:properties="using:WondayWall.Properties"
     xmlns:ui="using:FluentAvalonia.UI.Controls"
@@ -13,16 +14,26 @@
     Width="820"
     Height="760"
     x:DataType="vm:MainWindowViewModel"
+    ExtendClientAreaToDecorationsHint="True"
     Icon="avares://WondayWall/Assets/AppIcon.ico"
     TransparencyLevelHint="Mica"
     WindowStartupLocation="CenterScreen"
     mc:Ignorable="d">
 
     <Window.Styles>
-        <!-- ウィンドウ冁E�E�E�E�E�E�E�E�EチE�E�E�E�E�E�E�E��E�E�E�E�E�E�E�ォルトスタイル -->
+        <!-- ボタンのデフォルトスタイル -->
         <Style Selector="Button">
             <Setter Property="Margin" Value="4" />
             <Setter Property="MinWidth" Value="80" />
+        </Style>
+        <!-- タブのフォントサイズを WPF 版と揃える -->
+        <Style Selector="TabItem TextBlock">
+            <Setter Property="FontSize" Value="13" />
+        </Style>
+        <!-- ToggleSwitch の On/Off テキストを非表示 (Content をラベルとして使用) -->
+        <Style Selector="ToggleSwitch">
+            <Setter Property="OnContent" Value="" />
+            <Setter Property="OffContent" Value="" />
         </Style>
     </Window.Styles>
 
@@ -30,19 +41,21 @@
         <utils:UrlToFaviconConverter x:Key="UrlToFaviconConverter" />
     </Window.Resources>
 
-    <Grid>
+    <Grid x:Name="RootGrid">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
+            <!-- タイトルバー領域 (コード側で Window.Padding.Top に合わせる) -->
+            <RowDefinition Height="32" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- 更新通知バ�E (WPF-UI TitleBar の TrailingContent 相彁E -->
+        <!-- 更新通知バー: タイトルバー領域に配置 -->
         <StackPanel
             Grid.Row="0"
-            Height="40"
             HorizontalAlignment="Right"
+            Margin="0,0,160,0"
             IsVisible="{Binding ShowUpdateControls}"
-            Orientation="Horizontal">
+            Orientation="Horizontal"
+            VerticalAlignment="Center">
 
             <!-- 更新あり: DropDownButton -->
             <DropDownButton
@@ -54,11 +67,12 @@
                 <ui:FASymbolIcon Symbol="Alert" />
                 <DropDownButton.Flyout>
                     <MenuFlyout>
-                        <MenuItem Command="{Binding InstallUpdateCommand}">
+                        <MenuItem
+                            Command="{Binding InstallUpdateCommand}"
+                            Header="{Binding LatestVersion, StringFormat={x:Static properties:Resources.InstallNewVersion}}">
                             <MenuItem.Icon>
                                 <ui:FASymbolIcon Symbol="Checkmark" />
                             </MenuItem.Icon>
-                            <TextBlock Text="{Binding LatestVersion, StringFormat={x:Static properties:Resources.InstallNewVersion}}" />
                         </MenuItem>
                         <MenuItem
                             Command="{Binding OpenReleaseNotesCommand}"
@@ -87,7 +101,7 @@
         </StackPanel>
 
         <!-- メインコンチE�E�E�E�E�E�E�E��E�E�E�E�E�E�E�チE-->
-        <TabControl Grid.Row="1" Margin="8">
+        <TabControl Grid.Row="1" Margin="0">
 
             <!--  ホ�EムタチE -->
             <TabItem>
@@ -362,7 +376,7 @@
                                                         Width="16"
                                                         Height="16"
                                                         Margin="4,0,8,0"
-                                                        Source="{Binding Converter={StaticResource UrlToFaviconConverter}}" />
+                                                        asyncImageLoader:ImageLoader.Source="{Binding Converter={StaticResource UrlToFaviconConverter}}" />
                                                     <TextBlock VerticalAlignment="Center" Text="{Binding}" />
                                                 </StackPanel>
                                             </DataTemplate>
@@ -410,7 +424,7 @@
                                                         <Image
                                                             Width="16"
                                                             Height="16"
-                                                            Source="{Binding Url, Converter={StaticResource UrlToFaviconConverter}}" />
+                                                            asyncImageLoader:ImageLoader.Source="{Binding Url, Converter={StaticResource UrlToFaviconConverter}}" />
                                                     </DataTemplate>
                                                 </DataGridTemplateColumn.CellTemplate>
                                             </DataGridTemplateColumn>
@@ -554,7 +568,6 @@
                                             <ToggleSwitch
                                                 HorizontalAlignment="Right"
                                                 VerticalAlignment="Center"
-                                                Content="{x:Static properties:Resources.UseCurrentWallpaperAsBase}"
                                                 IsChecked="{Binding AppConfig.UseCurrentWallpaperAsBase}" />
                                         </DockPanel>
                                     </Border>
@@ -599,7 +612,8 @@
                                                     VerticalAlignment="Center"
                                                     Command="{Binding ToggleTaskSchedulerCommand}"
                                                     Content="{x:Static properties:Resources.EnableFixedSchedule}"
-                                                    IsChecked="{Binding IsTaskSchedulerEnabled}" />
+                                                    IsChecked="{Binding IsTaskSchedulerEnabled}"
+                                                    HorizontalAlignment="Left" />
                                                 <StackPanel Margin="24,8,0,0">
                                                     <TextBlock
                                                         Margin="0,0,0,4"
@@ -641,7 +655,6 @@
                                             <ToggleSwitch
                                                 HorizontalAlignment="Right"
                                                 VerticalAlignment="Center"
-                                                Content="{x:Static properties:Resources.SkipWhenNoChanges}"
                                                 IsChecked="{Binding AppConfig.SkipGenerationWhenNoChanges}" />
                                         </DockPanel>
                                     </Border>
@@ -667,7 +680,6 @@
                                             <ToggleSwitch
                                                 HorizontalAlignment="Right"
                                                 VerticalAlignment="Center"
-                                                Content="{x:Static properties:Resources.UpdateLockScreen}"
                                                 IsChecked="{Binding AppConfig.UpdateLockScreen}" />
                                         </DockPanel>
                                     </Border>

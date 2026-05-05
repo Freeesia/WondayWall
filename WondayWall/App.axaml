@@ -4,10 +4,9 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:sty="using:FluentAvalonia.Styling">
     <Application.Styles>
-        <!-- FluentAvalonia テーマ: WinUI スタイルの色・ブラシ・コントロールを提供 -->
+        <!-- FluentAvalonia テーマ: WinUI スタイルの色・ブラシ・コントロールを提供 (DataGrid スタイル含む) -->
         <sty:FluentAvaloniaTheme PreferSystemTheme="True" PreferUserAccentColor="True" />
-        <!-- DataGrid テーマ (正しいパスは .xaml) -->
-        <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
+        <!-- FA3 が DataGrid スタイルを提供するため Avalonia デフォルト DataGrid テーマは不要 (競合するため削除) -->
         <!-- カスタムスタイル (Styles ルートなので StyleInclude を使用) -->
         <StyleInclude Source="avares://WondayWall/Themes/Generic.axaml" />
     </Application.Styles>
