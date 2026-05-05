@@ -3,7 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Security;
-using System.Windows;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
@@ -144,14 +144,14 @@ public partial class MainWindowViewModel : ObservableObject
 
     private void UpdateChecker_UpdateAvailable(object? sender, EventArgs e)
     {
-        var dispatcher = Application.Current?.Dispatcher;
-        if (dispatcher is null || dispatcher.CheckAccess())
+        // Avalonia: UIThread.CheckAccess/Invoke で UI スレッドにマーシャリング
+        if (Dispatcher.UIThread.CheckAccess())
         {
             SyncUpdateInfo();
             return;
         }
 
-        dispatcher.Invoke(SyncUpdateInfo);
+        Dispatcher.UIThread.Invoke(SyncUpdateInfo);
     }
 
     private void SyncUpdateInfo()
