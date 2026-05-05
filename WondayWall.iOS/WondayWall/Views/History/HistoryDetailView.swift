@@ -46,7 +46,7 @@ struct HistoryDetailView: View {
             }
             .padding()
         }
-        .navigationTitle(item.executedAt, style: .date)
+        .navigationTitle(item.executedAt.formatted(date: .abbreviated, time: .omitted))
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showShareSheet) {
             if let path = item.imagePath,
