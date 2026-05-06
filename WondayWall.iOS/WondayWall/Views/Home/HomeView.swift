@@ -32,16 +32,16 @@ private struct HomeContentView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
-                // アクションボタン群
-                actionButtons
+                // 最新生成画像プレビュー
+                wallpaperPreview
 
                 // 直近実行結果バッジ
                 if let history = vm.latestHistory {
                     lastResultBadge(history: history)
                 }
 
-                // 最新生成画像プレビュー
-                wallpaperPreview
+                // アクションボタン群
+                actionButtons
             }
             .padding()
         }
@@ -52,24 +52,6 @@ private struct HomeContentView: View {
             Button("OK") { vm.errorMessage = nil }
         } message: {
             Text(vm.errorMessage ?? "")
-        }
-        .alert("保存完了", isPresented: Binding(
-            get: { vm.showSaveSuccess },
-            set: { vm.showSaveSuccess = $0 }
-        )) {
-            Button("OK") {}
-        } message: {
-            Text("写真ライブラリに保存しました。")
-        }
-        .sheet(isPresented: Binding(
-            get: { vm.showShareSheet },
-            set: { vm.showShareSheet = $0 }
-        )) {
-            if let image = vm.latestImage {
-                ActivityViewControllerRepresentable(
-                    controller: environment.wallpaperService.makeShareController(image: image)
-                )
-            }
         }
         .sheet(isPresented: Binding(
             get: { vm.showInstructions },
@@ -88,19 +70,6 @@ private struct HomeContentView: View {
                 .scaledToFit()
                 .cornerRadius(16)
                 .shadow(radius: 8)
-        } else {
-            ZStack {
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color(.systemGray5))
-                    .aspectRatio(9.0 / 19.5, contentMode: .fit)
-                VStack(spacing: 8) {
-                    Image(systemName: "photo.on.rectangle.angled")
-                        .font(.system(size: 48))
-                        .foregroundStyle(.secondary)
-                    Text("まだ壁紙がありません")
-                        .foregroundStyle(.secondary)
-                }
-            }
         }
     }
 
@@ -147,31 +116,8 @@ private struct HomeContentView: View {
         .disabled(vm.isGenerating)
 
         // 写真に保存・共有・壁紙設定手順
+        // 壁紙の設定方法ボタン（画像ありのときのみ表示）
         if vm.latestImage != nil {
-            HStack(spacing: 12) {
-                Button {
-                    Task { await vm.saveToPhotos() }
-                } label: {
-                    Label("写真に保存", systemImage: "square.and.arrow.down")
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color(.systemGray6))
-                        .cornerRadius(14)
-                }
-                .foregroundStyle(.primary)
-
-                Button {
-                    vm.showShareSheet = true
-                } label: {
-                    Label("共有", systemImage: "square.and.arrow.up")
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color(.systemGray6))
-                        .cornerRadius(14)
-                }
-                .foregroundStyle(.primary)
-            }
-
             Button {
                 vm.showWallpaperInstructions()
             } label: {

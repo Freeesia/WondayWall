@@ -10,9 +10,7 @@ final class HomeViewModel {
     var latestHistory: HistoryItem?
     // ローカルに解決済みの画像フルパス（非同期復元後に更新される）
     var latestImage: UIImage?
-    var showShareSheet = false
     var showInstructions = false
-    var showSaveSuccess = false
     var errorMessage: String?
 
     private let environment: AppEnvironment
@@ -47,17 +45,6 @@ final class HomeViewModel {
             errorMessage = result.errorSummary ?? "生成に失敗しました"
         }
         await refreshLatestImage()
-    }
-
-    // 写真に保存する
-    func saveToPhotos() async {
-        guard let image = latestImage else { return }
-        do {
-            try await environment.wallpaperService.saveToPhotos(image: image)
-            showSaveSuccess = true
-        } catch {
-            errorMessage = error.localizedDescription
-        }
     }
 
     // 壁紙設定手順を表示する

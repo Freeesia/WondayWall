@@ -4,8 +4,6 @@ import SwiftUI
 struct HistoryDetailView: View {
     let item: HistoryItem
     @EnvironmentObject private var environment: AppEnvironment
-    @State private var showShareSheet = false
-    @State private var showSaveSuccess = false
     @State private var isRegenerating = false
     @State private var errorMessage: String?
     // Photos から非同期読み込まれた画像
@@ -55,18 +53,6 @@ struct HistoryDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             Task<Void, Never> { @MainActor in await self.loadImage() }
-        }
-        .sheet(isPresented: $showShareSheet) {
-            if let image = loadedImage {
-                ActivityViewControllerRepresentable(
-                    controller: environment.wallpaperService.makeShareController(image: image)
-                )
-            }
-        }
-        .alert("保存完了", isPresented: $showSaveSuccess) {
-            Button("OK") {}
-        } message: {
-            Text("写真ライブラリに保存しました。")
         }
         .alert("エラー", isPresented: Binding(
             get: { errorMessage != nil },
@@ -121,36 +107,6 @@ struct HistoryDetailView: View {
     // アクションボタン群
     @ViewBuilder
     private var actionButtons: some View {
-        HStack(spacing: 12) {
-            Button {
-                Task {
-                    guard let image = loadedImage else { return }
-                    do {
-                        try await environment.wallpaperService.saveToPhotos(image: image)
-                        showSaveSuccess = true
-                    } catch {
-                        errorMessage = error.localizedDescription
-                    }
-                }
-            } label: {
-                Label("写真に保存", systemImage: "square.and.arrow.down")
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color(.systemGray6))
-                    .cornerRadius(14)
-                    .foregroundStyle(.primary)
-            }
-
-            Button { showShareSheet = true } label: {
-                Label("共有", systemImage: "square.and.arrow.up")
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color(.systemGray6))
-                    .cornerRadius(14)
-                    .foregroundStyle(.primary)
-            }
-        }
-
         // 同じ条件で再生成
         Button {
             Task {
@@ -181,18 +137,26 @@ struct HistoryDetailView: View {
     // 使用した予定セクション
     @ViewBuilder
     private func usedEventsSection(_ events: [CalendarEventItem]) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 4) {
             Label("使用した予定", systemImage: "calendar")
                 .font(.headline)
-            ForEach(events) { event in
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(event.title).font(.subheadline)
-                    Text(event.startTime, style: .date).font(.caption).foregroundStyle(.secondary)
+            VStack(spacing: 0) {
+                ForEach(Array(events.enumerated()), id: \.element.id) { index, event in
+                    if index > 0 {
+                        Divider()
+                            .padding(.leading, 12)
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(event.title).font(.subheadline)
+                        Text(event.startTime, style: .date).font(.caption).foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .padding(10)
-                .background(Color(.systemGray6))
-                .cornerRadius(8)
             }
+            .background(Color(.systemGray6))
+            .cornerRadius(10)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -200,32 +164,47 @@ struct HistoryDetailView: View {
     // 使用したニュースセクション
     @ViewBuilder
     private func usedNewsSection(_ news: [NewsTopicItem]) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 4) {
             Label("使用したニュース", systemImage: "newspaper")
                 .font(.headline)
-            ForEach(news) { item in
-                let row = newsRowContent(item)
-                if let urlString = item.url, let url = URL(string: urlString) {
-                    Button { openURL(url) } label: { row }
-                        .foregroundStyle(.primary)
-                } else {
-                    row
+            VStack(spacing: 0) {
+                ForEach(Array(news.enumerated()), id: \.element.id) { index, newsItem in
+                    if index > 0 {
+                        Divider()
+                            .padding(.leading, 44)
+                    }
+                    let row = newsRowContent(newsItem)
+                    if let urlString = newsItem.url, let url = URL(string: urlString) {
+                        Button { openURL(url) } label: { row }
+                            .foregroundStyle(.primary)
+                    } else {
+                        row
+                    }
                 }
             }
+            .background(Color(.systemGray6))
+            .cornerRadius(10)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     @ViewBuilder
     private func newsRowContent(_ item: NewsTopicItem) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(item.title).font(.subheadline).lineLimit(2)
-            Text(item.publishedAt, style: .relative)
-                .font(.caption).foregroundStyle(.secondary)
+        HStack(alignment: .top, spacing: 8) {
+            FaviconImage(urlString: item.url)
+                .padding(.top, 2)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(item.title)
+                    .font(.subheadline)
+                    .lineLimit(2)
+                Text(item.publishedAt.formatted(date: .abbreviated, time: .shortened))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
         }
-        .padding(10)
-        .background(Color(.systemGray6))
-        .cornerRadius(8)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 

@@ -39,13 +39,13 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 
 // 通知タップ処理
 extension AppDelegate: UNUserNotificationCenterDelegate {
-    // フォアグラウンド中の通知表示設定
+    // フォアグラウンド中は通知を表示しない
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
-        completionHandler([.banner, .sound, .badge])
+        completionHandler([])
     }
 
     // 通知タップ時の処理

@@ -224,7 +224,7 @@ private struct DataContentView: View {
                     .font(.body)
                     .lineLimit(2)
                 HStack {
-                    Text(news.publishedAt, style: .relative)
+                    Text(news.publishedAt.formatted(date: .abbreviated, time: .shortened))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     if let summary = news.summary {
