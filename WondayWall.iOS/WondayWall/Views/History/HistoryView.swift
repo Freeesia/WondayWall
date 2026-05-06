@@ -74,13 +74,8 @@ private struct HistoryContentView: View {
     private func historyRow(_ item: HistoryItem) -> some View {
         HStack(spacing: 12) {
             // サムネイル（成功時のみ表示）
-            if item.isSuccess,
-               let storedPath = item.imagePath,
-               let image = UIImage(contentsOfFile: FileHelper.resolveImagePath(storedPath))
-            {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
+            if item.isSuccess {
+                HistoryThumbnailView(item: item)
                     .frame(width: 56, height: 56)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
             }
@@ -121,5 +116,32 @@ private struct HistoryContentView: View {
         if item.isSkipped { return "スキップ" }
         if item.isSuccess { return "成功" }
         return "失敗"
+    }
+}
+
+// 履歴一覧のサムネイル表示（photoAssetId で Photos から非同期読み込み）
+private struct HistoryThumbnailView: View {
+    let item: HistoryItem
+    @EnvironmentObject private var environment: AppEnvironment
+    @State private var image: UIImage?
+
+    var body: some View {
+        Group {
+            if let img = image {
+                Image(uiImage: img)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Color(.systemGray5)
+            }
+        }
+        .task {
+            if let assetId = item.photoAssetId {
+                image = await environment.wallpaperService.loadImage(
+                    assetId: assetId,
+                    targetSize: CGSize(width: 112, height: 112)
+                )
+            }
+        }
     }
 }

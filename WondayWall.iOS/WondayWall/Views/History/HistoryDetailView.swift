@@ -8,6 +8,8 @@ struct HistoryDetailView: View {
     @State private var showSaveSuccess = false
     @State private var isRegenerating = false
     @State private var errorMessage: String?
+    // Photos から非同期読み込まれた画像
+    @State private var loadedImage: UIImage?
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
 
@@ -23,7 +25,7 @@ struct HistoryDetailView: View {
                 statusBadge
 
                 // アクションボタン群
-                if item.imagePath != nil && item.isSuccess {
+                if loadedImage != nil && item.isSuccess {
                     actionButtons
                 }
 
@@ -51,11 +53,14 @@ struct HistoryDetailView: View {
         }
         .navigationTitle(item.executedAt.formatted(date: .abbreviated, time: .omitted))
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            Task<Void, Never> { @MainActor in await self.loadImage() }
+        }
         .sheet(isPresented: $showShareSheet) {
-            if let storedPath = item.imagePath,
-               let ctrl = environment.wallpaperService.makeShareController(
-                   imagePath: FileHelper.resolveImagePath(storedPath)) {
-                ActivityViewControllerRepresentable(controller: ctrl)
+            if let image = loadedImage {
+                ActivityViewControllerRepresentable(
+                    controller: environment.wallpaperService.makeShareController(image: image)
+                )
             }
         }
         .alert("保存完了", isPresented: $showSaveSuccess) {
@@ -76,9 +81,7 @@ struct HistoryDetailView: View {
     // 画像プレビュー
     @ViewBuilder
     private var imagePreview: some View {
-        if let storedPath = item.imagePath,
-           let image = UIImage(contentsOfFile: FileHelper.resolveImagePath(storedPath))
-        {
+        if let image = loadedImage {
             Image(uiImage: image)
                 .resizable()
                 .scaledToFit()
@@ -121,10 +124,9 @@ struct HistoryDetailView: View {
         HStack(spacing: 12) {
             Button {
                 Task {
-                    guard let storedPath = item.imagePath else { return }
+                    guard let image = loadedImage else { return }
                     do {
-                        try await environment.wallpaperService.saveToPhotos(
-                            imagePath: FileHelper.resolveImagePath(storedPath))
+                        try await environment.wallpaperService.saveToPhotos(image: image)
                         showSaveSuccess = true
                     } catch {
                         errorMessage = error.localizedDescription
@@ -259,10 +261,15 @@ struct HistoryDetailView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var statusIcon: String {
-        if item.isSkipped { return "minus.circle" }
+    private var statusIcon: String {        if item.isSkipped { return "minus.circle" }
         if item.isSuccess { return "checkmark.circle.fill" }
         return "xmark.circle.fill"
+    }
+
+    // Photos から画像を非同期読み込む
+    private func loadImage() async {
+        guard item.isSuccess, let assetId = item.photoAssetId else { return }
+        loadedImage = await environment.wallpaperService.loadImage(assetId: assetId)
     }
 
     private var statusColor: Color {

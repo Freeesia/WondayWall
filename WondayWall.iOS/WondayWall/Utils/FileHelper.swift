@@ -30,18 +30,11 @@ enum FileHelper {
     static func getImageFilePath(extension ext: String) -> URL {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+        // 端末のロケール・カレンダー設定（和暦など）の影響を受けないよう固定する
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.calendar = Calendar(identifier: .gregorian)
         let name = "wallpaper_\(formatter.string(from: Date())).\(ext)"
         return wallpaperDirectory.appendingPathComponent(name)
-    }
-
-    // 保存された imagePath（ファイル名のみ or 旧形式の絶対パス）を絶対パスに解決する
-    // ファイル名のみの場合は wallpaperDirectory 配下のパスを返す
-    // すでに絶対パス（"/" 始まり）の場合はそのまま返す（旧データ互換）
-    static func resolveImagePath(_ stored: String) -> String {
-        if stored.hasPrefix("/") {
-            return stored
-        }
-        return wallpaperDirectory.appendingPathComponent(stored).path
     }
 
     // JSON ファイルからデコードして返す（失敗時は nil）

@@ -90,7 +90,6 @@ actor GenerationCoordinator {
     // 生成コアロジック（手動・定期両用）
     private func runCore(skipIfNoChanges: Bool, serviceTier: GoogleAiServiceTier) async -> HistoryItem {
         var status: GenerationStatus = .failure
-        var imagePath: String? = nil
         var photoAssetId: String? = nil
         var usedEvents: [CalendarEventItem]? = nil
         var usedNews: [NewsTopicItem]? = nil
@@ -112,8 +111,6 @@ actor GenerationCoordinator {
             } else {
                 let imageResult = try await googleAiService.generateWallpaper(
                     context: context, serviceTier: serviceTier)
-                // HistoryItem にはファイル名のみ保存する（サンドボックスパス変動対策）
-                imagePath = URL(fileURLWithPath: imageResult.filePath).lastPathComponent
                 usedEvents = contextResult.calendarEvents
                 usedNews = contextResult.newsTopics
                 status = .success
@@ -131,6 +128,9 @@ actor GenerationCoordinator {
                     await notificationService.scheduleSuccessNotification(
                         imagePath: imageResult.filePath)
                 }
+
+                // 通知・Photos 保存が完了したらローカルファイルは不要なので削除する
+                try? FileManager.default.removeItem(atPath: imageResult.filePath)
             }
         } catch {
             errorSummary = error.localizedDescription
@@ -140,7 +140,6 @@ actor GenerationCoordinator {
         let historyItem = HistoryItem(
             executedAt: Date(),
             status: status,
-            imagePath: imagePath,
             usedCalendarEvents: usedEvents,
             usedNewsTopics: usedNews,
             usedPrompt: configService.config.userPrompt.isEmpty

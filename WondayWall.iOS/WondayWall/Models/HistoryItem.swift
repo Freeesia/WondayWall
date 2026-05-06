@@ -12,8 +12,6 @@ struct HistoryItem: Codable, Identifiable {
     var id: UUID
     let executedAt: Date
     let status: GenerationStatus
-    // アプリ内に保存した画像のファイルパス
-    let imagePath: String?
     // 使用したカレンダーイベント
     let usedCalendarEvents: [CalendarEventItem]?
     // 使用したニューストピック
@@ -32,7 +30,6 @@ struct HistoryItem: Codable, Identifiable {
         id: UUID = UUID(),
         executedAt: Date = Date(),
         status: GenerationStatus,
-        imagePath: String? = nil,
         usedCalendarEvents: [CalendarEventItem]? = nil,
         usedNewsTopics: [NewsTopicItem]? = nil,
         usedPrompt: String? = nil,
@@ -42,7 +39,6 @@ struct HistoryItem: Codable, Identifiable {
         self.id = id
         self.executedAt = executedAt
         self.status = status
-        self.imagePath = imagePath
         self.usedCalendarEvents = usedCalendarEvents
         self.usedNewsTopics = usedNewsTopics
         self.usedPrompt = usedPrompt

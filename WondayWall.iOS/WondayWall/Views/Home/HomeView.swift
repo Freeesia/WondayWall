@@ -65,10 +65,10 @@ private struct HomeContentView: View {
             get: { vm.showShareSheet },
             set: { vm.showShareSheet = $0 }
         )) {
-            if let path = vm.latestImagePath,
-               let ctrl = environment.wallpaperService.makeShareController(imagePath: path)
-            {
-                ActivityViewControllerRepresentable(controller: ctrl)
+            if let image = vm.latestImage {
+                ActivityViewControllerRepresentable(
+                    controller: environment.wallpaperService.makeShareController(image: image)
+                )
             }
         }
         .sheet(isPresented: Binding(
@@ -82,7 +82,7 @@ private struct HomeContentView: View {
     // 最新壁紙プレビュー
     @ViewBuilder
     private var wallpaperPreview: some View {
-        if let path = vm.latestImagePath, let image = UIImage(contentsOfFile: path) {
+        if let image = vm.latestImage {
             Image(uiImage: image)
                 .resizable()
                 .scaledToFit()
@@ -147,7 +147,7 @@ private struct HomeContentView: View {
         .disabled(vm.isGenerating)
 
         // 写真に保存・共有・壁紙設定手順
-        if vm.latestImagePath != nil {
+        if vm.latestImage != nil {
             HStack(spacing: 12) {
                 Button {
                     Task { await vm.saveToPhotos() }

@@ -19,14 +19,7 @@ final class WallpaperService {
     }
 
     // 生成画像を写真ライブラリに保存する（カメラロールのみ・手動保存用）
-    func saveToPhotos(imagePath: String) async throws {
-        guard let image = UIImage(contentsOfFile: imagePath) else {
-            throw NSError(
-                domain: "WondayWall", code: 404,
-                userInfo: [NSLocalizedDescriptionKey: "画像ファイルが見つかりません: \(imagePath)"]
-            )
-        }
-
+    func saveToPhotos(image: UIImage) async throws {
         let authorized = await canSaveToPhotos()
         guard authorized else {
             throw NSError(
@@ -37,7 +30,6 @@ final class WallpaperService {
                 ]
             )
         }
-
         try await PHPhotoLibrary.shared().performChanges {
             PHAssetChangeRequest.creationRequestForAsset(from: image)
         }
@@ -135,10 +127,36 @@ final class WallpaperService {
 
     // 共有シートを表示するための UIActivityViewController を生成して返す
     @MainActor
-    func makeShareController(imagePath: String) -> UIActivityViewController? {
-        guard let image = UIImage(contentsOfFile: imagePath) else { return nil }
-        let items: [Any] = [image]
-        return UIActivityViewController(activityItems: items, applicationActivities: nil)
+    func makeShareController(image: UIImage) -> UIActivityViewController {
+        return UIActivityViewController(activityItems: [image], applicationActivities: nil)
+    }
+
+    // Photos ライブラリからアセット ID で画像を読み込む
+    // targetSize: サムネイル用に小さいサイズを指定可能（PHImageManagerMaximumSize でフルサイズ）
+    func loadImage(assetId: String, targetSize: CGSize = PHImageManagerMaximumSize) async -> UIImage? {
+        let assets = PHAsset.fetchAssets(withLocalIdentifiers: [assetId], options: nil)
+        guard let asset = assets.firstObject else { return nil }
+        return await withCheckedContinuation { continuation in
+            let options = PHImageRequestOptions()
+            options.isNetworkAccessAllowed = true
+            options.version = .current
+            // フルサイズは高品質を待つ、サムネイルは最初の結果を使う
+            options.deliveryMode =
+                (targetSize == PHImageManagerMaximumSize) ? .highQualityFormat : .opportunistic
+            var resumed = false
+            PHImageManager.default().requestImage(
+                for: asset,
+                targetSize: targetSize,
+                contentMode: .aspectFit,
+                options: options
+            ) { image, info in
+                guard !resumed else { return }
+                let isDegraded = (info?[PHImageResultIsDegradedKey] as? Bool) ?? false
+                if targetSize == PHImageManagerMaximumSize && isDegraded { return }
+                resumed = true
+                continuation.resume(returning: image)
+            }
+        }
     }
 
     // 壁紙設定手順のテキストを返す

@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import UIKit
 
 // ホーム画面の ViewModel
 @MainActor
@@ -7,19 +8,14 @@ import Observation
 final class HomeViewModel {
     var isGenerating = false
     var latestHistory: HistoryItem?
+    // ローカルに解決済みの画像フルパス（非同期復元後に更新される）
+    var latestImage: UIImage?
     var showShareSheet = false
     var showInstructions = false
     var showSaveSuccess = false
     var errorMessage: String?
 
     private let environment: AppEnvironment
-
-    var latestImagePath: String? {
-        latestHistory?.imagePath.flatMap {
-            let resolved = FileHelper.resolveImagePath($0)
-            return FileManager.default.fileExists(atPath: resolved) ? resolved : nil
-        }
-    }
 
     init(environment: AppEnvironment) {
         self.environment = environment
@@ -28,6 +24,16 @@ final class HomeViewModel {
 
     func loadLatestHistory() {
         latestHistory = environment.historyService.getLastSuccessfulGenerated()
+        Task<Void, Never> { @MainActor in await self.refreshLatestImage() }
+    }
+
+    // Photos から最新画像を非同期で読み込む
+    func refreshLatestImage() async {
+        guard let item = latestHistory, let assetId = item.photoAssetId else {
+            latestImage = nil
+            return
+        }
+        latestImage = await environment.wallpaperService.loadImage(assetId: assetId)
     }
 
     // 手動生成を実行する
@@ -40,13 +46,14 @@ final class HomeViewModel {
         if !result.isSuccess {
             errorMessage = result.errorSummary ?? "生成に失敗しました"
         }
+        await refreshLatestImage()
     }
 
     // 写真に保存する
     func saveToPhotos() async {
-        guard let path = latestImagePath else { return }
+        guard let image = latestImage else { return }
         do {
-            try await environment.wallpaperService.saveToPhotos(imagePath: path)
+            try await environment.wallpaperService.saveToPhotos(image: image)
             showSaveSuccess = true
         } catch {
             errorMessage = error.localizedDescription

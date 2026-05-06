@@ -16,6 +16,7 @@ final class HistoryService {
     }
 
     // 先頭に1件追加してから保存する
+    // 上限を超えた古い履歴は削除する
     func append(_ item: HistoryItem) {
         var history = load()
         history.insert(item, at: 0)
