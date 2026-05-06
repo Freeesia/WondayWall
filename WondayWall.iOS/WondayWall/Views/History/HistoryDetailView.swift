@@ -9,12 +9,15 @@ struct HistoryDetailView: View {
     @State private var isRegenerating = false
     @State private var errorMessage: String?
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
                 // 画像プレビュー
-                imagePreview
+                if item.isSuccess {
+                    imagePreview
+                }
 
                 // ステータスバッジ
                 statusBadge
@@ -49,8 +52,9 @@ struct HistoryDetailView: View {
         .navigationTitle(item.executedAt.formatted(date: .abbreviated, time: .omitted))
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showShareSheet) {
-            if let path = item.imagePath,
-               let ctrl = environment.wallpaperService.makeShareController(imagePath: path) {
+            if let storedPath = item.imagePath,
+               let ctrl = environment.wallpaperService.makeShareController(
+                   imagePath: FileHelper.resolveImagePath(storedPath)) {
                 ActivityViewControllerRepresentable(controller: ctrl)
             }
         }
@@ -72,9 +76,8 @@ struct HistoryDetailView: View {
     // 画像プレビュー
     @ViewBuilder
     private var imagePreview: some View {
-        if let path = item.imagePath,
-           FileManager.default.fileExists(atPath: path),
-           let image = UIImage(contentsOfFile: path)
+        if let storedPath = item.imagePath,
+           let image = UIImage(contentsOfFile: FileHelper.resolveImagePath(storedPath))
         {
             Image(uiImage: image)
                 .resizable()
@@ -118,9 +121,10 @@ struct HistoryDetailView: View {
         HStack(spacing: 12) {
             Button {
                 Task {
-                    guard let path = item.imagePath else { return }
+                    guard let storedPath = item.imagePath else { return }
                     do {
-                        try await environment.wallpaperService.saveToPhotos(imagePath: path)
+                        try await environment.wallpaperService.saveToPhotos(
+                            imagePath: FileHelper.resolveImagePath(storedPath))
                         showSaveSuccess = true
                     } catch {
                         errorMessage = error.localizedDescription
@@ -198,16 +202,28 @@ struct HistoryDetailView: View {
             Label("使用したニュース", systemImage: "newspaper")
                 .font(.headline)
             ForEach(news) { item in
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(item.title).font(.subheadline).lineLimit(2)
-                    Text(item.publishedAt, style: .relative)
-                        .font(.caption).foregroundStyle(.secondary)
+                let row = newsRowContent(item)
+                if let urlString = item.url, let url = URL(string: urlString) {
+                    Button { openURL(url) } label: { row }
+                        .foregroundStyle(.primary)
+                } else {
+                    row
                 }
-                .padding(10)
-                .background(Color(.systemGray6))
-                .cornerRadius(8)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private func newsRowContent(_ item: NewsTopicItem) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(item.title).font(.subheadline).lineLimit(2)
+            Text(item.publishedAt, style: .relative)
+                .font(.caption).foregroundStyle(.secondary)
+        }
+        .padding(10)
+        .background(Color(.systemGray6))
+        .cornerRadius(8)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 

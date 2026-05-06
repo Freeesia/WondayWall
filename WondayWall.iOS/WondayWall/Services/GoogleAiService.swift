@@ -7,8 +7,10 @@ final class GoogleAiService {
     private static let apiBaseURL =
         "https://generativelanguage.googleapis.com/v1beta/models"
 
-    // 画像生成 API のタイムアウト秒数（画像生成は時間がかかる場合がある）
+    // 通常タイムアウト秒数
     private static let imageGenerationTimeout: TimeInterval = 300
+    // Flex モード時のタイムアウト秒数（Flex はキューに積まれることがあるため 600 秒以上推奨）
+    private static let flexTimeout: TimeInterval = 660
 
     private let configService: AppConfigService
 
@@ -17,7 +19,11 @@ final class GoogleAiService {
     }
 
     // 壁紙画像を生成してローカルに保存し、ファイルパスを返す
-    func generateWallpaper(context: PromptContext) async throws -> GeneratedImageResult {
+    // serviceTier: バックグラウンド生成時は .flex を指定（Flex 失敗時は Standard にフォールバック）
+    func generateWallpaper(
+        context: PromptContext,
+        serviceTier: GoogleAiServiceTier = .standard
+    ) async throws -> GeneratedImageResult {
         let apiKey = configService.googleAiApiKey
         guard !apiKey.isEmpty else {
             throw NSError(
@@ -29,14 +35,18 @@ final class GoogleAiService {
         }
 
         // ステップ1: テキストモデルで詳細な画像プロンプトを生成
-        let promptSelection = try await generatePromptSelection(context: context, apiKey: apiKey)
+        // Flex 失敗時は Standard にフォールバック
+        let promptSelection = try await generatePromptSelectionWithFallback(
+            context: context, apiKey: apiKey, serviceTier: serviceTier)
 
         // ステップ2: 画像モデルで壁紙を生成
-        let imageData = try await generateImage(
+        // Flex 失敗時は Standard にフォールバック
+        let imageData = try await generateImageWithFallback(
             prompt: promptSelection.imagePrompt,
             context: context,
             selectedNewsIds: Set(promptSelection.selectedNewsIds),
-            apiKey: apiKey
+            apiKey: apiKey,
+            serviceTier: serviceTier
         )
 
         // 画像をローカルに保存
@@ -50,10 +60,28 @@ final class GoogleAiService {
         )
     }
 
+    // Flex → Standard フォールバック付きでプロンプトを生成する
+    private func generatePromptSelectionWithFallback(
+        context: PromptContext,
+        apiKey: String,
+        serviceTier: GoogleAiServiceTier
+    ) async throws -> PromptSelectionResponse {
+        if serviceTier != .flex {
+            return try await generatePromptSelection(context: context, apiKey: apiKey, serviceTier: .standard)
+        }
+        do {
+            return try await generatePromptSelection(context: context, apiKey: apiKey, serviceTier: .flex)
+        } catch let error as NSError where isFlexUnavailableError(error) {
+            // Flex 容量不足（503/429）→ Standard で再試行
+            return try await generatePromptSelection(context: context, apiKey: apiKey, serviceTier: .standard)
+        }
+    }
+
     // テキストモデルで画像プロンプト候補を生成する
     private func generatePromptSelection(
         context: PromptContext,
-        apiKey: String
+        apiKey: String,
+        serviceTier: GoogleAiServiceTier = .standard
     ) async throws -> PromptSelectionResponse {
         let endpoint = "\(Self.apiBaseURL)/\(Self.textModelName):generateContent?key=\(apiKey)"
         guard let url = URL(string: endpoint) else {
@@ -72,10 +100,11 @@ final class GoogleAiService {
                 responseMimeType: "application/json",
                 responseSchema: PromptSelectionSchema.schema
             ),
-            tools: [GeminiTool(googleSearch: GeminiGoogleSearch())]
+            tools: [GeminiTool(googleSearch: GeminiGoogleSearch())],
+            serviceTier: serviceTier == .flex ? "flex" : nil
         )
 
-        let responseData = try await postJSON(url: url, body: requestBody)
+        let responseData = try await postJSON(url: url, body: requestBody, serviceTier: serviceTier)
         let response = try JSONDecoder().decode(GeminiResponse.self, from: responseData)
 
         guard let text = response.candidates.first?.content.parts.first?.text,
@@ -101,12 +130,38 @@ final class GoogleAiService {
         return selection
     }
 
+    // Flex → Standard フォールバック付きで画像を生成する
+    private func generateImageWithFallback(
+        prompt: String,
+        context: PromptContext,
+        selectedNewsIds: Set<String>,
+        apiKey: String,
+        serviceTier: GoogleAiServiceTier
+    ) async throws -> (bytes: Data, `extension`: String) {
+        if serviceTier != .flex {
+            return try await generateImage(
+                prompt: prompt, context: context,
+                selectedNewsIds: selectedNewsIds, apiKey: apiKey, serviceTier: .standard)
+        }
+        do {
+            return try await generateImage(
+                prompt: prompt, context: context,
+                selectedNewsIds: selectedNewsIds, apiKey: apiKey, serviceTier: .flex)
+        } catch let error as NSError where isFlexUnavailableError(error) {
+            // Flex 容量不足（503/429）→ Standard で再試行
+            return try await generateImage(
+                prompt: prompt, context: context,
+                selectedNewsIds: selectedNewsIds, apiKey: apiKey, serviceTier: .standard)
+        }
+    }
+
     // 画像モデルで壁紙画像を生成する
     private func generateImage(
         prompt: String,
         context: PromptContext,
         selectedNewsIds: Set<String>,
-        apiKey: String
+        apiKey: String,
+        serviceTier: GoogleAiServiceTier = .standard
     ) async throws -> (bytes: Data, `extension`: String) {
         let endpoint = "\(Self.apiBaseURL)/\(Self.imageModelName):generateContent?key=\(apiKey)"
         guard let url = URL(string: endpoint) else {
@@ -151,10 +206,11 @@ final class GoogleAiService {
                     imageSize: context.imageSize
                 )
             ),
-            tools: [GeminiTool(googleSearch: GeminiGoogleSearch())]
+            tools: [GeminiTool(googleSearch: GeminiGoogleSearch())],
+            serviceTier: serviceTier == .flex ? "flex" : nil
         )
 
-        let responseData = try await postJSON(url: url, body: requestBody)
+        let responseData = try await postJSON(url: url, body: requestBody, serviceTier: serviceTier)
         let response = try JSONDecoder().decode(GeminiResponse.self, from: responseData)
 
         for candidate in response.candidates {
@@ -264,13 +320,18 @@ final class GoogleAiService {
     }
 
     // JSON エンコードして POST し、レスポンスデータを返す
-    private func postJSON<T: Encodable>(url: URL, body: T) async throws -> Data {
+    private func postJSON<T: Encodable>(
+        url: URL,
+        body: T,
+        serviceTier: GoogleAiServiceTier = .standard
+    ) async throws -> Data {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(body)
-        // 画像生成は時間がかかることがあるためタイムアウトを延長
-        request.timeoutInterval = Self.imageGenerationTimeout
+        // Flex はキューに積まれることがあるため 660 秒、通常は 300 秒
+        request.timeoutInterval =
+            serviceTier == .flex ? Self.flexTimeout : Self.imageGenerationTimeout
         let (data, response) = try await URLSession.shared.data(for: request)
         if let httpResponse = response as? HTTPURLResponse,
             !(200..<300).contains(httpResponse.statusCode)
@@ -286,6 +347,11 @@ final class GoogleAiService {
             )
         }
         return data
+    }
+
+    // Flex 容量不足を示すエラーか判定する（503 / 429）
+    private func isFlexUnavailableError(_ error: NSError) -> Bool {
+        error.code == 503 || error.code == 429
     }
 
     // ファイルパスから MIME タイプを返す
@@ -304,6 +370,13 @@ final class GoogleAiService {
         let contents: [GeminiContent]
         var generationConfig: GeminiGenerationConfig?
         var tools: [GeminiTool]?
+        // Flex 推論時は "flex"、通常は nil（省略すると Standard）
+        var serviceTier: String?
+
+        enum CodingKeys: String, CodingKey {
+            case contents, generationConfig, tools
+            case serviceTier = "service_tier"
+        }
     }
 
     private struct GeminiContent: Encodable {

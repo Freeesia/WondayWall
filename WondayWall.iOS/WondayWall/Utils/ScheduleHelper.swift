@@ -2,7 +2,7 @@ import Foundation
 
 // スケジュールスロット計算のユーティリティ
 enum ScheduleHelper {
-    static let defaultRunsPerDay = 4
+    static let defaultRunsPerDay = 1
     static let supportedRunsPerDay = [1, 2, 3, 4, 6, 8, 12, 24]
 
     // 有効な値に丸める（最近傍の選択肢に正規化）

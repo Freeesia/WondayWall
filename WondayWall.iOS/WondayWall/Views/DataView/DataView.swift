@@ -28,6 +28,7 @@ struct DataView: View {
 // データ画面のコンテンツ本体
 private struct DataContentView: View {
     @EnvironmentObject private var environment: AppEnvironment
+    @Environment(\.openURL) private var openURL
     var vm: DataViewModel
 
     var body: some View {
@@ -201,6 +202,20 @@ private struct DataContentView: View {
     // ニュース行
     @ViewBuilder
     private func newsRow(_ news: NewsTopicItem) -> some View {
+        let label = newsRowLabel(news)
+        if let urlString = news.url, let url = URL(string: urlString) {
+            Button { openURL(url) } label: {
+                label
+            }
+            .foregroundStyle(.primary)
+        } else {
+            label
+        }
+    }
+
+    // ニュース行のラベル部分
+    @ViewBuilder
+    private func newsRowLabel(_ news: NewsTopicItem) -> some View {
         HStack(alignment: .top, spacing: 8) {
             FaviconImage(urlString: news.url)
                 .padding(.top, 2)

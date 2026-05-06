@@ -34,6 +34,16 @@ enum FileHelper {
         return wallpaperDirectory.appendingPathComponent(name)
     }
 
+    // 保存された imagePath（ファイル名のみ or 旧形式の絶対パス）を絶対パスに解決する
+    // ファイル名のみの場合は wallpaperDirectory 配下のパスを返す
+    // すでに絶対パス（"/" 始まり）の場合はそのまま返す（旧データ互換）
+    static func resolveImagePath(_ stored: String) -> String {
+        if stored.hasPrefix("/") {
+            return stored
+        }
+        return wallpaperDirectory.appendingPathComponent(stored).path
+    }
+
     // JSON ファイルからデコードして返す（失敗時は nil）
     static func load<T: Decodable>(_ type: T.Type, from url: URL) -> T? {
         guard let data = try? Data(contentsOf: url) else { return nil }

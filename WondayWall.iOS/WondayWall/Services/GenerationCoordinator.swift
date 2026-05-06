@@ -48,7 +48,8 @@ actor GenerationCoordinator {
         defer { fgBgTaskService.endTask() }
 
         let skipIfNoChanges = configService.config.skipIfNoChanges
-        return await runCore(skipIfNoChanges: skipIfNoChanges)
+        // 手動生成は Standard モードで実行（リアルタイムで八次が必要）
+        return await runCore(skipIfNoChanges: skipIfNoChanges, serviceTier: .standard)
     }
 
     // 定期生成が必要か判定し、必要なら1回だけ生成する
@@ -59,7 +60,7 @@ actor GenerationCoordinator {
 
         // 接続条件チェック
         if config.wifiOnlyGeneration && !isOnWiFi() { return nil }
-        if config.skipOnLowPowerMode && ProcessInfo.processInfo.isLowPowerModeEnabled {
+        if ProcessInfo.processInfo.isLowPowerModeEnabled {
             return nil
         }
 
@@ -76,7 +77,8 @@ actor GenerationCoordinator {
         isGenerating = true
         defer { isGenerating = false }
 
-        return await runCore(skipIfNoChanges: config.skipIfNoChanges)
+        // バックグラウンド定期生成は Flex モードで実行（50% コスト削減，失敗時は Standard にフォールバック）
+        return await runCore(skipIfNoChanges: config.skipIfNoChanges, serviceTier: .flex)
     }
 
     // 現在の生成処理をキャンセルする（バックグラウンドタスクの期限切れ時に呼ぶ）
@@ -86,9 +88,10 @@ actor GenerationCoordinator {
     }
 
     // 生成コアロジック（手動・定期両用）
-    private func runCore(skipIfNoChanges: Bool) async -> HistoryItem {
+    private func runCore(skipIfNoChanges: Bool, serviceTier: GoogleAiServiceTier) async -> HistoryItem {
         var status: GenerationStatus = .failure
         var imagePath: String? = nil
+        var photoAssetId: String? = nil
         var usedEvents: [CalendarEventItem]? = nil
         var usedNews: [NewsTopicItem]? = nil
         var errorSummary: String? = nil
@@ -107,15 +110,26 @@ actor GenerationCoordinator {
             {
                 status = .skipped
             } else {
-                let imageResult = try await googleAiService.generateWallpaper(context: context)
-                imagePath = imageResult.filePath
+                let imageResult = try await googleAiService.generateWallpaper(
+                    context: context, serviceTier: serviceTier)
+                // HistoryItem にはファイル名のみ保存する（サンドボックスパス変動対策）
+                imagePath = URL(fileURLWithPath: imageResult.filePath).lastPathComponent
                 usedEvents = contextResult.calendarEvents
                 usedNews = contextResult.newsTopics
                 status = .success
 
-                // 設定で自動保存が有効なら写真ライブラリに保存する
-                if configService.config.saveToPhotosEnabled {
-                    try? await wallpaperService.saveToPhotos(imagePath: imageResult.filePath)
+                // 前回生成のアセット識別子を取得する
+                let previousAssetId = historyService.getLastSuccessfulGenerated()?.photoAssetId
+                // 写真ライブラリの WondayWall アルバムに保存し、前回アセットをアルバムから外す
+                photoAssetId = try? await wallpaperService.saveToPhotosAlbum(
+                    imagePath: imageResult.filePath,
+                    previousAssetId: previousAssetId
+                )
+
+                // 通知には絶対パスを渡す
+                if configService.config.notificationsEnabled {
+                    await notificationService.scheduleSuccessNotification(
+                        imagePath: imageResult.filePath)
                 }
             }
         } catch {
@@ -131,16 +145,15 @@ actor GenerationCoordinator {
             usedNewsTopics: usedNews,
             usedPrompt: configService.config.userPrompt.isEmpty
                 ? nil : configService.config.userPrompt,
-            errorSummary: errorSummary
+            errorSummary: errorSummary,
+            photoAssetId: photoAssetId
         )
 
         historyService.append(historyItem)
 
-        // 通知
+        // 通知（失敗時のみここで送信。成功時は上で処理済み）
         if configService.config.notificationsEnabled {
-            if status == .success {
-                await notificationService.scheduleSuccessNotification(imagePath: imagePath)
-            } else if status == .failure {
+            if status == .failure {
                 await notificationService.scheduleFailureNotification(
                     error: errorSummary ?? "不明なエラー"
                 )

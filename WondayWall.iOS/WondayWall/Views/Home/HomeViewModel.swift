@@ -15,7 +15,10 @@ final class HomeViewModel {
     private let environment: AppEnvironment
 
     var latestImagePath: String? {
-        latestHistory?.imagePath.flatMap { FileManager.default.fileExists(atPath: $0) ? $0 : nil }
+        latestHistory?.imagePath.flatMap {
+            let resolved = FileHelper.resolveImagePath($0)
+            return FileManager.default.fileExists(atPath: resolved) ? resolved : nil
+        }
     }
 
     init(environment: AppEnvironment) {

@@ -2,6 +2,7 @@ import Foundation
 import EventKit
 import FeedKit
 import SwiftSoup
+import UIKit
 
 // RSS フィードからコンテキストを構築し、EventKit 経由でカレンダーイベントを取得するサービス
 final class ContextService {
@@ -194,6 +195,10 @@ final class ContextService {
         let config = configService.config
         let cal = Calendar.current
 
+        // デバイスのネイティブ解像度からアスペクト比を決定する（メインスレッドで取得）
+        let nativeSize = await MainActor.run { DisplayHelper.nativeScreenSize() }
+        let aspectRatio = DisplayHelper.closestGeminiAspectRatio(for: nativeSize)
+
         // カレンダーイベントを最大5件取得
         let allEvents = fetchCalendarEvents()
         let events = Array(allEvents.prefix(5))
@@ -235,8 +240,8 @@ final class ContextService {
                     ogpImageUrl: n.ogpImageUrl
                 )
             },
-            imageSize: "1290x2796",
-            aspectRatio: "9:19.5",
+            imageSize: "2K",
+            aspectRatio: aspectRatio,
             additionalConstraints: config.userPrompt
         )
 

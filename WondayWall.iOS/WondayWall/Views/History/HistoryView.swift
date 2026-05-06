@@ -75,9 +75,8 @@ private struct HistoryContentView: View {
         HStack(spacing: 12) {
             // サムネイル（成功時のみ表示）
             if item.isSuccess,
-               let path = item.imagePath,
-               FileManager.default.fileExists(atPath: path),
-               let image = UIImage(contentsOfFile: path)
+               let storedPath = item.imagePath,
+               let image = UIImage(contentsOfFile: FileHelper.resolveImagePath(storedPath))
             {
                 Image(uiImage: image)
                     .resizable()

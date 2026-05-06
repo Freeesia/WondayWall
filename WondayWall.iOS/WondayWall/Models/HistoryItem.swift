@@ -22,6 +22,8 @@ struct HistoryItem: Codable, Identifiable {
     let usedPrompt: String?
     // エラー概要（失敗時のみ）
     let errorSummary: String?
+    // 写真ライブラリに保存したアセット識別子（アルバム管理用）
+    let photoAssetId: String?
 
     var isSuccess: Bool { status == .success }
     var isSkipped: Bool { status == .skipped }
@@ -34,7 +36,8 @@ struct HistoryItem: Codable, Identifiable {
         usedCalendarEvents: [CalendarEventItem]? = nil,
         usedNewsTopics: [NewsTopicItem]? = nil,
         usedPrompt: String? = nil,
-        errorSummary: String? = nil
+        errorSummary: String? = nil,
+        photoAssetId: String? = nil
     ) {
         self.id = id
         self.executedAt = executedAt
@@ -44,5 +47,6 @@ struct HistoryItem: Codable, Identifiable {
         self.usedNewsTopics = usedNewsTopics
         self.usedPrompt = usedPrompt
         self.errorSummary = errorSummary
+        self.photoAssetId = photoAssetId
     }
 }

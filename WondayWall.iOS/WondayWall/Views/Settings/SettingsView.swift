@@ -42,8 +42,14 @@ private struct SettingsContentView: View {
             } header: {
                 Text("Google AI API キー")
             } footer: {
-                Text("Google AI Studio（aistudio.google.com）で取得できます。")
-                    .font(.caption)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Google AI Studio で API キーを取得できます。")
+                        .font(.caption)
+                    if let apiKeyURL = URL(string: "https://aistudio.google.com/apikey") {
+                        Link("API キーを取得する", destination: apiKeyURL)
+                            .font(.caption)
+                    }
+                }
             }
 
             // カレンダーセクション
@@ -168,7 +174,6 @@ private struct SettingsContentView: View {
 
                     Toggle("変化がなければスキップ", isOn: $vm.config.skipIfNoChanges)
                     Toggle("Wi-Fi 接続時のみ生成", isOn: $vm.config.wifiOnlyGeneration)
-                    Toggle("低電力モード時はスキップ", isOn: $vm.config.skipOnLowPowerMode)
                 }
             } header: {
                 Text("自動生成")
@@ -177,6 +182,7 @@ private struct SettingsContentView: View {
                     Text(
                         "バックグラウンドでスケジュールに従って壁紙を生成します。"
                             + "iOS のバックグラウンド実行制限により、指定時刻に実行されないことがあります。"
+                            + "低電力モード中は自動生成をスキップします。"
                     )
                     .font(.caption)
                 }
@@ -184,8 +190,6 @@ private struct SettingsContentView: View {
 
             // 保存・通知セクション
             Section {
-                Toggle("生成画像を自動で写真に保存", isOn: $vm.config.saveToPhotosEnabled)
-
                 Toggle("生成完了を通知する", isOn: Binding(
                     get: { vm.config.notificationsEnabled },
                     set: {
@@ -223,7 +227,8 @@ private struct SettingsContentView: View {
                     TextField(
                         "",
                         text: $vm.newRssURL,
-                        prompt: Text("https://example.com/feed.rss").foregroundStyle(.secondary)
+                        prompt: Text("https://example.com/feed.rss")
+                            .foregroundColor(Color(UIColor.placeholderText))
                     )
                     .keyboardType(.URL)
                     .autocorrectionDisabled()

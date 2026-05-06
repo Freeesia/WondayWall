@@ -40,6 +40,8 @@
 		BB00000000000000000000001F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000000001F /* Assets.xcassets */; };
 		BB000000000000000000000021 /* NetworkHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000021 /* NetworkHelper.swift */; };
 		BB000000000000000000000022 /* FaviconImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000022 /* FaviconImage.swift */; };
+		BB000000000000000000000023 /* GoogleAiServiceTier.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000023 /* GoogleAiServiceTier.swift */; };
+		BB000000000000000000000024 /* DisplayHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000024 /* DisplayHelper.swift */; };
 		DD000000000000000000000003 /* FeedKit in Frameworks */ = {isa = PBXBuildFile; productRef = DD000000000000000000000002 /* FeedKit */; };
 		DD000000000000000000000009 /* KeychainAccess in Frameworks */ = {isa = PBXBuildFile; productRef = DD000000000000000000000008 /* KeychainAccess */; };
 		DD00000000000000000000000C /* Defaults in Frameworks */ = {isa = PBXBuildFile; productRef = DD00000000000000000000000B /* Defaults */; };
@@ -84,6 +86,8 @@
 		AA000000000000000000000020 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AA000000000000000000000021 /* NetworkHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkHelper.swift; sourceTree = "<group>"; };
 		AA000000000000000000000022 /* FaviconImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaviconImage.swift; sourceTree = "<group>"; };
+		AA000000000000000000000023 /* GoogleAiServiceTier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleAiServiceTier.swift; sourceTree = "<group>"; };
+		AA000000000000000000000024 /* DisplayHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayHelper.swift; sourceTree = "<group>"; };
 		EE000000000000000000000002 /* EventKitCalendarService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventKitCalendarService.swift; sourceTree = "<group>"; };
 		EE000000000000000000000004 /* CalendarSourceItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarSourceItem.swift; sourceTree = "<group>"; };
 		EE000000000000000000000006 /* ColorExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorExtensions.swift; sourceTree = "<group>"; };
@@ -154,6 +158,7 @@
 				EE000000000000000000000004 /* CalendarSourceItem.swift */,
 				AA000000000000000000000007 /* NewsTopicItem.swift */,
 				AA000000000000000000000008 /* PromptContext.swift */,
+				AA000000000000000000000023 /* GoogleAiServiceTier.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -232,6 +237,7 @@
 				AA000000000000000000000013 /* FileHelper.swift */,
 				AA000000000000000000000014 /* KeychainHelper.swift */,
 				AA000000000000000000000021 /* NetworkHelper.swift */,
+				AA000000000000000000000024 /* DisplayHelper.swift */,
 				EE000000000000000000000006 /* ColorExtensions.swift */,
 			);
 			path = Utils;
@@ -362,6 +368,8 @@
 				BB00000000000000000000001C /* HistoryViewModel.swift in Sources */,
 				BB00000000000000000000001D /* SettingsView.swift in Sources */,
 				BB00000000000000000000001E /* SettingsViewModel.swift in Sources */,
+				BB000000000000000000000023 /* GoogleAiServiceTier.swift in Sources */,
+				BB000000000000000000000024 /* DisplayHelper.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -499,7 +507,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 0;
 				DEVELOPMENT_ASSET_PATHS = "";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = WondayWall/Info.plist;
@@ -507,7 +515,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 0.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.studiofreesia.wondaywall;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;

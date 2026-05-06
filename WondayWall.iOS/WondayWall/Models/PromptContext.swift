@@ -26,9 +26,9 @@ struct PromptNewsTopic: Codable {
 struct PromptContext: Codable {
     var calendarEvents: [PromptCalendarEvent] = []
     var newsTopics: [PromptNewsTopic] = []
-    // iPhone 15 Pro Max ポートレート解像度
-    var imageSize: String = "1290x2796"
-    var aspectRatio: String = "9:19.5"
+    // Gemini API で利用可能な縦長比率（imageSize は "512" / "1K" / "2K" / "4K" 形式）
+    var imageSize: String = "2K"
+    var aspectRatio: String = "9:16"
     var additionalConstraints: String = ""
     // ベース壁紙のファイルパス（前回生成画像を参照する場合）
     var baseImagePath: String?
