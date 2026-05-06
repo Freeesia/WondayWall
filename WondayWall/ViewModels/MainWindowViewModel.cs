@@ -58,7 +58,7 @@ public partial class MainWindowViewModel : ObservableObject
     public partial bool ShowSetupWizard { get; set; }
 
     [ObservableProperty]
-    public partial int SelectedRunsPerDay { get; set; }
+    public partial UpdateSchedule SelectedSchedule { get; set; }
 
     [ObservableProperty]
     public partial GeneratedImageInfo? LastGeneratedImage { get; set; }
@@ -80,7 +80,7 @@ public partial class MainWindowViewModel : ObservableObject
     public ObservableCollection<HistoryItem> History { get; } = [];
     public ObservableCollection<string> RssSources { get; } = [];
     public ObservableCollection<AvailableCalendar> AvailableCalendars { get; } = [];
-    public IReadOnlyList<int> AvailableRunsPerDayOptions => ScheduleHelper.SupportedRunsPerDay;
+    public IReadOnlyList<UpdateSchedule> AvailableScheduleOptions => ScheduleHelper.SupportedSchedules;
 
     /// <summary>追加プロンプトのプリセットテンプレート一覧</summary>
     public IReadOnlyList<PromptTemplate> PromptTemplates { get; } =
@@ -98,7 +98,7 @@ public partial class MainWindowViewModel : ObservableObject
         new(AppResources.PromptTemplateFantasy,
             "Create a magical fantasy atmosphere with ethereal glows, soft bokeh, mystical lighting, and dreamlike scenery."),
     ];
-    public string TaskSchedulerScheduleDescription => ScheduleHelper.FormatScheduleDescription(SelectedRunsPerDay);
+    public string TaskSchedulerScheduleDescription => ScheduleHelper.FormatScheduleDescription(SelectedSchedule);
 
     /// <summary>アセンブリのインフォメーションバージョン</summary>
     public string AppVersion { get; } =
@@ -129,7 +129,7 @@ public partial class MainWindowViewModel : ObservableObject
         SyncUpdateInfo();
         AppConfig = configService.Load();
         ShowSetupWizard = !configService.HasSavedConfig;
-        SelectedRunsPerDay = ScheduleHelper.NormalizeRunsPerDay(AppConfig.RunsPerDay);
+        SelectedSchedule = AppConfig.Schedule;
         foreach (var src in AppConfig.RssSources)
             RssSources.Add(src);
         IsTaskSchedulerEnabled = _taskSchedulerService.IsEnabled();
@@ -612,7 +612,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     private void ApplyCurrentSelectionsToConfig()
     {
-        AppConfig.RunsPerDay = ScheduleHelper.NormalizeRunsPerDay(SelectedRunsPerDay);
+        AppConfig.Schedule = SelectedSchedule;
         AppConfig.RssSources = [.. RssSources];
         if (AvailableCalendars.Count > 0)
         {
@@ -631,16 +631,9 @@ public partial class MainWindowViewModel : ObservableObject
             _taskSchedulerService.Disable();
     }
 
-    partial void OnSelectedRunsPerDayChanged(int value)
+    partial void OnSelectedScheduleChanged(UpdateSchedule value)
     {
-        var normalizedRunsPerDay = ScheduleHelper.NormalizeRunsPerDay(value);
-        if (value != normalizedRunsPerDay)
-        {
-            SelectedRunsPerDay = normalizedRunsPerDay;
-            return;
-        }
-
-        AppConfig.RunsPerDay = normalizedRunsPerDay;
+        AppConfig.Schedule = value;
         OnPropertyChanged(nameof(TaskSchedulerScheduleDescription));
     }
 }
