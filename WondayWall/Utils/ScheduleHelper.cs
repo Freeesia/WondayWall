@@ -54,7 +54,7 @@ public static class ScheduleHelper
         {
             var weekDays = GetWeekDays(schedule);
             // 過去7日間を逆順に走査して直近の対象日を探す
-            for (var i = 0; i <= 7; i++)
+            for (var i = 0; i < 7; i++)
             {
                 var candidate = now.Date.AddDays(-i) + WeeklySlotTime;
                 if (candidate <= now && weekDays.Contains(candidate.DayOfWeek))
@@ -105,7 +105,10 @@ public static class ScheduleHelper
         }
     }
 
-    /// <summary>旧バージョンの RunsPerDay 値から UpdateSchedule へマイグレーションする</summary>
+    /// <summary>旧バージョンの RunsPerDay 値から UpdateSchedule へマイグレーションする。
+    /// 旧値 3 は「1日3回」として ThreeTimesADay にマップする。
+    /// その他の値（1, 2, 4, 6, 8, 12, 24）は新しいスケジュール定義と直接対応しないため OnceADay にフォールバックする。
+    /// </summary>
     public static UpdateSchedule MigrateFromRunsPerDay(int runsPerDay) => runsPerDay switch
     {
         3 => UpdateSchedule.ThreeTimesADay,

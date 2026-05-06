@@ -12,5 +12,5 @@ public class ScheduleDisplayNameConverter : IValueConverter
         => value is UpdateSchedule schedule ? ScheduleHelper.GetScheduleDisplayName(schedule) : string.Empty;
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
-        => throw new NotSupportedException();
+        => throw new NotSupportedException("ConvertBack is not supported for ScheduleDisplayNameConverter.");
 }
