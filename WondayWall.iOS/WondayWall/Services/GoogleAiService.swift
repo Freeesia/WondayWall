@@ -168,6 +168,19 @@ final class GoogleAiService {
             throw URLError(.badURL)
         }
 
+        // テキストモデルが採用したニュースのOGP画像URLを収集する（最大3件）
+        let ogpUrls = context.newsTopics
+            .filter { selectedNewsIds.contains($0.id) }
+            .compactMap { $0.ogpImageUrl }
+            .prefix(3)
+            .map { $0 }
+
+        let imagePrompt = ogpUrls.isEmpty ? prompt : """
+            \(prompt)
+
+            Reference images from the selected news topics are attached. Incorporate their visual themes, color palette, and subject matter into the wallpaper design.
+            """
+
         var parts: [GeminiPart] = []
 
         // ベース壁紙がある場合は先頭に付加する
@@ -187,14 +200,37 @@ final class GoogleAiService {
                 """
                 The current wallpaper is provided as the base image.
                 Create a new wallpaper that evolves gradually from this base.
-                Preserve the overall composition, color palette, and artistic style.
-                Incorporate the new themes and events subtly — avoid drastic visual changes.
+                Visually inspect the base wallpaper and compare it against the current prompt.
+                Treat the current prompt's events, news themes, and mood as the source of truth.
+                Remove or replace any subject, motif, decoration, or symbolic element from the base image that no longer matches the current prompt.
+                When the base image conflicts with the current prompt, prioritize the current prompt while preserving the base image's overall composition, color palette, and artistic style.
+                Preserve the overall composition, color palette, and artistic style of the base wallpaper. Incorporate the new themes and events subtly — avoid drastic visual changes.
 
-                \(prompt)
+                \(imagePrompt)
                 """
             parts.append(GeminiPart(text: finalPrompt))
         } else {
-            parts.append(GeminiPart(text: prompt))
+            parts.append(GeminiPart(text: imagePrompt))
+        }
+
+        // 選択済みニュースのOGP画像をダウンロードしてインラインデータとして添付する
+        for ogpUrl in ogpUrls {
+            guard let imgUrl = URL(string: ogpUrl) else { continue }
+            do {
+                var imgRequest = URLRequest(url: imgUrl, timeoutInterval: 10)
+                imgRequest.setValue(
+                    "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)",
+                    forHTTPHeaderField: "User-Agent"
+                )
+                let (imgData, imgResponse) = try await URLSession.shared.data(for: imgRequest)
+                let contentMimeType = imgResponse.mimeType ?? "image/jpeg"
+                parts.append(GeminiPart(inlineData: GeminiInlineData(
+                    mimeType: contentMimeType,
+                    data: imgData.base64EncodedString()
+                )))
+            } catch {
+                // OGP画像のダウンロード失敗は無視する
+            }
         }
 
         let requestBody = GeminiRequest(
@@ -251,18 +287,22 @@ final class GoogleAiService {
             (\(context.imageSize) resolution, \(context.aspectRatio) aspect ratio) that creates a beautiful iPhone wallpaper.
 
             The wallpaper should visually reflect the themes, mood, and atmosphere of the selected events and news.
+            If reference images are supplied later, they will correspond only to selected news topics.
             Describe visual elements, style, mood, color palette, lighting, and composition in detail.
             No text, logos, or UI overlays. Portrait orientation.
 
             For calendar events:
             - Only include POSITIVE events (celebrations, trips, parties, hobbies, achievements, social gatherings, etc.)
               in the visual design. Ignore NEGATIVE or NEUTRAL events (medical appointments, work deadlines,
-              chores, administrative tasks, etc.).
+              chores, administrative tasks, etc.), but do not let them suppress other event or news candidates.
             - Each event has a proximity tag indicating when it occurs. Use it to determine the visual weight:
-              [today] or [tomorrow]: this event DOMINATES the entire image.
-              [in 2-3 days]: this event is a MAJOR visual theme.
-              [in 4-7 days]: this event is a MINOR accent or background element.
+              [today] or [tomorrow]: this event DOMINATES the entire image — make it the primary subject and theme,
+                occupying nearly all visual elements.
+              [in 2-3 days]: this event is a MAJOR visual theme, occupying 50–70% of the image's visual elements.
+              [in 4-7 days]: this event is a MINOR accent or background element (15–30% of visual elements).
             - When multiple positive events are present, prioritize the ones happening sooner.
+            - If the nearest event is NEGATIVE or NEUTRAL, ignore it and continue considering later positive events
+              and news topics as potential primary themes.
 
             Return a response that matches the configured JSON schema.
             - imagePrompt must be a single detailed English prompt for the image model.

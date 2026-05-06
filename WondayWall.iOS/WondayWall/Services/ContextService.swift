@@ -132,6 +132,7 @@ final class ContextService {
                     .attributes?.href
                     ?? entry.links?.first?.attributes?.href
                 return RssItem(
+                    sourceRssUrl: urlString,
                     title: title,
                     summary: entry.summary?.value,
                     url: link,
@@ -142,6 +143,7 @@ final class ContextService {
             items = (rssFeed.items ?? []).compactMap { item in
                 guard let title = item.title else { return nil }
                 return RssItem(
+                    sourceRssUrl: urlString,
                     title: title,
                     summary: item.description,
                     url: item.link,
@@ -152,6 +154,7 @@ final class ContextService {
             items = (jsonFeed.items ?? []).compactMap { item in
                 guard let title = item.title else { return nil }
                 return RssItem(
+                    sourceRssUrl: urlString,
                     title: title,
                     summary: item.summary,
                     url: item.url,
@@ -204,12 +207,44 @@ final class ContextService {
         let events = Array(allEvents.prefix(5))
 
         // ニューストピックを取得して選別する
-        let recentNews = await fetchNews()
+        let weekAgo = Date().addingTimeInterval(-7 * 24 * 3600)
+        let rawRssItems = await withTaskGroup(of: [RssItem].self) { group in
+            for sourceUrl in configService.config.rssSources {
+                group.addTask { await self.fetchRssItems(from: sourceUrl, since: weekAgo) }
+            }
+            var all: [RssItem] = []
+            for await items in group { all.append(contentsOf: items) }
+            return all.sorted { $0.publishedAt > $1.publishedAt }
+        }
         let lastGenerated = historyService.getLastSuccessfulGenerated()
-        let news = selectPromptNewsItems(
-            recentNews: recentNews,
+        let selectedRssItems = selectPromptNewsItems(
+            recentNews: rawRssItems,
             lastGeneratedAt: lastGenerated?.executedAt
         )
+        // 選別したアイテムの OGP 画像を並列取得する（最大10件）
+        let ogpURLs = await withTaskGroup(of: (String, String?).self) { group in
+            for item in selectedRssItems.prefix(10) {
+                if let url = item.url {
+                    group.addTask { (url, await self.fetchOGPImageURL(from: url)) }
+                }
+            }
+            var map: [String: String] = [:]
+            for await (key, ogp) in group {
+                if let ogp { map[key] = ogp }
+            }
+            return map
+        }
+        let news: [NewsTopicItem] = selectedRssItems.map { item in
+            let ogp = item.url.flatMap { ogpURLs[$0] }
+            return NewsTopicItem(
+                id: item.url ?? item.title,
+                title: item.title,
+                summary: item.summary,
+                url: item.url,
+                publishedAt: item.publishedAt,
+                ogpImageUrl: ogp
+            )
+        }
 
         let promptContext = PromptContext(
             calendarEvents: events.enumerated().map { index, e in
@@ -254,16 +289,16 @@ final class ContextService {
 
     // プロンプト用ニュースを選別する（最大10件）
     private func selectPromptNewsItems(
-        recentNews: [NewsTopicItem],
+        recentNews: [RssItem],
         lastGeneratedAt: Date?
-    ) -> [NewsTopicItem] {
+    ) -> [RssItem] {
         let maxCount = 10
         let maxRecentSinceLastGeneration = 3
-        var selected: [NewsTopicItem] = []
+        var selected: [RssItem] = []
         var selectedKeys = Set<String>()
 
         @discardableResult
-        func tryAdd(_ item: NewsTopicItem) -> Bool {
+        func tryAdd(_ item: RssItem) -> Bool {
             let key = item.url ?? item.title
             guard selected.count < maxCount, selectedKeys.insert(key).inserted else {
                 return false
@@ -272,9 +307,13 @@ final class ContextService {
             return true
         }
 
-        // 直前の生成以降の新着を優先的に含める
+        // 直前の生成以降の新着を優先的に含める（事前重複排除してからシャッフル）
         if let lastGenerated = lastGeneratedAt {
-            var recentSince = recentNews.filter { $0.publishedAt > lastGenerated }
+            var seen = Set<String>()
+            var recentSince = recentNews.filter { item in
+                let key = item.url ?? item.title
+                return item.publishedAt > lastGenerated && seen.insert(key).inserted
+            }
             if recentSince.count > maxRecentSinceLastGeneration {
                 recentSince = Array(recentSince.shuffled().prefix(maxRecentSinceLastGeneration))
                 recentSince.sort { $0.publishedAt > $1.publishedAt }
@@ -282,7 +321,13 @@ final class ContextService {
             recentSince.forEach { tryAdd($0) }
         }
 
-        // 各ソースの先頭アイテムと残りを追加
+        // 各 RSS ソースから先頭1件を追加（ソース間の多様性確保）
+        var seenSources = Set<String>()
+        for item in recentNews where seenSources.insert(item.sourceRssUrl).inserted {
+            tryAdd(item)
+        }
+
+        // 残り全件を追加
         recentNews.forEach { tryAdd($0) }
 
         return selected.sorted { $0.publishedAt > $1.publishedAt }
@@ -290,6 +335,7 @@ final class ContextService {
 
     // RSS フィードアイテム（内部用）
     private struct RssItem {
+        let sourceRssUrl: String
         let title: String
         let summary: String?
         let url: String?
