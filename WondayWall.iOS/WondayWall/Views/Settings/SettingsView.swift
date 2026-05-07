@@ -161,14 +161,14 @@ private struct SettingsContentView: View {
 
                 if vm.config.autoGenerationEnabled {
                     Picker("生成頻度", selection: Binding(
-                        get: { vm.config.runsPerDay },
+                        get: { vm.config.schedule },
                         set: {
-                            vm.config.runsPerDay = $0
+                            vm.config.schedule = $0
                             vm.onAutoGenerationChanged()
                         }
                     )) {
-                        ForEach(ScheduleHelper.supportedRunsPerDay, id: \.self) { count in
-                            Text("\(count)回/日").tag(count)
+                        ForEach(ScheduleHelper.supportedSchedules, id: \.self) { schedule in
+                            Text(ScheduleHelper.displayText(for: schedule)).tag(schedule)
                         }
                     }
 

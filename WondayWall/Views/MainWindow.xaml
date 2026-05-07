@@ -32,6 +32,7 @@
             <Setter Property="MinWidth" Value="80" />
         </Style>
         <utils:UrlToFaviconConverter x:Key="UrlToFaviconConverter" />
+        <utils:ScheduleDisplayNameConverter x:Key="ScheduleDisplayNameConverter" />
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
     </ui:FluentWindow.Resources>
 
@@ -454,15 +455,6 @@
                                                     VerticalScrollBarVisibility="Auto" />
                                             </StackPanel>
                                         </ui:CardControl>
-                                        <ui:CardControl Header="{x:Static properties:Resources.UseCurrentWallpaperAsBaseHeader}">
-                                            <ui:CardControl.Icon>
-                                                <ui:SymbolIcon Symbol="ImageCopy24" />
-                                            </ui:CardControl.Icon>
-                                            <ui:ToggleSwitch
-                                                VerticalAlignment="Center"
-                                                Content="{x:Static properties:Resources.UseCurrentWallpaperAsBase}"
-                                                IsChecked="{Binding AppConfig.UseCurrentWallpaperAsBase}" />
-                                        </ui:CardControl>
 
                                     </StackPanel>
                                 </GroupBox>
@@ -483,11 +475,17 @@
                                                     <TextBlock
                                                         Margin="0,0,0,4"
                                                         FontWeight="SemiBold"
-                                                        Text="{x:Static properties:Resources.RunsPerDay}" />
+                                                        Text="{x:Static properties:Resources.UpdateSchedule}" />
                                                     <ComboBox
-                                                        Width="120"
-                                                        ItemsSource="{Binding AvailableRunsPerDayOptions}"
-                                                        SelectedItem="{Binding SelectedRunsPerDay, UpdateSourceTrigger=PropertyChanged}" />
+                                                        Width="200"
+                                                        ItemsSource="{Binding AvailableScheduleOptions}"
+                                                        SelectedItem="{Binding SelectedSchedule, UpdateSourceTrigger=PropertyChanged}">
+                                                        <ComboBox.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <TextBlock Text="{Binding Converter={StaticResource ScheduleDisplayNameConverter}}" />
+                                                            </DataTemplate>
+                                                        </ComboBox.ItemTemplate>
+                                                    </ComboBox>
                                                 </StackPanel>
                                                 <TextBlock
                                                     Width="320"

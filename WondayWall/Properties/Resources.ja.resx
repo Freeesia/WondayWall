@@ -204,20 +204,38 @@
   <data name="RssSources" xml:space="preserve">
     <value>RSSソース</value>
   </data>
-  <data name="RunsPerDay" xml:space="preserve">
-    <value>1日あたりの更新回数</value>
-  </data>
   <data name="RunHistory" xml:space="preserve">
     <value>実行履歴</value>
   </data>
   <data name="SaveSettings" xml:space="preserve">
     <value>設定を保存</value>
   </data>
-  <data name="ScheduleDescription" xml:space="preserve">
+  <data name="ScheduleDescriptionDaily" xml:space="preserve">
     <value>毎日 {0} に実行します。PC の電源断などで定刻を逃した場合だけ、次回ログオン時に補完実行します。</value>
+  </data>
+  <data name="ScheduleDescriptionWeekly" xml:space="preserve">
+    <value>指定曜日の {0} に実行します。PC の電源断などで定刻を逃した場合だけ、次回ログオン時に補完実行します。</value>
+  </data>
+  <data name="ScheduleOnceAWeek" xml:space="preserve">
+    <value>週1回（月曜）</value>
+  </data>
+  <data name="ScheduleTwiceAWeek" xml:space="preserve">
+    <value>週2回（月曜・木曜）</value>
+  </data>
+  <data name="ScheduleThreeTimesAWeek" xml:space="preserve">
+    <value>週3回（月曜・水曜・金曜）</value>
+  </data>
+  <data name="ScheduleOnceADay" xml:space="preserve">
+    <value>1日1回</value>
+  </data>
+  <data name="ScheduleThreeTimesADay" xml:space="preserve">
+    <value>1日3回（朝・昼・晩）</value>
   </data>
   <data name="ScheduleSettings" xml:space="preserve">
     <value>スケジュール設定</value>
+  </data>
+  <data name="UpdateSchedule" xml:space="preserve">
+    <value>更新スケジュール</value>
   </data>
   <data name="SettingsSaveError" xml:space="preserve">
     <value>設定保存エラー: {0}</value>
@@ -353,12 +371,6 @@
   </data>
   <data name="UpdateLockScreenHeader" xml:space="preserve">
     <value>ロック画面の更新</value>
-  </data>
-  <data name="UseCurrentWallpaperAsBase" xml:space="preserve">
-    <value>このアプリで生成した壁紙をベースに新しい壁紙を生成する</value>
-  </data>
-  <data name="UseCurrentWallpaperAsBaseHeader" xml:space="preserve">
-    <value>現在の壁紙をベースに生成</value>
   </data>
   <data name="ApplyTemplate" xml:space="preserve">
     <value>適用</value>

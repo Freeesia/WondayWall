@@ -49,6 +49,7 @@
 		EE000000000000000000000001 /* EventKitCalendarService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE000000000000000000000002 /* EventKitCalendarService.swift */; };
 		EE000000000000000000000003 /* CalendarSourceItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE000000000000000000000004 /* CalendarSourceItem.swift */; };
 		EE000000000000000000000005 /* ColorExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE000000000000000000000006 /* ColorExtensions.swift */; };
+		BB000000000000000000000025 /* UpdateSchedule.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000025 /* UpdateSchedule.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -88,6 +89,7 @@
 		AA000000000000000000000022 /* FaviconImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaviconImage.swift; sourceTree = "<group>"; };
 		AA000000000000000000000023 /* GoogleAiServiceTier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleAiServiceTier.swift; sourceTree = "<group>"; };
 		AA000000000000000000000024 /* DisplayHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayHelper.swift; sourceTree = "<group>"; };
+		AA000000000000000000000025 /* UpdateSchedule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateSchedule.swift; sourceTree = "<group>"; };
 		EE000000000000000000000002 /* EventKitCalendarService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventKitCalendarService.swift; sourceTree = "<group>"; };
 		EE000000000000000000000004 /* CalendarSourceItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarSourceItem.swift; sourceTree = "<group>"; };
 		EE000000000000000000000006 /* ColorExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorExtensions.swift; sourceTree = "<group>"; };
@@ -153,6 +155,7 @@
 			isa = PBXGroup;
 			children = (
 				AA000000000000000000000004 /* AppConfig.swift */,
+				AA000000000000000000000025 /* UpdateSchedule.swift */,
 				AA000000000000000000000005 /* HistoryItem.swift */,
 				AA000000000000000000000006 /* CalendarEventItem.swift */,
 				EE000000000000000000000004 /* CalendarSourceItem.swift */,
@@ -337,6 +340,7 @@
 				BB000000000000000000000002 /* AppDelegate.swift in Sources */,
 				BB000000000000000000000003 /* AppEnvironment.swift in Sources */,
 				BB000000000000000000000004 /* AppConfig.swift in Sources */,
+				BB000000000000000000000025 /* UpdateSchedule.swift in Sources */,
 				BB000000000000000000000005 /* HistoryItem.swift in Sources */,
 				BB000000000000000000000006 /* CalendarEventItem.swift in Sources */,
 				EE000000000000000000000003 /* CalendarSourceItem.swift in Sources */,

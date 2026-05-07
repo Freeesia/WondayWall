@@ -8,8 +8,8 @@ struct AppConfig: Codable {
     var rssSources: [String] = []
     // ユーザー追加プロンプト
     var userPrompt: String = ""
-    // 1日あたりの自動生成回数
-    var runsPerDay: Int = 1
+    // 自動更新スケジュール
+    var schedule: UpdateSchedule = .onceADay
     // 自動生成有効/無効
     var autoGenerationEnabled: Bool = true
     // 変化がなければ生成をスキップする
@@ -19,3 +19,4 @@ struct AppConfig: Codable {
     // Wi-Fi 接続時のみ生成する
     var wifiOnlyGeneration: Bool = false
 }
+

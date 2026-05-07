@@ -180,30 +180,7 @@ public class GoogleAiService(
 
         var imageRequest = new GenerateContentRequest();
 
-        // ベース壁紙がある場合はインラインデータとして先頭に付加し、プロンプトにも指示を追加
-        if (!string.IsNullOrEmpty(context.BaseImagePath) && File.Exists(context.BaseImagePath))
-        {
-            var baseImageBytes = await File.ReadAllBytesAsync(context.BaseImagePath, ct).ConfigureAwait(false);
-            var baseMimeType = GetMimeTypeFromPath(context.BaseImagePath);
-            imageRequest.AddInlineData(Convert.ToBase64String(baseImageBytes), baseMimeType);
-            // ベース画像を参照しつつ、現在のテーマに合わない要素を整理する指示を追加
-            imageRequest.AddText(
-                $$"""
-                The current wallpaper is provided as the base image.
-                Create a new wallpaper that evolves gradually from this base.
-                Visually inspect the base wallpaper and compare it against the current prompt.
-                Treat the current prompt's events, news themes, and mood as the source of truth.
-                Remove or replace any subject, motif, decoration, or symbolic element from the base image that no longer matches the current prompt.
-                When the base image conflicts with the current prompt, prioritize the current prompt while preserving the base image's overall composition, color palette, and artistic style.
-                Preserve the overall composition, color palette, and artistic style of the base wallpaper. Incorporate the new themes and events subtly — avoid drastic visual changes.
-
-                {{finalPrompt}}
-                """);
-        }
-        else
-        {
-            imageRequest.AddText(finalPrompt);
-        }
+        imageRequest.AddText(finalPrompt);
         foreach (var imgUrl in ogpUrls)
         {
             try
@@ -294,16 +271,6 @@ public class GoogleAiService(
             """,
         };
 
-        if (!string.IsNullOrEmpty(context.BaseImagePath) && File.Exists(context.BaseImagePath))
-        {
-            parts.Add(
-                """
-                A base wallpaper image will be supplied to the image model.
-                Preserve the overall composition, color palette, and artistic style of the base wallpaper.
-                Incorporate the new themes and events subtly — avoid drastic visual changes.
-                """);
-        }
-
         if ((context.CalendarEvents ?? []).Count > 0)
         {
             parts.Add(
@@ -348,18 +315,6 @@ public class GoogleAiService(
             }
         }
         return null;
-    }
-
-    /// <summary>ファイルパスの拡張子からMIMEタイプを返す</summary>
-    private static string GetMimeTypeFromPath(string filePath)
-    {
-        return Path.GetExtension(filePath).ToLowerInvariant() switch
-        {
-            ".jpg" or ".jpeg" => "image/jpeg",
-            ".png" => "image/png",
-            ".webp" => "image/webp",
-            _ => "image/jpeg",
-        };
     }
 
     private sealed class PromptSelectionResponse

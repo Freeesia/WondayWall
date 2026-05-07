@@ -1,4 +1,5 @@
 using Microsoft.Win32.TaskScheduler;
+using WondayWall.Models;
 using WondayWall.Utils;
 using AppResources = WondayWall.Properties.Resources;
 
@@ -16,30 +17,51 @@ public class TaskSchedulerService(AppConfigService appConfigService)
 
     public void Enable()
     {
-        var runsPerDay = ScheduleHelper.NormalizeRunsPerDay(appConfigService.Current.RunsPerDay);
+        var schedule = appConfigService.Current.Schedule;
+        var slotTimesStr = string.Join(
+            " / ",
+            ScheduleHelper.GetSlotOffsets(schedule)
+                .Select(static offset => $"{(int)offset.TotalHours}:00"));
 
         using var ts = new TaskService();
         var td = ts.NewTask();
         td.RegistrationInfo.Description = AppResources.Format(
             AppResources.TaskSchedulerDescription,
-            ScheduleHelper.FormatSlotTimes(runsPerDay));
+            slotTimesStr);
 
-        var dailyTrigger = new DailyTrigger
+        if (ScheduleHelper.IsWeeklySchedule(schedule))
         {
-            StartBoundary = DateTime.Today,
-            DaysInterval = 1,
-        };
-        if (runsPerDay > 1)
-        {
-            dailyTrigger.Repetition.Interval = ScheduleHelper.GetInterval(runsPerDay);
-            dailyTrigger.Repetition.Duration = TimeSpan.FromDays(1);
+            // 週次トリガー：対象曜日の WeeklySlotTime に実行
+            var daysFlags = GetDaysOfTheWeek(ScheduleHelper.GetWeekDays(schedule));
+            var weeklyTrigger = new WeeklyTrigger
+            {
+                StartBoundary = DateTime.Today.Date + ScheduleHelper.WeeklySlotTime,
+                WeeksInterval = 1,
+                DaysOfWeek = daysFlags,
+            };
+            td.Triggers.Add(weeklyTrigger);
         }
-        td.Triggers.Add(dailyTrigger);
+        else
+        {
+            // 日次トリガー
+            var slots = ScheduleHelper.GetSlotOffsets(schedule);
+            var dailyTrigger = new DailyTrigger
+            {
+                StartBoundary = DateTime.Today.Date + slots[0],
+                DaysInterval = 1,
+            };
+            if (slots.Count > 1)
+            {
+                dailyTrigger.Repetition.Interval = slots[1] - slots[0];
+                dailyTrigger.Repetition.Duration = TimeSpan.FromDays(1);
+            }
+            td.Triggers.Add(dailyTrigger);
+        }
 
         td.Settings.AllowDemandStart = true;
         td.Settings.DisallowStartIfOnBatteries = false;
         td.Settings.StopIfGoingOnBatteries = false;
-        td.Settings.RunOnlyIfNetworkAvailable = false;
+        td.Settings.RunOnlyIfNetworkAvailable = true;
         td.Settings.MultipleInstances = TaskInstancesPolicy.IgnoreNew;
         td.Settings.StartWhenAvailable = true;
         td.Settings.RestartInterval = TimeSpan.FromMinutes(5);
@@ -56,5 +78,26 @@ public class TaskSchedulerService(AppConfigService appConfigService)
     {
         using var ts = new TaskService();
         ts.RootFolder.DeleteTask(TaskName, exceptionOnNotExists: false);
+    }
+
+    /// <summary>.NET の DayOfWeek 一覧を TaskScheduler の DaysOfTheWeek に変換する</summary>
+    private static DaysOfTheWeek GetDaysOfTheWeek(IReadOnlyList<DayOfWeek> days)
+    {
+        var flags = default(DaysOfTheWeek);
+        foreach (var day in days)
+        {
+            flags |= day switch
+            {
+                DayOfWeek.Sunday => DaysOfTheWeek.Sunday,
+                DayOfWeek.Monday => DaysOfTheWeek.Monday,
+                DayOfWeek.Tuesday => DaysOfTheWeek.Tuesday,
+                DayOfWeek.Wednesday => DaysOfTheWeek.Wednesday,
+                DayOfWeek.Thursday => DaysOfTheWeek.Thursday,
+                DayOfWeek.Friday => DaysOfTheWeek.Friday,
+                DayOfWeek.Saturday => DaysOfTheWeek.Saturday,
+                _ => default,
+            };
+        }
+        return flags;
     }
 }

@@ -1,4 +1,3 @@
-using System.IO;
 using Microsoft.Extensions.Logging;
 using WondayWall.Models;
 using WondayWall.Utils;
@@ -25,17 +24,17 @@ public class GenerationCoordinator(
         CancellationToken ct = default)
     {
         var effectiveNow = now ?? DateTime.Now;
-        var runsPerDay = ScheduleHelper.NormalizeRunsPerDay(configService.Current.RunsPerDay);
+        var schedule = configService.Current.Schedule;
 
         return ExecuteWithGenerationMutexAsync(async () =>
         {
-            var scheduledSlot = GetPendingScheduledSlot(effectiveNow, historyService.Load(), runsPerDay);
+            var scheduledSlot = GetPendingScheduledSlot(effectiveNow, historyService.Load(), schedule);
             if (scheduledSlot is null)
                 return null;
 
             logger.LogInformation(
-                "{RunsPerDay}回/日スケジュールの枠 {ScheduledSlot:yyyy/MM/dd HH:mm} の壁紙生成を開始します。",
-                runsPerDay,
+                "スケジュール {Schedule} の枠 {ScheduledSlot:yyyy/MM/dd HH:mm} の壁紙生成を開始します。",
+                schedule,
                 scheduledSlot.Value);
 
             return await RunCoreAsync(GoogleAiServiceTier.Flex, skipIfNoChanges, ct);
@@ -57,20 +56,6 @@ public class GenerationCoordinator(
         {
             var contextResult = await contextService.BuildContextAsync(ct);
             var promptContext = contextResult.PromptContext;
-
-            // UseCurrentWallpaperAsBase が有効なら直前の成功生成画像をベースとして設定
-            if (configService.Current.UseCurrentWallpaperAsBase)
-            {
-                var baseImagePath = historyItems
-                    .OrderByDescending(h => h.ExecutedAt)
-                    .FirstOrDefault(h => h.IsSuccess
-                                        && !h.IsSkipped
-                                        && h.AppliedImagePath != null
-                                        && File.Exists(h.AppliedImagePath))
-                    ?.AppliedImagePath;
-                if (baseImagePath != null)
-                    promptContext = promptContext with { BaseImagePath = baseImagePath };
-            }
 
             // スキップ条件チェック：直近の予定がなく、ニュースに変化がない場合はスキップ
             if (skipIfNoChanges
@@ -157,9 +142,9 @@ public class GenerationCoordinator(
                 }
             }, ct);
 
-    private static DateTime? GetPendingScheduledSlot(DateTime now, List<HistoryItem> history, int runsPerDay)
+    private static DateTime? GetPendingScheduledSlot(DateTime now, List<HistoryItem> history, UpdateSchedule schedule)
     {
-        var latestSlot = ScheduleHelper.GetLatestScheduledSlotAtOrBefore(now, runsPerDay);
+        var latestSlot = ScheduleHelper.GetLatestScheduledSlotAtOrBefore(now, schedule);
         var lastCompletedRunAt = history
             .Where(h => h.IsSuccess)
             .Select(h => h.ExecutedAt)
