@@ -123,11 +123,5 @@ enum ScheduleHelper {
         case .threeTimesADay: return "1日3回（朝・昼・晩）"
         }
     }
-
-    // 旧バージョンの runsPerDay 値から UpdateSchedule へマイグレーションする
-    // 1, 2 は OnceADay、3 以上は ThreeTimesADay にマップする
-    static func migrateFromRunsPerDay(_ runsPerDay: Int) -> UpdateSchedule {
-        runsPerDay <= 2 ? .onceADay : .threeTimesADay
-    }
 }
 
