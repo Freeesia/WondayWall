@@ -64,12 +64,11 @@ actor GenerationCoordinator {
             return nil
         }
 
-        let runsPerDay = ScheduleHelper.normalizeRunsPerDay(config.runsPerDay)
         let lastSuccessAt = historyService.getLastSuccessfulGenerated()?.executedAt
         guard ScheduleHelper.isPendingGeneration(
             now: now,
             lastSuccessAt: lastSuccessAt,
-            runsPerDay: runsPerDay
+            schedule: config.schedule
         ) else {
             return nil
         }

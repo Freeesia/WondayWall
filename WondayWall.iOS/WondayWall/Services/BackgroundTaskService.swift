@@ -29,8 +29,7 @@ final class BackgroundTaskService {
             return
         }
 
-        let runsPerDay = ScheduleHelper.normalizeRunsPerDay(config.runsPerDay)
-        let nextSlot = ScheduleHelper.getNextScheduledSlotAfter(Date(), runsPerDay: runsPerDay)
+        let nextSlot = ScheduleHelper.getNextScheduledSlotAfter(Date(), schedule: config.schedule)
 
         let request = BGProcessingTaskRequest(identifier: Self.taskIdentifier)
         request.requiresNetworkConnectivity = true
