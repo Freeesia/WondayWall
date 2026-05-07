@@ -21,7 +21,7 @@ public class AppConfig : IJsonOnDeserialized
     /// <summary>デスクトップ壁紙に加えてロック画面も更新する</summary>
     public bool UpdateLockScreen { get; set; } = false;
 
-    /// <summary>デシリアライズ完了時に旧バージョンのフィールドを新フィールドへ移行する</summary>
+    /// <summary>デシリアライゼーション完了時に旧バージョンのフィールドを新フィールドへ移行する</summary>
     void IJsonOnDeserialized.OnDeserialized()
     {
         if (RunsPerDay.HasValue)
