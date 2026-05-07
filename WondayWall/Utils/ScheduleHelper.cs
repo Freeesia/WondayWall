@@ -5,8 +5,11 @@ namespace WondayWall.Utils;
 
 public static class ScheduleHelper
 {
-    // 週次スケジュールの実行時刻（7:00）
-    public static readonly TimeSpan WeeklySlotTime = TimeSpan.FromHours(7);
+    // すべてのスケジュールで1日の最初の更新は4:00に揃える
+    private static readonly TimeSpan FirstDailySlot = TimeSpan.FromHours(4);
+
+    // 週次スケジュールの実行時刻（4:00）
+    public static readonly TimeSpan WeeklySlotTime = FirstDailySlot;
 
     // 週次スケジュールの曜日定義
     public static readonly IReadOnlyList<DayOfWeek> OnceAWeekDays = [DayOfWeek.Monday];
@@ -14,12 +17,12 @@ public static class ScheduleHelper
     public static readonly IReadOnlyList<DayOfWeek> ThreeTimesAWeekDays = [DayOfWeek.Monday, DayOfWeek.Wednesday, DayOfWeek.Friday];
 
     // 1日複数回スケジュールのスロット時刻
-    private static readonly IReadOnlyList<TimeSpan> OnceDaySlots = [TimeSpan.Zero];
+    private static readonly IReadOnlyList<TimeSpan> OnceDaySlots = [FirstDailySlot];
     private static readonly IReadOnlyList<TimeSpan> ThreeTimesDaySlots =
     [
-        TimeSpan.FromHours(7),   // 朝
-        TimeSpan.FromHours(12),  // 昼
-        TimeSpan.FromHours(18),  // 晩
+        FirstDailySlot,               // 朝 4:00
+        TimeSpan.FromHours(12),       // 昼
+        TimeSpan.FromHours(18),       // 晩
     ];
 
     public static UpdateSchedule DefaultSchedule => UpdateSchedule.OnceADay;
@@ -106,12 +109,12 @@ public static class ScheduleHelper
     }
 
     /// <summary>旧バージョンの RunsPerDay 値から UpdateSchedule へマイグレーションする。
-    /// 旧値 3 は「1日3回」として ThreeTimesADay にマップする。
-    /// その他の値（1, 2, 4, 6, 8, 12, 24）は新しいスケジュール定義と直接対応しないため OnceADay にフォールバックする。
+    /// 旧値 1, 2 は「1日1回」として OnceADay にマップする。
+    /// 旧値 3 以降は「1日3回」として ThreeTimesADay にマップする。
     /// </summary>
     public static UpdateSchedule MigrateFromRunsPerDay(int runsPerDay) => runsPerDay switch
     {
-        3 => UpdateSchedule.ThreeTimesADay,
-        _ => UpdateSchedule.OnceADay,
+        <= 2 => UpdateSchedule.OnceADay,
+        _ => UpdateSchedule.ThreeTimesADay,
     };
 }

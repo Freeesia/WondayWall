@@ -1,9 +1,10 @@
 using System.Text.Json.Serialization;
 using WondayWall.ComponentModel;
+using WondayWall.Utils;
 
 namespace WondayWall.Models;
 
-public class AppConfig
+public class AppConfig : IJsonOnDeserialized
 {
     [CredentialSecret]
     public string GoogleAiApiKey { get; set; } = string.Empty;
@@ -19,4 +20,14 @@ public class AppConfig
     public bool SkipGenerationWhenNoChanges { get; set; } = false;
     /// <summary>デスクトップ壁紙に加えてロック画面も更新する</summary>
     public bool UpdateLockScreen { get; set; } = false;
+
+    /// <summary>デシリアライズ完了時に旧バージョンのフィールドを新フィールドへ移行する</summary>
+    void IJsonOnDeserialized.OnDeserialized()
+    {
+        if (RunsPerDay.HasValue)
+        {
+            Schedule = ScheduleHelper.MigrateFromRunsPerDay(RunsPerDay.Value);
+            RunsPerDay = null;
+        }
+    }
 }

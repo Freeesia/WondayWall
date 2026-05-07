@@ -61,7 +61,7 @@ public class TaskSchedulerService(AppConfigService appConfigService)
         td.Settings.AllowDemandStart = true;
         td.Settings.DisallowStartIfOnBatteries = false;
         td.Settings.StopIfGoingOnBatteries = false;
-        td.Settings.RunOnlyIfNetworkAvailable = false;
+        td.Settings.RunOnlyIfNetworkAvailable = true;
         td.Settings.MultipleInstances = TaskInstancesPolicy.IgnoreNew;
         td.Settings.StartWhenAvailable = true;
         td.Settings.RestartInterval = TimeSpan.FromMinutes(5);
