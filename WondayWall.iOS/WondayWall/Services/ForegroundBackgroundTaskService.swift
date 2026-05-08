@@ -1,29 +1,52 @@
 import Foundation
-import UIKit
+import BackgroundTasks
 
-// 手動生成中にアプリがバックグラウンドへ移った場合の短時間継続を管理するサービス
+// 手動生成中にアプリがバックグラウンドへ移った場合の継続を管理するサービス
+// BGContinuedProcessingTask を使い、ユーザーに進捗を明示しながら処理を継続する
 final class ForegroundBackgroundTaskService {
-    private var backgroundTaskID: UIBackgroundTaskIdentifier = .invalid
+    // BGContinuedProcessingTask の識別子（Info.plist に登録済み）
+    static let continuedTaskIdentifier = "com.studiofreesia.wondaywall.manual"
+
+    // AppDelegate のハンドラーから参照できるよう静的に保持する
+    static weak var current: ForegroundBackgroundTaskService?
+
     private var onExpiration: (() -> Void)?
 
-    // バックグラウンドタスクを開始する
-    // expiration handler でタスクが打ち切られた場合に onExpiration が呼ばれる
+    init() {
+        ForegroundBackgroundTaskService.current = self
+    }
+
+    // 手動生成を BGContinuedProcessingTask 経由で開始する
     func beginTask(onExpiration: @escaping () -> Void) {
-        // 既存のタスクがある場合は先に終了させる
-        endTask()
         self.onExpiration = onExpiration
-        backgroundTaskID = UIApplication.shared.beginBackgroundTask { [weak self] in
-            // 期限切れ時は後片付けして endTask を呼ぶ
-            self?.onExpiration?()
-            self?.endTask()
+        let request = BGContinuedProcessingTaskRequest(
+            identifier: Self.continuedTaskIdentifier,
+            title: "壁紙を生成中",
+            subtitle: "壁紙候補画像を作成しています"
+        )
+        do {
+            try BGTaskScheduler.shared.submit(request)
+        } catch {
+            // submit 失敗は無視する（生成処理自体は続行する）
         }
     }
 
-    // バックグラウンドタスクを終了する
-    func endTask() {
-        guard backgroundTaskID != .invalid else { return }
-        UIApplication.shared.endBackgroundTask(backgroundTaskID)
-        backgroundTaskID = .invalid
-        onExpiration = nil
+    // BGContinuedProcessingTask ハンドラー（AppDelegate から呼ばれる）
+    func handleContinuedTask(_ task: BGContinuedProcessingTask) {
+        task.expirationHandler = { [weak self] in
+            self?.onExpiration?()
+            self?.onExpiration = nil
+            task.setTaskCompleted(success: false)
+        }
+        // 生成完了通知を受け取って task.setTaskCompleted を呼ぶ
+        NotificationCenter.default.addObserver(
+            forName: .generationTaskCompleted,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            self?.onExpiration = nil
+            let success = notification.userInfo?["success"] as? Bool ?? true
+            task.setTaskCompleted(success: success)
+        }
     }
 }

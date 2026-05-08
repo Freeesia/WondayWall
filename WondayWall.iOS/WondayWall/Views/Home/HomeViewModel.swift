@@ -1,12 +1,12 @@
 import Foundation
 import Observation
 import UIKit
+import Combine
 
 // ホーム画面の ViewModel
 @MainActor
 @Observable
 final class HomeViewModel {
-    var isGenerating = false
     var latestHistory: HistoryItem?
     // ローカルに解決済みの画像フルパス（非同期復元後に更新される）
     var latestImage: UIImage?
@@ -14,10 +14,20 @@ final class HomeViewModel {
     var errorMessage: String?
 
     private let environment: AppEnvironment
+    private var cancellables: Set<AnyCancellable> = []
 
     init(environment: AppEnvironment) {
         self.environment = environment
         loadLatestHistory()
+        // AppEnvironment.isGenerating を購読して生成完了時に履歴を再読み込みする
+        environment.$isGenerating
+            .receive(on: RunLoop.main)
+            .sink { [weak self] generating in
+                guard let self, !generating else { return }
+                self.loadLatestHistory()
+                Task<Void, Never> { @MainActor in await self.refreshLatestImage() }
+            }
+            .store(in: &cancellables)
     }
 
     func loadLatestHistory() {
@@ -36,15 +46,10 @@ final class HomeViewModel {
 
     // 手動生成を実行する
     func generate() async {
-        guard !isGenerating else { return }
-        isGenerating = true
-        defer { isGenerating = false }
         let result = await environment.coordinator.runManual()
-        latestHistory = result.isSuccess ? result : latestHistory
-        if !result.isSuccess {
+        if !result.isSuccess && result.status != .generating {
             errorMessage = result.errorSummary ?? "生成に失敗しました"
         }
-        await refreshLatestImage()
     }
 
     // 壁紙設定手順を表示する

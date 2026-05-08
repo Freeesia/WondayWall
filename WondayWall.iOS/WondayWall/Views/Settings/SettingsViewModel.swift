@@ -85,10 +85,11 @@ final class SettingsViewModel {
 
     // カレンダーアクセスが許可されているか
     var isCalendarAccessGranted: Bool {
-        if #available(iOS 17.0, *) {
-            return calendarAuthStatus == .fullAccess
-        } else {
-            return calendarAuthStatus == .authorized
-        }
+        calendarAuthStatus == .fullAccess
+    }
+
+    // カレンダーアクセスが明示的に拒否されているか
+    var isCalendarAccessDenied: Bool {
+        calendarAuthStatus == .denied
     }
 }

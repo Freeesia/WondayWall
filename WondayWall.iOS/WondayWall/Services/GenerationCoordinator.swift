@@ -11,8 +11,11 @@ actor GenerationCoordinator {
     private let notificationService: NotificationService
     private let fgBgTaskService: ForegroundBackgroundTaskService
 
-    // 現在生成中かどうか（UI 表示用）
+    // 現在生成中かどうか（多重起動ガード用）
     private(set) var isGenerating = false
+
+    // isGenerating 変化時に MainActor で呼ばれるコールバック（AppEnvironment への通知用）
+    private var onIsGeneratingChanged: (@MainActor (Bool) -> Void)?
 
     // キャンセル用タスク
     private var currentTask: Task<HistoryItem, Error>?
@@ -24,7 +27,8 @@ actor GenerationCoordinator {
         wallpaperService: WallpaperService,
         historyService: HistoryService,
         notificationService: NotificationService,
-        fgBgTaskService: ForegroundBackgroundTaskService
+        fgBgTaskService: ForegroundBackgroundTaskService,
+        onIsGeneratingChanged: (@MainActor (Bool) -> Void)? = nil
     ) {
         self.configService = configService
         self.contextService = contextService
@@ -33,28 +37,43 @@ actor GenerationCoordinator {
         self.historyService = historyService
         self.notificationService = notificationService
         self.fgBgTaskService = fgBgTaskService
+        self.onIsGeneratingChanged = onIsGeneratingChanged
+    }
+
+    // isGenerating 変化のコールバックを登録する（init 後に AppEnvironment から呼ぶ）
+    func setIsGeneratingHandler(_ handler: @escaping @MainActor (Bool) -> Void) {
+        onIsGeneratingChanged = handler
+    }
+
+    // isGenerating を更新し、コールバック経由で AppEnvironment にも反映する
+    private func setIsGenerating(_ value: Bool) async {
+        isGenerating = value
+        if let cb = onIsGeneratingChanged {
+            await MainActor.run { cb(value) }
+        }
     }
 
     // 手動生成を実行する
-    // バックグラウンド移行に備えて beginBackgroundTask を開始する
+    // バックグラウンド移行に備えて BGContinuedProcessingTask を開始する
     func runManual() async -> HistoryItem {
-        isGenerating = true
-        defer { isGenerating = false }
+        await setIsGenerating(true)
+        defer { Task { await self.setIsGenerating(false) } }
 
-        // バックグラウンド移行時の短時間継続タスクを開始
+        // バックグラウンド移行時の BGContinuedProcessingTask を開始する
         fgBgTaskService.beginTask { [weak self] in
             Task { await self?.handleBackgroundExpiration() }
         }
-        defer { fgBgTaskService.endTask() }
 
-        let skipIfNoChanges = configService.config.skipIfNoChanges
-        // 手動生成は Standard モードで実行（リアルタイムで八次が必要）
-        return await runCore(skipIfNoChanges: skipIfNoChanges, serviceTier: .standard)
+        // 手動生成は変化がなくても必ず実行し、自動生成の枠も消費する
+        let tier: GoogleAiServiceTier = configService.config.forceFlexTier ? .flex : .standard
+        return await runCore(skipIfNoChanges: false, serviceTier: tier)
     }
 
     // 定期生成が必要か判定し、必要なら1回だけ生成する
     // スキップの場合は nil を返す
     func runScheduledIfNeeded(now: Date = Date()) async throws -> HistoryItem? {
+        // 多重実行を防止する
+        guard !isGenerating else { return nil }
         let config = configService.config
         guard config.autoGenerationEnabled else { return nil }
 
@@ -73,8 +92,8 @@ actor GenerationCoordinator {
             return nil
         }
 
-        isGenerating = true
-        defer { isGenerating = false }
+        await setIsGenerating(true)
+        defer { Task { await self.setIsGenerating(false) } }
 
         // バックグラウンド定期生成は Flex モードで実行（50% コスト削減，失敗時は Standard にフォールバック）
         return await runCore(skipIfNoChanges: config.skipIfNoChanges, serviceTier: .flex)
@@ -93,6 +112,13 @@ actor GenerationCoordinator {
         var usedEvents: [CalendarEventItem]? = nil
         var usedNews: [NewsTopicItem]? = nil
         var errorSummary: String? = nil
+
+        // 生成開始前に「生成中」ステータスの履歴を保存する
+        let generatingItem = HistoryItem(
+            executedAt: Date(),
+            status: .generating
+        )
+        historyService.append(generatingItem)
 
         do {
             let contextResult = await contextService.buildContext()
@@ -128,6 +154,9 @@ actor GenerationCoordinator {
                         imagePath: imageResult.filePath)
                 }
 
+                // 生成成功を通知する（フォアグラウンド中は ContentView 側で Toast として表示される）
+                NotificationCenter.default.post(name: .generationSucceededInForeground, object: nil)
+
                 // 通知・Photos 保存が完了したらローカルファイルは不要なので削除する
                 try? FileManager.default.removeItem(atPath: imageResult.filePath)
             }
@@ -137,7 +166,8 @@ actor GenerationCoordinator {
         }
 
         let historyItem = HistoryItem(
-            executedAt: Date(),
+            id: generatingItem.id,
+            executedAt: generatingItem.executedAt,
             status: status,
             usedCalendarEvents: usedEvents,
             usedNewsTopics: usedNews,
@@ -147,7 +177,8 @@ actor GenerationCoordinator {
             photoAssetId: photoAssetId
         )
 
-        historyService.append(historyItem)
+        // 生成中履歴を最終ステータスで更新する
+        historyService.update(historyItem)
 
         // 通知（失敗時のみここで送信。成功時は上で処理済み）
         if configService.config.notificationsEnabled {
@@ -156,6 +187,16 @@ actor GenerationCoordinator {
                     error: errorSummary ?? "不明なエラー"
                 )
             }
+        }
+
+        // BGContinuedProcessingTask の完了を通知する（iOS 17.4+ 向け）
+        let succeeded = status == .success || status == .skipped
+        await MainActor.run {
+            NotificationCenter.default.post(
+                name: .generationTaskCompleted,
+                object: nil,
+                userInfo: ["success": succeeded]
+            )
         }
 
         return historyItem

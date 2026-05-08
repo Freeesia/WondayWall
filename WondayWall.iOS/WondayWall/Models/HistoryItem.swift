@@ -5,6 +5,7 @@ enum GenerationStatus: String, Codable {
     case success = "success"
     case failure = "failure"
     case skipped = "skipped"
+    case generating = "generating"
 }
 
 // 生成履歴の1件

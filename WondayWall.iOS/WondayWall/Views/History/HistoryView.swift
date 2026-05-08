@@ -101,18 +101,21 @@ private struct HistoryContentView: View {
     }
 
     private func statusIcon(_ item: HistoryItem) -> String {
+        if item.status == .generating { return "hourglass" }
         if item.isSkipped { return "minus.circle" }
         if item.isSuccess { return "checkmark.circle.fill" }
         return "xmark.circle.fill"
     }
 
     private func statusColor(_ item: HistoryItem) -> Color {
+        if item.status == .generating { return .orange }
         if item.isSkipped { return .gray }
         if item.isSuccess { return .green }
         return .red
     }
 
     private func statusLabel(_ item: HistoryItem) -> String {
+        if item.status == .generating { return "生成中" }
         if item.isSkipped { return "スキップ" }
         if item.isSuccess { return "成功" }
         return "失敗"

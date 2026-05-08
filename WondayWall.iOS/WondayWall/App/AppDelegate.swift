@@ -30,6 +30,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
             }
         }
 
+        // BGContinuedProcessingTask ハンドラーを登録する
+        registerContinuedProcessingTask()
+
         // 通知デリゲートを設定する
         UNUserNotificationCenter.current().delegate = self
 
@@ -37,9 +40,30 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     }
 }
 
+// BGContinuedProcessingTask 登録
+extension AppDelegate {
+    func registerContinuedProcessingTask() {
+        BGTaskScheduler.shared.register(
+            forTaskWithIdentifier: ForegroundBackgroundTaskService.continuedTaskIdentifier,
+            using: nil
+        ) { task in
+            guard let continuedTask = task as? BGContinuedProcessingTask else {
+                task.setTaskCompleted(success: false)
+                return
+            }
+            if let service = ForegroundBackgroundTaskService.current {
+                service.handleContinuedTask(continuedTask)
+            } else {
+                continuedTask.setTaskCompleted(success: false)
+            }
+        }
+    }
+}
+
 // 通知タップ処理
 extension AppDelegate: UNUserNotificationCenterDelegate {
-    // フォアグラウンド中は通知を表示しない
+    // フォアグラウンド中の通知表示設定
+    // 成功通知はアプリ内 Toast で表示するため、フォアグラウンド中のシステム通知は非表示にする
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
@@ -66,4 +90,8 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
 
 extension Notification.Name {
     static let openHistoryNotification = Notification.Name("com.studiofreesia.wondaywall.openHistory")
+    // フォアグラウンド中に生成が成功したときに発火する通知
+    static let generationSucceededInForeground = Notification.Name("com.studiofreesia.wondaywall.generationSucceededInForeground")
+    // BGContinuedProcessingTask の完了を知らせる通知
+    static let generationTaskCompleted = Notification.Name("com.studiofreesia.wondaywall.generationTaskCompleted")
 }

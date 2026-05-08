@@ -22,17 +22,17 @@ final class ContextService {
 
     // カレンダーへアクセス許可済みかを確認する
     func canAccessCalendarSilently() -> Bool {
-        let status = calendarService.authorizationStatus()
-        if #available(iOS 17.0, *) {
-            return status == .fullAccess
-        } else {
-            return status == .authorized
-        }
+        calendarService.authorizationStatus() == .fullAccess
     }
 
-    // 端末に登録されているカレンダー一覧を返す
+    // 端末に登録されているカレンダー一覧を返す（ソース名→1カレンダー名順）
     func fetchAvailableCalendars() -> [CalendarSourceItem] {
-        calendarService.fetchCalendars().map { cal in
+        calendarService.fetchCalendars()
+            .sorted {
+                if $0.source.title != $1.source.title { return $0.source.title < $1.source.title }
+                return $0.title < $1.title
+            }
+            .map { cal in
             CalendarSourceItem(
                 id: cal.calendarIdentifier,
                 title: cal.title,
@@ -44,10 +44,13 @@ final class ContextService {
     }
 
     // 取得対象カレンダーの直近 7 日間のイベントを返す
+    // カレンダーが未選択の場合はイベントを取得しない
     func fetchCalendarEvents() -> [CalendarEventItem] {
         let targetIds = Set(configService.config.targetCalendarIds)
+        // カレンダーが未選択の場合はカレンダーを利用しない
+        guard !targetIds.isEmpty else { return [] }
         let allCalendars = calendarService.fetchCalendars()
-        let calendars = targetIds.isEmpty ? nil : allCalendars.filter { targetIds.contains($0.calendarIdentifier) }
+        let calendars = allCalendars.filter { targetIds.contains($0.calendarIdentifier) }
         return calendarService.fetchEvents(calendars: calendars).map { event in
             // eventIdentifier が nil の場合はタイトル・開始日・カレンダー ID のハッシュで代替する
             let eventId = event.eventIdentifier

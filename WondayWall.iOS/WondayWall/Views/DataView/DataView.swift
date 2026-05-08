@@ -137,13 +137,11 @@ private struct DataContentView: View {
     @ViewBuilder
     private var calendarRows: some View {
         let selectedIds = Set(environment.configService.config.targetCalendarIds)
-        let shown = selectedIds.isEmpty
-            ? vm.availableCalendars
-            : vm.availableCalendars.filter { selectedIds.contains($0.id) }
-        if shown.isEmpty {
-            Text("カレンダーが選択されていません")
+        if selectedIds.isEmpty {
+            Text("カレンダーを利用しません")
                 .foregroundStyle(.secondary)
         } else {
+            let shown = vm.availableCalendars.filter { selectedIds.contains($0.id) }
             ForEach(shown) { cal in
                 HStack(spacing: 8) {
                     if let hex = cal.colorHex, let color = Color(hex: hex) {

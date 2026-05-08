@@ -33,6 +33,17 @@ final class HistoryService {
         FileHelper.save(history, to: historyURL)
     }
 
+    // 指定した ID の履歴を更新する（生成中→完了への遷移に使用）
+    func update(_ item: HistoryItem) {
+        var history = load()
+        if let index = history.firstIndex(where: { $0.id == item.id }) {
+            history[index] = item
+        } else {
+            history.insert(item, at: 0)
+        }
+        FileHelper.save(history, to: historyURL)
+    }
+
     // 最後に成功した（スキップでない）履歴を返す
     func getLastSuccessfulGenerated() -> HistoryItem? {
         load().first { $0.isSuccess && !$0.isSkipped }

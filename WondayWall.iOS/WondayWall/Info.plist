@@ -22,6 +22,8 @@
         <key>BGTaskSchedulerPermittedIdentifiers</key>
         <array>
             <string>com.studiofreesia.wondaywall.generation</string>
+            <!-- 明示的なユーザーリクエスト用の continued processing task -->
+            <string>com.studiofreesia.wondaywall.manual</string>
         </array>
         <!-- バックグラウンドモード -->
         <key>UIBackgroundModes</key>

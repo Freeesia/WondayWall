@@ -4,6 +4,7 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject private var environment: AppEnvironment
     @State private var viewModel: SettingsViewModel?
+    @State private var showAbout = false
 
     var body: some View {
         NavigationStack {
@@ -15,6 +16,18 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("設定")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showAbout = true
+                    } label: {
+                        Image(systemName: "info.circle")
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $showAbout) {
+            AboutView()
         }
         .task {
             if viewModel == nil {
@@ -85,13 +98,24 @@ private struct SettingsContentView: View {
                 } else {
                     // カレンダーアクセス許可ボタン
                     Button {
-                        Task { await vm.requestCalendarAccess() }
+                        Task { 
+                            if !vm.isCalendarAccessDenied {
+                                await vm.requestCalendarAccess()
+                            } else {
+                                // 拒否済みの場合は設定アプリを開く
+                                if let url = URL(string: UIApplication.openSettingsURLString) {
+                                    await UIApplication.shared.open(url)
+                                }
+                            }
+                         }
                     } label: {
                         if vm.isRequestingCalendarAccess {
                             HStack {
                                 ProgressView()
                                 Text("許可をリクエスト中...")
                             }
+                        } else if vm.isCalendarAccessDenied {
+                            Label("設定アプリでアクセスを許可", systemImage: "gear")
                         } else {
                             Label("カレンダーへのアクセスを許可", systemImage: "calendar.badge.plus")
                         }
@@ -102,7 +126,7 @@ private struct SettingsContentView: View {
                 Text("カレンダー")
             } footer: {
                 if vm.isCalendarAccessGranted {
-                    Text("取得対象のカレンダーにチェックを入れてください（未選択時は全カレンダーを取得します）。")
+                    Text("取得対象のカレンダーにチェックを入れてください（未選択時はカレンダーを利用しません）。")
                         .font(.caption)
                 } else {
                     Text("""
@@ -174,6 +198,7 @@ private struct SettingsContentView: View {
 
                     Toggle("変化がなければスキップ", isOn: $vm.config.skipIfNoChanges)
                     Toggle("Wi-Fi 接続時のみ生成", isOn: $vm.config.wifiOnlyGeneration)
+                    Toggle("Flex ティアを強制使用", isOn: $vm.config.forceFlexTier)
                 }
             } header: {
                 Text("自動生成")
@@ -227,7 +252,7 @@ private struct SettingsContentView: View {
                     TextField(
                         "",
                         text: $vm.newRssURL,
-                        prompt: Text("https://example.com/feed.rss")
+                        prompt: Text(verbatim: "https://example.com/feed.rss")
                             .foregroundColor(Color(UIColor.placeholderText))
                     )
                     .keyboardType(.URL)
@@ -254,5 +279,126 @@ private struct SettingsContentView: View {
                 }
             }
         }
+    }
+}
+
+// アプリ情報シート — Win版の About タブに相当
+struct AboutView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
+
+    // アプリのバージョンを Info.plist から取得する
+    private var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 24) {
+                    // アプリアイコンと名前
+                    VStack(spacing: 8) {
+                        if let icon = appIcon {
+                            Image(uiImage: icon)
+                                .resizable()
+                                .frame(width: 80, height: 80)
+                                .clipShape(RoundedRectangle(cornerRadius: 18))
+                        }
+                        Text("WondayWall")
+                            .font(.title2)
+                            .fontWeight(.semibold)
+                        Text("Version \(appVersion)")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        Text("by Freeesia (StudioFreesia)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.top, 16)
+
+                    // リンク一覧
+                    VStack(spacing: 0) {
+                        aboutLinkRow(
+                            icon: "globe",
+                            title: "公式サイト",
+                            url: "https://ww.studiofreesia.com/"
+                        )
+                        Divider().padding(.leading, 52)
+                        aboutLinkRow(
+                            icon: "lock.shield",
+                            title: "プライバシーポリシー",
+                            url: "https://ww.studiofreesia.com/PrivacyPolicy"
+                        )
+                        Divider().padding(.leading, 52)
+                        aboutLinkRow(
+                            icon: "doc.text",
+                            title: "利用規約",
+                            url: "https://ww.studiofreesia.com/Terms_of_Use"
+                        )
+                        Divider().padding(.leading, 52)
+                        aboutLinkRow(
+                            icon: "photo.on.rectangle",
+                            title: "生成画像の利用について",
+                            url: "https://ww.studiofreesia.com/GeneratedImageUsage"
+                        )
+                        Divider().padding(.leading, 52)
+                        aboutLinkRow(
+                            icon: "megaphone",
+                            title: "リリースノート",
+                            url: "https://github.com/Freeesia/WondayWall/releases"
+                        )
+                        Divider().padding(.leading, 52)
+                        aboutLinkRow(
+                            icon: "chevron.left.forwardslash.chevron.right",
+                            title: "GitHub",
+                            url: "https://github.com/Freeesia/WondayWall"
+                        )
+                    }
+                    .background(Color(.systemGray6))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .padding(.horizontal)
+                }
+                .padding(.bottom, 32)
+            }
+            .navigationTitle("アプリについて")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("閉じる") { dismiss() }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func aboutLinkRow(icon: String, title: String, url: String) -> some View {
+        Button {
+            if let u = URL(string: url) { openURL(u) }
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .frame(width: 28)
+                    .foregroundStyle(Color.accentColor)
+                Text(title)
+                    .foregroundStyle(.primary)
+                Spacer()
+                Image(systemName: "arrow.up.right")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+        }
+    }
+
+    // アプリアイコンを Info.plist から取得する
+    private var appIcon: UIImage? {
+        guard
+            let icons = Bundle.main.infoDictionary?["CFBundleIcons"] as? [String: Any],
+            let primaryIcon = icons["CFBundlePrimaryIcon"] as? [String: Any],
+            let iconFiles = primaryIcon["CFBundleIconFiles"] as? [String],
+            let lastIcon = iconFiles.last
+        else { return nil }
+        return UIImage(named: lastIcon)
     }
 }

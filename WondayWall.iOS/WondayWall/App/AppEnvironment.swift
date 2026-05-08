@@ -15,6 +15,10 @@ final class AppEnvironment: ObservableObject {
     let coordinator: GenerationCoordinator
     let backgroundTaskService: BackgroundTaskService
 
+    // 生成中かどうか（手動・バックグラウンド両方を含む）
+    // GenerationCoordinator から MainActor.run で更新される
+    @Published var isGenerating: Bool = false
+
     init() {
         let config = AppConfigService()
         let history = HistoryService()
@@ -49,5 +53,10 @@ final class AppEnvironment: ObservableObject {
         self.fgBgTaskService = fgBg
         self.coordinator = coord
         self.backgroundTaskService = bgTask
+
+        // 全プロパティ初期化後にコールバックを設定する
+        Task { await coord.setIsGeneratingHandler { [weak self] value in
+            self?.isGenerating = value
+        } }
     }
 }
