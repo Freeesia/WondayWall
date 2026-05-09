@@ -225,7 +225,8 @@ final class ContextService {
     }
 
     // 画像生成用コンテキストを構築する
-    func buildContext() async -> ContextBuildResult {
+    // onProgress は 0.0〜1.0 の進捗を通知する
+    func buildContext(onProgress: ((Double, String) -> Void)? = nil) async -> ContextBuildResult {
         let config = configService.config
         let cal = Calendar.current
 
@@ -234,10 +235,13 @@ final class ContextService {
         let aspectRatio = DisplayHelper.closestGeminiAspectRatio(for: nativeSize)
 
         // カレンダーイベントを最大5件取得
+        onProgress?(0.05, "カレンダーの取得中")
         let allEvents = fetchCalendarEvents()
         let events = Array(allEvents.prefix(5))
+        onProgress?(0.12, "カレンダーの取得完了")
 
         // ニューストピックを取得して選別する
+        onProgress?(0.18, "ニュースの取得中")
         let weekAgo = Date().addingTimeInterval(-7 * 24 * 3600)
         let rawRssItems = await withTaskGroup(of: [RssItem].self) { group in
             for sourceUrl in configService.config.rssSources {
@@ -247,12 +251,14 @@ final class ContextService {
             for await items in group { all.append(contentsOf: items) }
             return all.sorted { $0.publishedAt > $1.publishedAt }
         }
+        onProgress?(0.24, "ニュースの取得完了")
         let lastGenerated = historyService.getLastSuccessfulGenerated()
         let selectedRssItems = selectPromptNewsItems(
             recentNews: rawRssItems,
             lastGeneratedAt: lastGenerated?.executedAt
         )
         // 選別したアイテムの OGP 画像を並列取得する（最大10件）
+        onProgress?(0.30, "OGP画像の取得中")
         let ogpURLs = await withTaskGroup(of: (String, String?).self) { group in
             for item in selectedRssItems.prefix(10) {
                 if let url = item.url {
@@ -265,6 +271,7 @@ final class ContextService {
             }
             return map
         }
+        onProgress?(0.35, "コンテキスト生成完了")
         let news: [NewsTopicItem] = selectedRssItems.map { item in
             let ogp = item.url.flatMap { ogpURLs[$0] }
             return NewsTopicItem(

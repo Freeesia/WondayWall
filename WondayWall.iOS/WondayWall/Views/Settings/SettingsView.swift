@@ -1,4 +1,5 @@
 import SwiftUI
+import BackgroundTasks
 
 // 設定画面 — API キー・カレンダー・RSS・生成設定・通知
 struct SettingsView: View {
@@ -294,6 +295,7 @@ private struct SettingsContentView: View {
 struct AboutView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
+    @State private var showDebugSheet = false
 
     // アプリのバージョンを Info.plist から取得する
     private var appVersion: String {
@@ -365,6 +367,29 @@ struct AboutView: View {
                     .background(Color(.systemGray6))
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                     .padding(.horizontal)
+
+                    VStack(spacing: 0) {
+                        Button {
+                            showDebugSheet = true
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "ladybug")
+                                    .frame(width: 28)
+                                    .foregroundStyle(Color.accentColor)
+                                Text("デバッグ情報")
+                                    .foregroundStyle(.primary)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                        }
+                    }
+                    .background(Color(.systemGray6))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .padding(.horizontal)
                 }
                 .padding(.bottom, 32)
             }
@@ -374,6 +399,9 @@ struct AboutView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("閉じる") { dismiss() }
                 }
+            }
+            .sheet(isPresented: $showDebugSheet) {
+                DebugInfoSheetView()
             }
         }
     }
@@ -409,4 +437,116 @@ struct AboutView: View {
         else { return nil }
         return UIImage(named: lastIcon)
     }
+}
+
+// デバッグ情報シート
+// BGTaskScheduler に登録されている pending request と設定状態を確認できる
+private struct DebugInfoSheetView: View {
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var environment: AppEnvironment
+
+    @State private var isLoading = false
+    @State private var pendingRequests: [BGTaskRequest] = []
+    @State private var loadedAt: Date?
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section("アプリ状態") {
+                    LabeledContent("自動生成") {
+                        Text(environment.configService.config.autoGenerationEnabled ? "ON" : "OFF")
+                    }
+                    LabeledContent("生成中") {
+                        Text(environment.isGenerating ? "YES" : "NO")
+                    }
+                    LabeledContent("起動時生成条件") {
+                        Text(
+                            environment.configService.hasMinimumConfigurationForStartupGeneration()
+                                ? "満たす" : "未設定"
+                        )
+                    }
+                    LabeledContent("最終取得") {
+                        Text(loadedAt.map(Self.formatter.string(from:)) ?? "未取得")
+                    }
+                }
+
+                Section("登録済みバックグラウンドタスク") {
+                    if pendingRequests.isEmpty {
+                        Text(isLoading ? "読み込み中..." : "登録なし")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(Array(pendingRequests.enumerated()), id: \.offset) { _, request in
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(request.identifier)
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                                Text(taskKind(for: request))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                if let begin = request.earliestBeginDate {
+                                    Text("earliestBeginDate: \(Self.formatter.string(from: begin))")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                if let processing = request as? BGProcessingTaskRequest {
+                                    Text("network: \(processing.requiresNetworkConnectivity ? "required" : "optional"), power: \(processing.requiresExternalPower ? "required" : "optional")")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .padding(.vertical, 2)
+                        }
+                    }
+                }
+            }
+            .navigationTitle("デバッグ情報")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("更新") {
+                        Task { await reload() }
+                    }
+                    .disabled(isLoading)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("閉じる") { dismiss() }
+                }
+            }
+            .task {
+                await reload()
+            }
+        }
+    }
+
+    private func reload() async {
+        isLoading = true
+        defer { isLoading = false }
+        pendingRequests = await fetchPendingRequests()
+        loadedAt = Date()
+    }
+
+    private func fetchPendingRequests() async -> [BGTaskRequest] {
+        await withCheckedContinuation { continuation in
+            BGTaskScheduler.shared.getPendingTaskRequests { requests in
+                continuation.resume(returning: requests)
+            }
+        }
+    }
+
+    private func taskKind(for request: BGTaskRequest) -> String {
+        if request is BGProcessingTaskRequest {
+            return "BGProcessingTaskRequest"
+        }
+        if #available(iOS 17.4, *), request is BGContinuedProcessingTaskRequest {
+            return "BGContinuedProcessingTaskRequest"
+        }
+        return "BGTaskRequest"
+    }
+
+    private static let formatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateStyle = .medium
+        f.timeStyle = .medium
+        return f
+    }()
 }

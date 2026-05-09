@@ -131,7 +131,11 @@ actor GenerationCoordinator {
         historyService.append(generatingItem)
 
         do {
-            let contextResult = await contextService.buildContext()
+            await postProgress(0.01, message: "処理を開始")
+            let contextResult = await contextService.buildContext { [weak self] progress, message in
+                guard let self else { return }
+                Task { await self.postProgress(progress, message: message) }
+            }
             let context = contextResult.promptContext
 
             // 変化がなければスキップする判定
@@ -145,7 +149,13 @@ actor GenerationCoordinator {
                 status = .skipped
             } else {
                 let imageResult = try await googleAiService.generateWallpaper(
-                    context: context, serviceTier: serviceTier)
+                    context: context,
+                    serviceTier: serviceTier,
+                    onProgress: { [weak self] progress, message in
+                        guard let self else { return }
+                        Task { await self.postProgress(progress, message: message) }
+                    }
+                )
                 usedEvents = contextResult.calendarEvents
                 usedNews = contextResult.newsTopics
                 status = .success
@@ -170,6 +180,7 @@ actor GenerationCoordinator {
 
                 // 通知・Photos 保存が完了したらローカルファイルは不要なので削除する
                 try? FileManager.default.removeItem(atPath: imageResult.filePath)
+                await postProgress(1.0, message: "処理完了")
             }
         } catch {
             errorSummary = error.localizedDescription
@@ -211,6 +222,21 @@ actor GenerationCoordinator {
         }
 
         return historyItem
+    }
+
+    // BGContinuedProcessingTask 向けに生成進捗を通知する
+    private func postProgress(_ value: Double, message: String) async {
+        let clamped = max(0, min(100, Int((value * 100).rounded())))
+        await MainActor.run {
+            NotificationCenter.default.post(
+                name: .generationTaskProgress,
+                object: nil,
+                userInfo: [
+                    "progress": clamped,
+                    "message": message,
+                ]
+            )
+        }
     }
 
     // バックグラウンドタスクの期限切れ時の後片付け

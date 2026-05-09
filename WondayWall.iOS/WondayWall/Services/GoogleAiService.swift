@@ -22,7 +22,8 @@ final class GoogleAiService {
     // serviceTier: バックグラウンド生成時は .flex を指定（Flex 失敗時は Standard にフォールバック）
     func generateWallpaper(
         context: PromptContext,
-        serviceTier: GoogleAiServiceTier = .standard
+        serviceTier: GoogleAiServiceTier = .standard,
+        onProgress: ((Double, String) -> Void)? = nil
     ) async throws -> GeneratedImageResult {
         let apiKey = configService.googleAiApiKey
         guard !apiKey.isEmpty else {
@@ -36,22 +37,40 @@ final class GoogleAiService {
 
         // ステップ1: テキストモデルで詳細な画像プロンプトを生成
         // Flex 失敗時は Standard にフォールバック
-        let promptSelection = try await generatePromptSelectionWithFallback(
-            context: context, apiKey: apiKey, serviceTier: serviceTier)
+        onProgress?(0.35, "画像生成プロンプトの生成中")
+        let promptSelection = try await runWithSyntheticProgress(
+            start: 0.35,
+            end: 0.65,
+            onProgress: { onProgress?($0, "画像生成プロンプトの生成中") }
+        ) {
+            try await self.generatePromptSelectionWithFallback(
+                context: context,
+                apiKey: apiKey,
+                serviceTier: serviceTier
+            )
+        }
 
         // ステップ2: 画像モデルで壁紙を生成
         // Flex 失敗時は Standard にフォールバック
-        let imageData = try await generateImageWithFallback(
-            prompt: promptSelection.imagePrompt,
-            context: context,
-            selectedNewsIds: Set(promptSelection.selectedNewsIds),
-            apiKey: apiKey,
-            serviceTier: serviceTier
-        )
+        onProgress?(0.65, "壁紙画像の生成中")
+        let imageData = try await runWithSyntheticProgress(
+            start: 0.65,
+            end: 0.95,
+            onProgress: { onProgress?($0, "壁紙画像の生成中") }
+        ) {
+            try await self.generateImageWithFallback(
+                prompt: promptSelection.imagePrompt,
+                context: context,
+                selectedNewsIds: Set(promptSelection.selectedNewsIds),
+                apiKey: apiKey,
+                serviceTier: serviceTier
+            )
+        }
 
         // 画像をローカルに保存
         let filePath = FileHelper.getImageFilePath(extension: imageData.extension)
         try imageData.bytes.write(to: filePath, options: .atomic)
+        onProgress?(1.0, "画像生成完了")
 
         return GeneratedImageResult(
             filePath: filePath.path,
@@ -402,6 +421,37 @@ final class GoogleAiService {
         case "webp": return "image/webp"
         default: return "image/jpeg"
         }
+    }
+
+    // 長時間待機の間に擬似進捗を更新して、BGContinuedProcessingTask が無進捗で終了されるのを防ぐ
+    private func runWithSyntheticProgress<T>(
+        start: Double,
+        end: Double,
+        intervalNanoseconds: UInt64 = 1_000_000_000,
+        onProgress: @escaping (Double) -> Void,
+        operation: @escaping () async throws -> T
+    ) async throws -> T {
+        let clampedStart = max(0.0, min(1.0, start))
+        let clampedEnd = max(clampedStart, min(1.0, end))
+        onProgress(clampedStart)
+
+        let step = max((clampedEnd - clampedStart) / 20.0, 0.01)
+        let ticker = Task {
+            var current = clampedStart
+            while !Task.isCancelled && current < clampedEnd {
+                try? await Task.sleep(nanoseconds: intervalNanoseconds)
+                current = min(clampedEnd, current + step)
+                onProgress(current)
+            }
+        }
+
+        defer {
+            ticker.cancel()
+        }
+
+        let result = try await operation()
+        onProgress(clampedEnd)
+        return result
     }
 
     // MARK: - Gemini API リクエスト/レスポンスモデル

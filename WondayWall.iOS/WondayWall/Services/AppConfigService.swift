@@ -43,4 +43,16 @@ final class AppConfigService {
         block(&config)
         save()
     }
+
+    // 起動時補完生成を実行できる最低限の設定が揃っているかを判定する
+    // APIキー未設定、かつ入力コンテキストが一切ない場合は未設定とみなす
+    func hasMinimumConfigurationForStartupGeneration() -> Bool {
+        let hasApiKey = !googleAiApiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        guard hasApiKey else { return false }
+
+        let hasCalendar = !config.targetCalendarIds.isEmpty
+        let hasRss = !config.rssSources.isEmpty
+        let hasUserPrompt = !config.userPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        return hasCalendar || hasRss || hasUserPrompt
+    }
 }
