@@ -62,34 +62,32 @@ private struct HomeContentView: View {
                         }
 
                         // コンテンツカード
-                        VStack(spacing: 12) {
-                            // 直近実行結果バッジ（成功時は表示しない）
-                            if let history = vm.latestHistory, !history.isSuccess {
-                                lastResultBadge(history: history)
-                            }
-
-                            // 最新生成で使用したニュース一覧
-                            if let news = vm.latestHistory?.usedNewsTopics, !news.isEmpty {
-                                usedNewsSection(news)
-                            }
+                        // 最新生成で使用した予定一覧
+                        if let events = vm.latestHistory?.usedCalendarEvents, !events.isEmpty {
+                            LinearGradient(colors: [.clear, Color(.systemGray5).opacity(0.8)], startPoint: .top, endPoint: .bottom)
+                                .frame(height: 24)
+                                .frame(maxWidth: .infinity)
+                                .allowsHitTesting(false)
+                            usedEventsSection(events)
+                                .padding(.horizontal)
+                                .background(LinearGradient(colors: [Color(.systemGray5).opacity(0.8), .clear], startPoint: .top, endPoint: .bottom))
                         }
-                        .padding()
-                        .background(vm.latestImage != nil ? AnyShapeStyle(.regularMaterial) : AnyShapeStyle(Color.clear))
-                        .frame(minHeight: geo.size.height * (vm.latestImage != nil ? 1.0 / 3.0 : 1.0), alignment: .top)
+                        // 最新生成で使用したニュース一覧
+                        if let news = vm.latestHistory?.usedNewsTopics, !news.isEmpty {
+                            LinearGradient(colors: [.clear, Color(.systemGray5).opacity(0.8)], startPoint: .top, endPoint: .bottom)
+                                .frame(height: 24)
+                                .frame(maxWidth: .infinity)
+                                .allowsHitTesting(false)
+                            usedNewsSection(news)
+                                .padding(.horizontal)
+                                .background(LinearGradient(colors: [Color(.systemGray5).opacity(0.8), .clear], startPoint: .top, endPoint: .bottom))
+                        }
 
                         // FAB 分の下余白
                         Spacer().frame(height: 80)
                     }
                 }
                 .scrollContentBackground(.hidden)
-                .alert("エラー", isPresented: Binding(
-                    get: { vm.errorMessage != nil },
-                    set: { if !$0 { vm.errorMessage = nil } }
-                )) {
-                    Button("OK") { vm.errorMessage = nil }
-                } message: {
-                    Text(vm.errorMessage ?? "")
-                }
                 .sheet(isPresented: Binding(
                     get: { vm.showInstructions },
                     set: { vm.showInstructions = $0 }
@@ -112,23 +110,51 @@ private struct HomeContentView: View {
         .ignoresSafeArea(edges: .top)
     }
 
-    // 直近実行結果バッジ
+    // 使用した予定セクション
     @ViewBuilder
-    private func lastResultBadge(history: HistoryItem) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: statusIcon(history))
-                .foregroundStyle(statusColor(history))
-            Text(statusText(history))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            Spacer()
-            Text(history.executedAt, style: .relative)
-                .font(.caption)
-                .foregroundStyle(.tertiary)
+    private func usedEventsSection(_ events: [CalendarEventItem]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("使用した予定", systemImage: "calendar")
+                .font(.headline)
+            VStack(spacing: 0) {
+                ForEach(Array(events.enumerated()), id: \.element.id) { index, event in
+                    if index > 0 {
+                        Divider()
+                            .padding(.leading, 12)
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(event.title).font(.subheadline)
+                        HStack {
+                            if event.isAllDay {
+                                Text(event.startTime, style: .date)
+                                    .font(.caption).foregroundStyle(.secondary)
+                                Text("終日")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            } else {
+                                Text(event.startTime, style: .date)
+                                    .font(.caption).foregroundStyle(.secondary)
+                                Text(event.startTime, style: .time)
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                            if let location = event.location {
+                                Text("·")
+                                    .foregroundStyle(.secondary)
+                                Text(location)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .background(AnyShapeStyle(.regularMaterial))
+            .cornerRadius(10)
         }
-        .padding(12)
-        .background(Color(.systemGray6))
-        .cornerRadius(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // 使用したニュース一覧
@@ -149,7 +175,7 @@ private struct HomeContentView: View {
                     }
                 }
             }
-            .background(Color(.systemGray5))
+            .background(AnyShapeStyle(.regularMaterial))
             .cornerRadius(10)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
