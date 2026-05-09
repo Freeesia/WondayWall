@@ -21,6 +21,16 @@ WondayWall.Wix/generated/
 publish/
 artifacts/
 
+# XcodeGen 生成物
+WondayWall.iOS/WondayWall.xcodeproj/*
+!WondayWall.iOS/WondayWall.xcodeproj/project.xcworkspace/
+WondayWall.iOS/WondayWall.xcodeproj/project.xcworkspace/*
+!WondayWall.iOS/WondayWall.xcodeproj/project.xcworkspace/xcshareddata/
+WondayWall.iOS/WondayWall.xcodeproj/project.xcworkspace/xcshareddata/*
+!WondayWall.iOS/WondayWall.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
+WondayWall.iOS/WondayWall.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/*
+!WondayWall.iOS/WondayWall.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+
 ## User settings
 xcuserdata/
 

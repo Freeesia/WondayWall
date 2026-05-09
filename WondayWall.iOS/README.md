@@ -5,14 +5,17 @@
 ## 必要環境
 
 - Xcode 16.0 以降
+- XcodeGen 2.45.4 以降
 - iOS 17.0 以降（実機またはシミュレーター）
 - Google Cloud プロジェクト（Calendar API 有効化済み）
 - Google AI Studio API キー
 
 ## ビルド方法
 
-1. `WondayWall.iOS/WondayWall.xcodeproj` を Xcode で開く
-2. ターゲットデバイスを選択してビルド・実行
+1. `cd WondayWall.iOS`
+2. `xcodegen generate`
+3. `WondayWall.xcodeproj` を Xcode で開く
+4. ターゲットデバイスを選択してビルド・実行
 
 ## 初期設定
 
@@ -24,7 +27,8 @@
 
 ```
 WondayWall.iOS/
-├── WondayWall.xcodeproj/       # Xcode プロジェクトファイル
+├── project.yml                 # XcodeGen プロジェクト定義
+├── WondayWall.xcodeproj/       # XcodeGen 生成物（Package.resolved のみ管理対象）
 └── WondayWall/
     ├── App/                    # エントリポイント・DI コンテナ
     │   ├── WondayWallApp.swift  # @main エントリポイント
