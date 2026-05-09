@@ -60,14 +60,6 @@ private struct HistoryContentView: View {
                 EditButton()
             }
         }
-        .alert("エラー", isPresented: Binding(
-            get: { vm.errorMessage != nil },
-            set: { if !$0 { vm.errorMessage = nil } }
-        )) {
-            Button("OK") { vm.errorMessage = nil }
-        } message: {
-            Text(vm.errorMessage ?? "")
-        }
     }
 
     @ViewBuilder
