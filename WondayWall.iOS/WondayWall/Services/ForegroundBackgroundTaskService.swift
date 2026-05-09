@@ -1,7 +1,7 @@
 import Foundation
 import BackgroundTasks
 
-// 手動生成中にアプリがバックグラウンドへ移った場合の継続を管理するサービス
+// 手動生成・起動時生成中にアプリがバックグラウンドへ移った場合の継続を管理するサービス
 // BGContinuedProcessingTask を使い、ユーザーに進捗を明示しながら処理を継続する
 final class ForegroundBackgroundTaskService {
     // BGContinuedProcessingTask の識別子（Info.plist に登録済み）
@@ -16,7 +16,7 @@ final class ForegroundBackgroundTaskService {
         ForegroundBackgroundTaskService.current = self
     }
 
-    // 手動生成を BGContinuedProcessingTask 経由で開始する
+    // フォアグラウンド開始の生成を BGContinuedProcessingTask 経由で開始する
     func beginTask(onExpiration: @escaping () -> Void) {
         self.onExpiration = onExpiration
         let request = BGContinuedProcessingTaskRequest(

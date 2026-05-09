@@ -48,4 +48,13 @@ final class HistoryService {
     func getLastSuccessfulGenerated() -> HistoryItem? {
         load().first { $0.isSuccess && !$0.isSkipped }
     }
+
+    // 最後に完了した生成試行を返す
+    // スケジュール枠の消費判定では成功・失敗のどちらも実行済みとして扱う
+    func getLastCompletedRun() -> HistoryItem? {
+        load()
+            .filter { $0.status != .generating }
+            .sorted { $0.executedAt > $1.executedAt }
+            .first
+    }
 }

@@ -67,7 +67,7 @@ final class BackgroundTaskService {
     // BGProcessingTask が実行されなかった場合の取りこぼし補完として機能する
     func checkAndRunIfNeeded() async {
         guard configService.config.autoGenerationEnabled else { return }
-        _ = try? await coordinator.runScheduledIfNeeded()
+        _ = try? await coordinator.runScheduledIfNeeded(useContinuedTask: true)
         scheduleNextBackgroundTask()
     }
 }

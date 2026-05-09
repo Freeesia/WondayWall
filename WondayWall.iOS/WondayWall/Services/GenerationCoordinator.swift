@@ -71,7 +71,10 @@ actor GenerationCoordinator {
 
     // 定期生成が必要か判定し、必要なら1回だけ生成する
     // スキップの場合は nil を返す
-    func runScheduledIfNeeded(now: Date = Date()) async throws -> HistoryItem? {
+    func runScheduledIfNeeded(
+        now: Date = Date(),
+        useContinuedTask: Bool = false
+    ) async throws -> HistoryItem? {
         // 多重実行を防止する
         guard !isGenerating else { return nil }
         let config = configService.config
@@ -83,10 +86,10 @@ actor GenerationCoordinator {
             return nil
         }
 
-        let lastSuccessAt = historyService.getLastSuccessfulGenerated()?.executedAt
+        let lastRunAt = historyService.getLastCompletedRun()?.executedAt
         guard ScheduleHelper.isPendingGeneration(
             now: now,
-            lastSuccessAt: lastSuccessAt,
+            lastRunAt: lastRunAt,
             schedule: config.schedule
         ) else {
             return nil
@@ -94,6 +97,13 @@ actor GenerationCoordinator {
 
         await setIsGenerating(true)
         defer { Task { await self.setIsGenerating(false) } }
+
+        // アプリ起動・フォアグラウンド復帰時の補完生成はバックグラウンド移行に備える
+        if useContinuedTask {
+            fgBgTaskService.beginTask { [weak self] in
+                Task { await self?.handleBackgroundExpiration() }
+            }
+        }
 
         // バックグラウンド定期生成は Flex モードで実行（50% コスト削減，失敗時は Standard にフォールバック）
         return await runCore(skipIfNoChanges: config.skipIfNoChanges, serviceTier: .flex)

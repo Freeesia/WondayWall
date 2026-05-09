@@ -106,11 +106,11 @@ enum ScheduleHelper {
     }
 
     // 未処理スロットがあるか判定する
-    // 最新スロット以降に成功履歴がなければ true を返す
-    static func isPendingGeneration(now: Date, lastSuccessAt: Date?, schedule: UpdateSchedule) -> Bool {
+    // 最新スロット以降に完了済み履歴がなければ true を返す
+    static func isPendingGeneration(now: Date, lastRunAt: Date?, schedule: UpdateSchedule) -> Bool {
         let latestSlot = getLatestScheduledSlotAtOrBefore(now, schedule: schedule)
-        guard let lastSuccess = lastSuccessAt else { return true }
-        return lastSuccess < latestSlot
+        guard let lastRun = lastRunAt else { return true }
+        return lastRun < latestSlot
     }
 
     // 表示用文字列を返す
@@ -124,4 +124,3 @@ enum ScheduleHelper {
         }
     }
 }
-
