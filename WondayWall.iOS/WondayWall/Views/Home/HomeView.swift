@@ -41,73 +41,80 @@ private struct HomeContentView: View {
 
     var body: some View {
         GeometryReader { geo in
-            ZStack(alignment: .bottomTrailing) {
+            ScrollView {
+                VStack(spacing: 0) {
+                    if vm.latestImage != nil {
+                        // 無の領域 — 背景画像を見せるための空白（画面の2/3）
+                        Color.clear
+                            .frame(height: geo.size.height * 2.0 / 3.0)
+                    }
+
+                    // コンテンツカード
+                    // 最新生成で使用した予定一覧
+                    if let events = vm.latestHistory?.usedCalendarEvents, !events.isEmpty {
+                        LinearGradient(colors: [.clear, Color(.systemGray5).opacity(0.8)], startPoint: .top, endPoint: .bottom)
+                            .frame(height: 24)
+                            .frame(maxWidth: .infinity)
+                            .allowsHitTesting(false)
+                        usedEventsSection(events)
+                            .padding(.horizontal)
+                            .background(LinearGradient(colors: [Color(.systemGray5).opacity(0.8), .clear], startPoint: .top, endPoint: .bottom))
+                    }
+                    // 最新生成で使用したニュース一覧
+                    if let news = vm.latestHistory?.usedNewsTopics, !news.isEmpty {
+                        LinearGradient(colors: [.clear, Color(.systemGray5).opacity(0.8)], startPoint: .top, endPoint: .bottom)
+                            .frame(height: 24)
+                            .frame(maxWidth: .infinity)
+                            .allowsHitTesting(false)
+                        usedNewsSection(news)
+                            .padding(.horizontal)
+                            .background(LinearGradient(colors: [Color(.systemGray5).opacity(0.8), .clear], startPoint: .top, endPoint: .bottom))
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .scrollContentBackground(.hidden)
+            .sheet(isPresented: Binding(
+                get: { vm.showInstructions },
+                set: { vm.showInstructions = $0 }
+            )) {
+                WallpaperInstructionsView()
+            }
+            .sheet(isPresented: Binding(
+                get: { vm.showGenerationSheet },
+                set: { vm.showGenerationSheet = $0 }
+            )) {
+                GenerationConfirmSheet(vm: vm)
+            }
+            .background{
                 // 最新壁紙を全画面背景として表示する（タブバー裏まで伸ばす）
                 if let image = vm.latestImage {
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFill()
-                        .frame(width: geo.size.width, height: geo.size.height, alignment: .top)
-                        .clipped()
-                        .allowsHitTesting(false)
-                }
-
-                // スクロールコンテンツ（画像の上に重なる）
-                ScrollView {
-                    VStack(spacing: 0) {
-                        if vm.latestImage != nil {
-                            // 無の領域 — 背景画像を見せるための空白（画面の2/3）
-                            Color.clear
-                                .frame(height: geo.size.height * 2.0 / 3.0)
+                        .ignoresSafeArea(.container, edges: .all)
+                } else {
+                    ZStack() {
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(Color(.systemGray5))
+                        VStack(spacing: 8) {
+                            Image(systemName: "photo.on.rectangle.angled")
+                                .font(.system(size: 48))
+                                .foregroundStyle(.secondary)
+                            Text("まだ壁紙がありません")
+                                .foregroundStyle(.secondary)
                         }
-
-                        // コンテンツカード
-                        // 最新生成で使用した予定一覧
-                        if let events = vm.latestHistory?.usedCalendarEvents, !events.isEmpty {
-                            LinearGradient(colors: [.clear, Color(.systemGray5).opacity(0.8)], startPoint: .top, endPoint: .bottom)
-                                .frame(height: 24)
-                                .frame(maxWidth: .infinity)
-                                .allowsHitTesting(false)
-                            usedEventsSection(events)
-                                .padding(.horizontal)
-                                .background(LinearGradient(colors: [Color(.systemGray5).opacity(0.8), .clear], startPoint: .top, endPoint: .bottom))
-                        }
-                        // 最新生成で使用したニュース一覧
-                        if let news = vm.latestHistory?.usedNewsTopics, !news.isEmpty {
-                            LinearGradient(colors: [.clear, Color(.systemGray5).opacity(0.8)], startPoint: .top, endPoint: .bottom)
-                                .frame(height: 24)
-                                .frame(maxWidth: .infinity)
-                                .allowsHitTesting(false)
-                            usedNewsSection(news)
-                                .padding(.horizontal)
-                                .background(LinearGradient(colors: [Color(.systemGray5).opacity(0.8), .clear], startPoint: .top, endPoint: .bottom))
-                        }
-
-                        // FAB 分の下余白
-                        Spacer().frame(height: 80)
                     }
+                    .padding()
                 }
-                .scrollContentBackground(.hidden)
-                .sheet(isPresented: Binding(
-                    get: { vm.showInstructions },
-                    set: { vm.showInstructions = $0 }
-                )) {
-                    WallpaperInstructionsView()
-                }
-                .sheet(isPresented: Binding(
-                    get: { vm.showGenerationSheet },
-                    set: { vm.showGenerationSheet = $0 }
-                )) {
-                    GenerationConfirmSheet(vm: vm)
-                }
-
+            }
+            .safeAreaInset(edge: .bottom) {
                 // 壁紙生成フローティングボタン（右下固定）
                 generateFloatButton
                     .padding(.trailing, 24)
-                    .padding(.bottom, 24)
+                    .padding(.bottom, 12)
             }
         }
-        .ignoresSafeArea(edges: .top)
     }
 
     // 使用した予定セクション
