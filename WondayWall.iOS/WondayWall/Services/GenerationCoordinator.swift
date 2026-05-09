@@ -145,7 +145,8 @@ actor GenerationCoordinator {
                 // 写真ライブラリの WondayWall アルバムに保存し、前回アセットをアルバムから外す
                 photoAssetId = try? await wallpaperService.saveToPhotosAlbum(
                     imagePath: imageResult.filePath,
-                    previousAssetId: previousAssetId
+                    previousAssetId: previousAssetId,
+                    maxCount: configService.config.albumMaxCount
                 )
 
                 // 通知には絶対パスを渡す

@@ -36,9 +36,10 @@ final class WallpaperService {
     }
 
     // 生成画像を WondayWall アルバムに保存し、前回のアセットをアルバムから外す
+    // maxCount: アルバムの最大保存枚数（超過分は古い順に削除）
     // 戻り値: 作成したアセットの識別子（次回の previousAssetId に使う）
     @discardableResult
-    func saveToPhotosAlbum(imagePath: String, previousAssetId: String?) async throws -> String {
+    func saveToPhotosAlbum(imagePath: String, previousAssetId: String?, maxCount: Int = 10) async throws -> String {
         guard let image = UIImage(contentsOfFile: imagePath) else {
             throw NSError(
                 domain: "WondayWall", code: 404,
@@ -72,13 +73,18 @@ final class WallpaperService {
                 albumChangeRequest?.addAssets([placeholder] as NSArray)
                 assetId = placeholder.localIdentifier
             }
+        }
 
-            // 前回のアセットをアルバムから外す（削除しない）
-            if let prevId = previousAssetId {
-                let prevFetch = PHAsset.fetchAssets(withLocalIdentifiers: [prevId], options: nil)
-                if prevFetch.count > 0 {
-                    albumChangeRequest?.removeAssets(prevFetch)
-                }
+        // アルバムの枚数が上限を超えた場合は古い順にアルバムから外す（ライブラリからは削除しない）
+        let fetchOptions = PHFetchOptions()
+        fetchOptions.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: true)]
+        let assets = PHAsset.fetchAssets(in: album, options: fetchOptions)
+        let excess = assets.count - maxCount
+        if excess > 0 {
+            var toRemove: [PHAsset] = []
+            for i in 0..<excess { toRemove.append(assets[i]) }
+            try? await PHPhotoLibrary.shared().performChanges {
+                PHAssetCollectionChangeRequest(for: album)?.removeAssets(toRemove as NSArray)
             }
         }
 

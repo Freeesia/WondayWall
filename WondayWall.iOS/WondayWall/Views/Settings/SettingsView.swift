@@ -226,6 +226,14 @@ private struct SettingsContentView: View {
                         }
                     }
                 ))
+                Stepper(
+                    "アルバム最大保存枚数: \(vm.config.albumMaxCount)枚",
+                    value: Binding(
+                        get: { vm.config.albumMaxCount },
+                        set: { vm.config.albumMaxCount = $0 }
+                    ),
+                    in: 1...50
+                )
             } header: {
                 Text("保存・通知")
             }

@@ -10,6 +10,12 @@ final class ContextService {
     private let historyService: HistoryService
     private let calendarService: EventKitCalendarService
 
+    private static let newsCacheTTL: TimeInterval = 3600
+    private static var newsCacheURL: URL {
+        let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+        return caches.appendingPathComponent("news-cache.json")
+    }
+
     init(
         configService: AppConfigService,
         historyService: HistoryService,
@@ -68,9 +74,25 @@ final class ContextService {
         }
     }
 
-    // RSS/Atom フィードからニュースを取得し、OGP 画像 URL を付与する
+    private struct NewsCacheFile: Codable {
+        let sources: [String]
+        let items: [NewsTopicItem]
+    }
+
+    // RSS/Atom フィードからニュースを取得し、OGP 画像 URL を付与する（1時間キャッシュ）
     func fetchNews() async -> [NewsTopicItem] {
         let rssSources = configService.config.rssSources
+        // ファイルキャッシュが有効かつRSSソースが変わっていなければそのまま返す
+        let cacheURL = Self.newsCacheURL
+        if let attrs = try? FileManager.default.attributesOfItem(atPath: cacheURL.path),
+            let modDate = attrs[.modificationDate] as? Date,
+            Date().timeIntervalSince(modDate) < Self.newsCacheTTL,
+            let data = try? Data(contentsOf: cacheURL),
+            let cache = try? JSONDecoder().decode(NewsCacheFile.self, from: data),
+            cache.sources == rssSources
+        {
+            return cache.items
+        }
         guard !rssSources.isEmpty else { return [] }
         let weekAgo = Date().addingTimeInterval(-7 * 24 * 3600)
 
@@ -101,7 +123,7 @@ final class ContextService {
             return map
         }
 
-        return sortedItems.map { item in
+        let result = sortedItems.map { item in
             let ogp = item.url.flatMap { ogpURLs[$0] }
             return NewsTopicItem(
                 id: item.url ?? item.title,
@@ -112,6 +134,12 @@ final class ContextService {
                 ogpImageUrl: ogp
             )
         }
+        // 結果をファイルにキャッシュする（RSSソース一覧も一緒に保存して変更検出に使う）
+        let cacheFile = NewsCacheFile(sources: rssSources, items: result)
+        if let data = try? JSONEncoder().encode(cacheFile) {
+            try? data.write(to: cacheURL)
+        }
+        return result
     }
 
     // 1つの RSS ソースからアイテムを取得してパースする（FeedKit使用）
