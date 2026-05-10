@@ -23,6 +23,7 @@ GitHub Actions の `iOS TestFlight` workflow で、Preview アプリを TestFlig
 
 - 実行方法: `workflow_dispatch` または `main` 向け同一リポジトリ内 PR
 - fork PR: 署名資材と App Store Connect API Key を使わず、アップロード job をスキップ
+- Runner: `macos-26`（App Store Connect upload に必要な iOS 26 SDK / Xcode 26 を使う）
 - Environment: `testflight-pr`（Required reviewers 承認後に配布へ進む）
 - Bundle ID: `com.studiofreesia.wondaywall.preview`
 - TestFlight group: `PR Preview Testers`
