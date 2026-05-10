@@ -214,7 +214,6 @@ platform :ios do
         manageAppVersionAndBuildNumber: false,
         signingStyle: "manual",
         teamID: TEAM_ID,
-        testFlightInternalTestingOnly: true,
         provisioningProfiles: {
           APP_IDENTIFIER => signing_assets[:profile_name]
         }
