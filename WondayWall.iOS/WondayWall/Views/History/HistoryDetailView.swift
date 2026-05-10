@@ -195,6 +195,7 @@ struct HistoryDetailView: View {
     }
 
     private var statusIcon: String {        if item.isSkipped { return "minus.circle" }
+        if item.isGenerating { return "hourglass.circle" }
         if item.isSuccess { return "checkmark.circle.fill" }
         return "xmark.circle.fill"
     }
@@ -207,12 +208,14 @@ struct HistoryDetailView: View {
 
     private var statusColor: Color {
         if item.isSkipped { return .gray }
+        if item.isGenerating { return .orange }
         if item.isSuccess { return .green }
         return .red
     }
 
     private var statusLabel: String {
         if item.isSkipped { return "スキップ" }
+        if item.isGenerating { return "生成中" }
         if item.isSuccess { return "成功" }
         return "失敗"
     }

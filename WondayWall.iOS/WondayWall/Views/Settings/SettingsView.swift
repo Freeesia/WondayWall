@@ -368,6 +368,7 @@ struct AboutView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                     .padding(.horizontal)
 
+                    #if DEBUG
                     VStack(spacing: 0) {
                         Button {
                             showDebugSheet = true
@@ -390,6 +391,7 @@ struct AboutView: View {
                     .background(Color(.systemGray6))
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                     .padding(.horizontal)
+                    #endif
                 }
                 .padding(.bottom, 32)
             }
@@ -400,9 +402,11 @@ struct AboutView: View {
                     Button("閉じる") { dismiss() }
                 }
             }
+            #if DEBUG
             .sheet(isPresented: $showDebugSheet) {
                 DebugInfoSheetView()
             }
+            #endif
         }
     }
 
@@ -439,6 +443,7 @@ struct AboutView: View {
     }
 }
 
+#if DEBUG
 // デバッグ情報シート
 // BGTaskScheduler に登録されている pending request と設定状態を確認できる
 private struct DebugInfoSheetView: View {
@@ -550,3 +555,4 @@ private struct DebugInfoSheetView: View {
         return f
     }()
 }
+#endif

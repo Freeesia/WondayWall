@@ -9,20 +9,6 @@ struct WondayWallApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(environment)
-                .task {
-                    // アプリ起動時にバックグラウンド生成の取りこぼし補完を実行する
-                    await environment.backgroundTaskService.checkAndRunIfNeeded()
-                }
-                .onReceive(
-                    NotificationCenter.default.publisher(
-                        for: UIApplication.willEnterForegroundNotification
-                    )
-                ) { _ in
-                    // フォアグラウンド復帰時にも生成可否チェックを行う
-                    Task {
-                        await environment.backgroundTaskService.checkAndRunIfNeeded()
-                    }
-                }
         }
     }
 }

@@ -15,9 +15,11 @@ final class AppEnvironment: ObservableObject {
     let coordinator: GenerationCoordinator
     let backgroundTaskService: BackgroundTaskService
 
-    // 生成中かどうか（手動・バックグラウンド両方を含む）
-    // GenerationCoordinator から MainActor.run で更新される
-    @Published var isGenerating: Bool = false
+    // 生成進捗（0-100）。nil は非生成中を表す
+    @Published var generationProgress: Int? = nil
+
+    // 生成中かどうか（手動・起動時補完・バックグラウンド両方を含む）
+    var isGenerating: Bool { generationProgress != nil }
 
     init() {
         let config = AppConfigService()
@@ -55,8 +57,39 @@ final class AppEnvironment: ObservableObject {
         self.backgroundTaskService = bgTask
 
         // 全プロパティ初期化後にコールバックを設定する
-        Task { await coord.setIsGeneratingHandler { [weak self] value in
-            self?.isGenerating = value
-        } }
+        Task {
+            await coord.setIsGeneratingHandler { [weak self] value in
+                guard let self else { return }
+                if value {
+                    if self.generationProgress == nil {
+                        self.generationProgress = 0
+                    }
+                } else {
+                    self.generationProgress = nil
+                }
+            }
+        }
+
+        // 進捗通知を UI 状態へ反映する
+        NotificationCenter.default.addObserver(
+            forName: .generationTaskProgress,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let progress = notification.userInfo?["progress"] as? Int else { return }
+            Task { @MainActor [weak self] in
+                self?.generationProgress = max(0, min(100, progress))
+            }
+        }
+
+        NotificationCenter.default.addObserver(
+            forName: .generationTaskCompleted,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.generationProgress = nil
+            }
+        }
     }
 }

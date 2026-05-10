@@ -2,9 +2,17 @@ import SwiftUI
 
 // タブビュー — Home / Data / History / Settings の4タブ構成
 struct ContentView: View {
+    private enum StartupAlertMode {
+        case alreadyGenerating
+        case confirmStart
+    }
+
     @State private var selectedTab = 0
     // フォアグラウンド中の生成成功 Toast 表示フラグ
     @State private var showSuccessToast = false
+    @State private var startupAlertMode: StartupAlertMode?
+    @State private var showStartupAlert = false
+    @EnvironmentObject private var environment: AppEnvironment
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
@@ -67,6 +75,88 @@ struct ContentView: View {
             }
         }
         .animation(.spring(response: 0.4, dampingFraction: 0.8), value: showSuccessToast)
+        .task {
+            await evaluateStartupGeneration()
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)
+        ) { _ in
+            Task {
+                await evaluateStartupGeneration()
+            }
+        }
+        .alert(startupAlertTitle, isPresented: $showStartupAlert) {
+            switch startupAlertMode {
+            case .alreadyGenerating:
+                Button("閉じる") { }
+            case .confirmStart:
+                Button("あとで", role: .cancel) {
+                    environment.backgroundTaskService.scheduleNextBackgroundTask()
+                }
+                Button("今すぐ生成") {
+                    Task {
+                        await runStartupManualGeneration()
+                    }
+                }
+            case .none:
+                Button("閉じる") { }
+            }
+        } message: {
+            Text(startupAlertMessage)
+        }
+    }
+
+    private var startupAlertTitle: String {
+        switch startupAlertMode {
+        case .alreadyGenerating:
+            return "壁紙を生成しています"
+        case .confirmStart:
+            return "起動時の壁紙生成"
+        case .none:
+            return ""
+        }
+    }
+
+    private var startupAlertMessage: String {
+        switch startupAlertMode {
+        case .alreadyGenerating:
+            if let progress = environment.generationProgress {
+                return "壁紙を生成中です。完了までお待ちください。（進捗: \(progress)%）"
+            }
+            return "壁紙を生成中です。完了までお待ちください。"
+        case .confirmStart:
+            return "前回のスケジュール枠がまだ未実行です。今すぐ生成を行いますか？"
+        case .none:
+            return ""
+        }
+    }
+
+    private func runStartupManualGeneration() async {
+        _ = await environment.coordinator.runManual()
+        environment.backgroundTaskService.scheduleNextBackgroundTask()
+    }
+
+    private func evaluateStartupGeneration() async {
+        guard environment.configService.config.autoGenerationEnabled else { return }
+        guard environment.configService.hasMinimumConfigurationForStartupGeneration() else { return }
+
+        if environment.isGenerating {
+            await MainActor.run {
+                startupAlertMode = .alreadyGenerating
+                showStartupAlert = true
+            }
+            return
+        }
+
+        guard await environment.coordinator.isScheduledGenerationNeeded() else {
+            environment.backgroundTaskService.scheduleNextBackgroundTask()
+            return
+        }
+
+        await MainActor.run {
+            startupAlertMode = .confirmStart
+            showStartupAlert = true
+        }
     }
 }
 

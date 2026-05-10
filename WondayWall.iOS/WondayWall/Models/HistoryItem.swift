@@ -26,6 +26,7 @@ struct HistoryItem: Codable, Identifiable {
 
     var isSuccess: Bool { status == .success }
     var isSkipped: Bool { status == .skipped }
+    var isGenerating: Bool { status == .generating }
 
     init(
         id: UUID = UUID(),

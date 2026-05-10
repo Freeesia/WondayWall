@@ -24,11 +24,11 @@ final class HomeViewModel {
     init(environment: AppEnvironment) {
         self.environment = environment
         loadLatestHistory()
-        // AppEnvironment.isGenerating を購読して生成完了時に履歴を再読み込みする
-        environment.$isGenerating
+        // AppEnvironment.generationProgress を購読して生成完了時に履歴を再読み込みする
+        environment.$generationProgress
             .receive(on: RunLoop.main)
-            .sink { [weak self] generating in
-                guard let self, !generating else { return }
+            .sink { [weak self] progress in
+                guard let self, progress == nil else { return }
                 self.loadLatestHistory()
                 Task<Void, Never> { @MainActor in await self.refreshLatestImage() }
             }
@@ -49,14 +49,13 @@ final class HomeViewModel {
     }
 
     // 壁紙生成確認シートを表示するためにデータを読み込む
+    @MainActor
     func loadSheetData() async {
         guard !isLoadingSheetData else { return }
         isLoadingSheetData = true
         defer { isLoadingSheetData = false }
-        async let eventsTask = Task { environment.contextService.fetchCalendarEvents() }
-        async let newsTask = environment.contextService.fetchNews()
-        sheetEvents = await eventsTask.value
-        sheetNews = await newsTask
+        sheetEvents = environment.contextService.fetchCalendarEvents()
+        sheetNews = await environment.contextService.fetchNews()
     }
 
     // 手動生成を実行する
