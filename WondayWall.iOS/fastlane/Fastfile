@@ -192,9 +192,9 @@ platform :ios do
       archive_path: File.join(OUTPUT_DIR, "WondayWallPreview.xcarchive"),
       output_directory: OUTPUT_DIR,
       output_name: IPA_NAME,
-      export_method: "app-store-connect",
+      export_method: "app-store",
       export_options: {
-        method: "app-store-connect",
+        method: "app-store",
         manageAppVersionAndBuildNumber: false,
         signingStyle: "manual",
         teamID: TEAM_ID,
