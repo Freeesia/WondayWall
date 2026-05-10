@@ -1,7 +1,16 @@
 import Foundation
 
+// 壁紙生成サービスの抽象インターフェイス
+protocol GoogleAiServiceProtocol: AnyObject {
+    func generateWallpaper(
+        context: PromptContext,
+        serviceTier: GoogleAiServiceTier,
+        onProgress: ((Double, String) -> Void)?
+    ) async throws -> GeneratedImageResult
+}
+
 // Google AI Gemini API を使った画像生成サービス
-final class GoogleAiService {
+final class GoogleAiService: GoogleAiServiceProtocol {
     private static let textModelName = "gemini-3-flash-preview"
     private static let imageModelName = "gemini-3.1-flash-image-preview"
     private static let apiBaseURL =
@@ -580,3 +589,4 @@ extension JSONValue: ExpressibleByDictionaryLiteral {
 extension JSONValue: ExpressibleByArrayLiteral {
     init(arrayLiteral elements: JSONValue...) { self = .array(elements) }
 }
+

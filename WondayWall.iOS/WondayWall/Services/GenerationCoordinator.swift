@@ -5,7 +5,7 @@ import Foundation
 actor GenerationCoordinator {
     private let configService: AppConfigService
     private let contextService: ContextService
-    private let googleAiService: GoogleAiService
+    private let googleAiService: any GoogleAiServiceProtocol
     private let wallpaperService: WallpaperService
     private let historyService: HistoryService
     private let notificationService: NotificationService
@@ -23,7 +23,7 @@ actor GenerationCoordinator {
     init(
         configService: AppConfigService,
         contextService: ContextService,
-        googleAiService: GoogleAiService,
+        googleAiService: any GoogleAiServiceProtocol,
         wallpaperService: WallpaperService,
         historyService: HistoryService,
         notificationService: NotificationService,

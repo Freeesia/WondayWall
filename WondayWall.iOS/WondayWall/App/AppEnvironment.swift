@@ -8,7 +8,7 @@ final class AppEnvironment: ObservableObject {
     let historyService: HistoryService
     let calendarService: EventKitCalendarService
     let contextService: ContextService
-    let googleAiService: GoogleAiService
+    let googleAiService: any GoogleAiServiceProtocol
     let wallpaperService: WallpaperService
     let notificationService: NotificationService
     let fgBgTaskService: ForegroundBackgroundTaskService
@@ -30,7 +30,16 @@ final class AppEnvironment: ObservableObject {
             historyService: history,
             calendarService: calendar
         )
-        let googleAi = GoogleAiService(configService: config)
+        let googleAi: any GoogleAiServiceProtocol
+        #if DEBUG
+        if config.debugUseDummyGoogleAiService {
+            googleAi = DummyGoogleAiService()
+        } else {
+            googleAi = GoogleAiService(configService: config)
+        }
+        #else
+        googleAi = GoogleAiService(configService: config)
+        #endif
         let wallpaper = WallpaperService()
         let notifications = NotificationService()
         let fgBg = ForegroundBackgroundTaskService()

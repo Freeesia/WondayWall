@@ -454,15 +454,46 @@ private struct DebugInfoSheetView: View {
     @State private var pendingRequests: [BGTaskRequest] = []
     @State private var loadedAt: Date?
 
+    private var currentServiceName: String {
+        environment.googleAiService is DummyGoogleAiService ? "Dummy" : "Live"
+    }
+
+    private var nextLaunchServiceName: String {
+        environment.configService.debugUseDummyGoogleAiService ? "Dummy" : "Live"
+    }
+
+    private var useDummyServiceBinding: Binding<Bool> {
+        Binding(
+            get: { environment.configService.debugUseDummyGoogleAiService },
+            set: { environment.configService.debugUseDummyGoogleAiService = $0 }
+        )
+    }
+
     var body: some View {
         NavigationStack {
             List {
+                Section("デバッグ設定") {
+                    Toggle("Google AI をダミー実装に切り替える", isOn: useDummyServiceBinding)
+                    Text("ON のときは Gemini API を呼ばず、プロンプト生成 3 分 + 画像生成 10 分の擬似処理を実行します。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("切り替えは次回アプリ起動時に反映されます。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
                 Section("アプリ状態") {
                     LabeledContent("自動生成") {
                         Text(environment.configService.config.autoGenerationEnabled ? "ON" : "OFF")
                     }
                     LabeledContent("生成中") {
                         Text(environment.isGenerating ? "YES" : "NO")
+                    }
+                    LabeledContent("Google AI 実装") {
+                        Text(currentServiceName)
+                    }
+                    LabeledContent("次回起動時の実装") {
+                        Text(nextLaunchServiceName)
                     }
                     LabeledContent("起動時生成条件") {
                         Text(

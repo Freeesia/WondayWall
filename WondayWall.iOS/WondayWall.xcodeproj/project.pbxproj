@@ -42,6 +42,7 @@
 		BB000000000000000000000022 /* FaviconImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000022 /* FaviconImage.swift */; };
 		BB000000000000000000000023 /* GoogleAiServiceTier.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000023 /* GoogleAiServiceTier.swift */; };
 		BB000000000000000000000024 /* DisplayHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000024 /* DisplayHelper.swift */; };
+		BB000000000000000000000026 /* DummyGoogleAiService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000026 /* DummyGoogleAiService.swift */; };
 		DD000000000000000000000003 /* FeedKit in Frameworks */ = {isa = PBXBuildFile; productRef = DD000000000000000000000002 /* FeedKit */; };
 		DD000000000000000000000009 /* KeychainAccess in Frameworks */ = {isa = PBXBuildFile; productRef = DD000000000000000000000008 /* KeychainAccess */; };
 		DD00000000000000000000000C /* Defaults in Frameworks */ = {isa = PBXBuildFile; productRef = DD00000000000000000000000B /* Defaults */; };
@@ -90,6 +91,7 @@
 		AA000000000000000000000023 /* GoogleAiServiceTier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleAiServiceTier.swift; sourceTree = "<group>"; };
 		AA000000000000000000000024 /* DisplayHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayHelper.swift; sourceTree = "<group>"; };
 		AA000000000000000000000025 /* UpdateSchedule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateSchedule.swift; sourceTree = "<group>"; };
+		AA000000000000000000000026 /* DummyGoogleAiService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DummyGoogleAiService.swift; sourceTree = "<group>"; };
 		EE000000000000000000000002 /* EventKitCalendarService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventKitCalendarService.swift; sourceTree = "<group>"; };
 		EE000000000000000000000004 /* CalendarSourceItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarSourceItem.swift; sourceTree = "<group>"; };
 		EE000000000000000000000006 /* ColorExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorExtensions.swift; sourceTree = "<group>"; };
@@ -173,6 +175,7 @@
 				AA00000000000000000000000A /* ContextService.swift */,
 				EE000000000000000000000002 /* EventKitCalendarService.swift */,
 				AA00000000000000000000000B /* GoogleAiService.swift */,
+				AA000000000000000000000026 /* DummyGoogleAiService.swift */,
 				AA00000000000000000000000C /* GenerationCoordinator.swift */,
 				AA00000000000000000000000D /* WallpaperService.swift */,
 				AA00000000000000000000000E /* HistoryService.swift */,
@@ -350,6 +353,7 @@
 				BB00000000000000000000000A /* ContextService.swift in Sources */,
 				EE000000000000000000000001 /* EventKitCalendarService.swift in Sources */,
 				BB00000000000000000000000B /* GoogleAiService.swift in Sources */,
+				BB000000000000000000000026 /* DummyGoogleAiService.swift in Sources */,
 				BB00000000000000000000000C /* GenerationCoordinator.swift in Sources */,
 				BB00000000000000000000000D /* WallpaperService.swift in Sources */,
 				BB00000000000000000000000E /* HistoryService.swift in Sources */,

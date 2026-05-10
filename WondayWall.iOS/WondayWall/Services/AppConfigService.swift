@@ -28,6 +28,18 @@ final class AppConfigService {
         }
     }
 
+    // DEBUG 時のみ有効: Google AI をダミー実装に切り替える（UserDefaults に永続化）
+    #if DEBUG
+    @ObservationIgnored var debugUseDummyGoogleAiService: Bool {
+        get {
+            UserDefaults.standard.bool(forKey: "debug_use_dummy_google_ai_service")
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "debug_use_dummy_google_ai_service")
+        }
+    }
+    #endif
+
     init() {
         config = Defaults[.appConfig]
         googleAiApiKey = Self.keychain[Self.apiKeyKeychainKey] ?? ""
