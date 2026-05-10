@@ -11,7 +11,9 @@ default_platform(:ios)
 TEAM_ID = "KDJQJM26Y7"
 APP_IDENTIFIER = "com.studiofreesia.wondaywall.preview"
 TESTER_GROUP = "PR Preview Testers"
-OUTPUT_DIR = "build/testflight"
+IOS_PROJECT_DIR = File.expand_path("..", __dir__)
+PROJECT_PATH = File.join(IOS_PROJECT_DIR, "WondayWall.xcodeproj")
+OUTPUT_DIR = File.join(IOS_PROJECT_DIR, "build/testflight")
 IPA_NAME = "WondayWallPreview.ipa"
 
 def required_env(name)
@@ -146,10 +148,9 @@ def manual_signing_xcargs(signing_assets, build_number)
 end
 
 def configure_app_target_signing(signing_assets)
-  project_path = "WondayWall.xcodeproj"
-  project = Xcodeproj::Project.open(project_path)
+  project = Xcodeproj::Project.open(PROJECT_PATH)
   target = project.targets.find { |project_target| project_target.name == "WondayWall" }
-  UI.user_error!("Target WondayWall not found in #{project_path}") unless target
+  UI.user_error!("Target WondayWall not found in #{PROJECT_PATH}") unless target
 
   release_config = target.build_configurations.find { |config| config.name == "Release" }
   UI.user_error!("Release configuration not found for target WondayWall") unless release_config
@@ -164,11 +165,11 @@ end
 
 def preview_xcconfig_path(build_number)
   configured_path = ENV["PREVIEW_XCCONFIG_PATH"].to_s
-  return configured_path unless configured_path.empty?
+  return File.expand_path(configured_path, IOS_PROJECT_DIR) unless configured_path.empty?
 
   FileUtils.mkdir_p(OUTPUT_DIR)
   path = File.join(OUTPUT_DIR, "Preview.ci.xcconfig")
-  base_xcconfig_path = File.expand_path("Config/Preview.xcconfig", Dir.pwd)
+  base_xcconfig_path = File.join(IOS_PROJECT_DIR, "Config/Preview.xcconfig")
   File.write(
     path,
     [
@@ -199,7 +200,7 @@ platform :ios do
     FileUtils.mkdir_p(OUTPUT_DIR)
 
     build_app(
-      project: "WondayWall.xcodeproj",
+      project: PROJECT_PATH,
       scheme: "WondayWall",
       configuration: "Release",
       clean: true,
