@@ -20,6 +20,11 @@ WondayWall.Wix/generated/
 # パッケージ出力
 publish/
 artifacts/
+WondayWall.iOS/build/
+WondayWall.iOS/fastlane/report.xml
+WondayWall.iOS/fastlane/README.md
+WondayWall.iOS/fastlane/screenshots/
+WondayWall.iOS/fastlane/test_output/
 
 # XcodeGen 生成物
 WondayWall.iOS/WondayWall.xcodeproj/*
