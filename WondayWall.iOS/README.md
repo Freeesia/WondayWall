@@ -26,7 +26,7 @@ GitHub Actions の `iOS TestFlight` workflow で、Preview アプリを TestFlig
 - Runner: `macos-26`（App Store Connect upload に必要な iOS 26 SDK / Xcode 26 を使う）
 - Environment: `testflight-pr`（Required reviewers 承認後に配布へ進む）
 - Bundle ID: `com.studiofreesia.wondaywall.preview`
-- TestFlight group: `PR Preview Testers`
+- TestFlight group: `PR Preview Testers`（グループ設定で「Xcodeビルドを自動配信」を有効化）
 - Version / build: `0.0.0` / `${{ github.run_number }}.${{ github.run_attempt }}`
 
 必要な Environment secrets:
@@ -41,7 +41,7 @@ APPSTORE_PROVISIONING_PROFILE_BASE64
 KEYCHAIN_PASSWORD
 ```
 
-CI では `xcodegen generate` で `WondayWall.xcodeproj` を生成し、`Config/Preview.xcconfig` を include した一時 xcconfig で build number を上書きして Release archive を作成する。アップロード成功後は Actions Summary に PR、commit、build number、TestFlight インストール手順を出力する。
+CI では `xcodegen generate` で `WondayWall.xcodeproj` を生成し、`Config/Preview.xcconfig` を include した一時 xcconfig で build number を上書きして Release archive を作成する。IPA は TestFlight Internal Only としてアップロードし、内部グループへの配信は App Store Connect の自動配信設定に任せる。アップロード成功後は Actions Summary に PR、commit、build number、TestFlight インストール手順を出力する。
 
 ## 初期設定
 

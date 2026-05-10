@@ -214,6 +214,7 @@ platform :ios do
         manageAppVersionAndBuildNumber: false,
         signingStyle: "manual",
         teamID: TEAM_ID,
+        testFlightInternalTestingOnly: true,
         provisioningProfiles: {
           APP_IDENTIFIER => signing_assets[:profile_name]
         }
@@ -227,14 +228,15 @@ platform :ios do
       "Build: #{build_number}"
     ].join("\n")
 
+    UI.message("Relying on App Store Connect automatic distribution for #{TESTER_GROUP}")
     upload_to_testflight(
       api_key: api_key,
       app_identifier: APP_IDENTIFIER,
       ipa: File.join(OUTPUT_DIR, IPA_NAME),
       changelog: changelog,
-      groups: [TESTER_GROUP],
+      # 内部グループへの配信はApp Store Connectの自動配信設定に任せる。
+      skip_submission: true,
       skip_waiting_for_build_processing: false,
-      distribute_external: false,
       uses_non_exempt_encryption: false
     )
   ensure
