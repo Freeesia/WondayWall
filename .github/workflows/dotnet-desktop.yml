@@ -4,8 +4,24 @@ on:
   push:
     branches: [main]
     tags: ["*.*.*", "v*.*.*"]
+    paths:
+      - "WondayWall/**"
+      - "WondayWall.Package/**"
+      - "WondayWall.Wix/**"
+      - "WondayWall.sln"
+      - ".config/**"
+      - "eng/**"
+      - ".github/workflows/dotnet-desktop.yml"
   pull_request:
     branches: [main]
+    paths:
+      - "WondayWall/**"
+      - "WondayWall.Package/**"
+      - "WondayWall.Wix/**"
+      - "WondayWall.sln"
+      - ".config/**"
+      - "eng/**"
+      - ".github/workflows/dotnet-desktop.yml"
 
 env:
   NUGET_PACKAGES: ${{ github.workspace }}\.nuget\packages
