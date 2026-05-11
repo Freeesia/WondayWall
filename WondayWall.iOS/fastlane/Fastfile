@@ -82,6 +82,7 @@ def setup_signing_assets
     .lines
     .map { |line| line.strip.delete('"') }
     .reject(&:empty?)
+  # setup途中で失敗してもensureで必ず破棄できるよう、cleanup用の情報を先に保持する。
   ENV["WONDAYWALL_CI_KEYCHAIN_PATH"] = keychain_path
   ENV["WONDAYWALL_CI_ORIGINAL_KEYCHAINS"] = original_keychains.join(File::PATH_SEPARATOR)
 
