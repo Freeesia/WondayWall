@@ -31,6 +31,7 @@ jobs:
       HOMEBREW_NO_AUTO_UPDATE: "1"
       PREVIEW_BUILD_NUMBER: ${{ github.run_number }}.${{ github.run_attempt }}
       PREVIEW_TESTER_GROUP: PR Preview Testers
+      TEAM_ID: KDJQJM26Y7
 
     steps:
       - uses: actions/checkout@v4
