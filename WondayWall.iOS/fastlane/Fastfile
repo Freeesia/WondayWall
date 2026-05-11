@@ -136,8 +136,12 @@ def setup_signing_assets
   ).strip
   UI.user_error!("Provisioning profile is invalid: TeamIdentifier is missing or empty") if profile_team_id.empty?
   expected_profile_app_id = "#{team_id}.#{app_identifier}"
-  UI.user_error!("Provisioning profile team mismatch. expected=#{team_id} actual=#{profile_team_id}") if profile_team_id != team_id
-  UI.user_error!("Provisioning profile app mismatch. expected=#{expected_profile_app_id} actual=#{profile_app_id}") if profile_app_id != expected_profile_app_id
+  if profile_team_id != team_id
+    UI.user_error!("Provisioning profile team mismatch. expected=#{team_id} actual=#{profile_team_id}. Verify APPSTORE_PROVISIONING_PROFILE_BASE64 uses the correct Team ID profile.")
+  end
+  if profile_app_id != expected_profile_app_id
+    UI.user_error!("Provisioning profile app mismatch. expected=#{expected_profile_app_id} actual=#{profile_app_id}. Verify APP_IDENTIFIER and regenerate the provisioning profile if needed.")
+  end
 
   profile_destination = File.expand_path("~/Library/MobileDevice/Provisioning Profiles/#{profile_uuid}.mobileprovision")
   FileUtils.mkdir_p(File.dirname(profile_destination))
