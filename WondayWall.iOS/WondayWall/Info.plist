@@ -18,6 +18,9 @@
         <string>$(MARKETING_VERSION)</string>
         <key>CFBundleVersion</key>
         <string>$(CURRENT_PROJECT_VERSION)</string>
+        <!-- 標準的なHTTPS通信のみを使うため、TestFlightアップロード後の暗号化確認を自動化する -->
+        <key>ITSAppUsesNonExemptEncryption</key>
+        <false />
         <!-- バックグラウンド処理タスクの許可 ID -->
         <key>BGTaskSchedulerPermittedIdentifiers</key>
         <array>

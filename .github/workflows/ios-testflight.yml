@@ -1,0 +1,111 @@
+name: iOS TestFlight
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+concurrency:
+  group: ios-testflight-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  testflight:
+    name: Build and upload preview
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: macos-26
+    timeout-minutes: 90
+    environment: testflight-pr
+    permissions:
+      contents: read
+      pull-requests: read
+    defaults:
+      run:
+        working-directory: WondayWall.iOS
+    env:
+      APP_IDENTIFIER: com.studiofreesia.wondaywall.preview
+      FASTLANE_HIDE_CHANGELOG: "1"
+      FASTLANE_OPT_OUT_USAGE: "1"
+      FASTLANE_SKIP_UPDATE_CHECK: "1"
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      PREVIEW_BUILD_NUMBER: ${{ github.run_number }}.${{ github.run_attempt }}
+      PREVIEW_TESTER_GROUP: PR Preview Testers
+      TEAM_ID: KDJQJM26Y7
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: WondayWall.iOS
+
+      - name: Install XcodeGen
+        run: |
+          if ! command -v xcodegen >/dev/null 2>&1; then
+            brew install xcodegen
+          fi
+          xcodegen --version
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Prepare preview build settings
+        run: |
+          mkdir -p build/testflight
+          {
+            echo "#include \"${GITHUB_WORKSPACE}/WondayWall.iOS/Config/Preview.xcconfig\""
+            echo "CURRENT_PROJECT_VERSION = ${PREVIEW_BUILD_NUMBER}"
+          } > build/testflight/Preview.ci.xcconfig
+          echo "PREVIEW_XCCONFIG_PATH=build/testflight/Preview.ci.xcconfig" >> "$GITHUB_ENV"
+
+      - name: Verify generated project
+        run: |
+          xcodebuild -project WondayWall.xcodeproj -list
+          xcodebuild \
+            -project WondayWall.xcodeproj \
+            -scheme WondayWall \
+            -configuration Release \
+            -xcconfig "${PREVIEW_XCCONFIG_PATH}" \
+            -showBuildSettings \
+            | grep -E "PRODUCT_BUNDLE_IDENTIFIER|ASSETCATALOG_COMPILER_APPICON_NAME|MARKETING_VERSION|CURRENT_PROJECT_VERSION|DEVELOPMENT_TEAM"
+
+      - name: Build and upload to TestFlight
+        env:
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          APPSTORE_CERTIFICATE_BASE64: ${{ secrets.APPSTORE_CERTIFICATE_BASE64 }}
+          APPSTORE_CERTIFICATE_PASSWORD: ${{ secrets.APPSTORE_CERTIFICATE_PASSWORD }}
+          APPSTORE_PROVISIONING_PROFILE_BASE64: ${{ secrets.APPSTORE_PROVISIONING_PROFILE_BASE64 }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: bundle exec fastlane ios pr_testflight
+
+      - name: Write TestFlight summary
+        if: ${{ success() }}
+        working-directory: .
+        run: |
+          {
+            echo "## iOS Preview build uploaded to TestFlight"
+            echo
+            if [ "${{ github.event_name }}" = "pull_request" ]; then
+              echo "- PR: #${{ github.event.pull_request.number }}"
+            else
+              echo "- Trigger: workflow_dispatch"
+            fi
+            echo "- Commit: \`${{ github.sha }}\`"
+            echo "- Bundle ID: \`${APP_IDENTIFIER}\`"
+            echo "- Build: \`${PREVIEW_BUILD_NUMBER}\`"
+            echo "- TestFlight group: \`${PREVIEW_TESTER_GROUP}\`"
+            echo
+            echo "Install:"
+            echo "1. iPhoneでTestFlightアプリを開く"
+            echo "2. WondayWall Previewを選択"
+            echo "3. Build \`${PREVIEW_BUILD_NUMBER}\` をインストール"
+          } >> "$GITHUB_STEP_SUMMARY"
