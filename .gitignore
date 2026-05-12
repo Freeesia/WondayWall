@@ -41,3 +41,9 @@ xcuserdata/
 
 *_todo.md
 buildServer.json
+
+# Android ビルド成果物
+WondayWall.Android/.gradle/
+WondayWall.Android/app/build/
+WondayWall.Android/build/
+WondayWall.Android/local.properties
