@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">WondayWall</string>
+
+    <!-- 通知チャンネル名 -->
+    <string name="notification_channel_success_name">生成完了</string>
+    <string name="notification_channel_success_desc">壁紙の生成が完了したときの通知</string>
+    <string name="notification_channel_failure_name">生成失敗</string>
+    <string name="notification_channel_failure_desc">壁紙の生成に失敗したときの通知</string>
+    <string name="notification_channel_progress_name">生成中</string>
+    <string name="notification_channel_progress_desc">壁紙を生成中であることを示す通知</string>
+
+    <!-- 通知メッセージ -->
+    <string name="notification_generating_title">壁紙を生成中…</string>
+    <string name="notification_success_title">壁紙を生成しました</string>
+    <string name="notification_success_text">新しい壁紙が適用されました</string>
+    <string name="notification_failure_title">壁紙の生成に失敗しました</string>
+    <string name="notification_failure_text">詳細はアプリで確認できます</string>
+
+    <!-- ウィザード -->
+    <string name="wizard_welcome_title">WondayWallへようこそ</string>
+    <string name="wizard_welcome_desc">あなたの予定やニュースをもとに、毎日新しい壁紙を自動生成します。</string>
+    <string name="wizard_api_key_title">Google AI設定</string>
+    <string name="wizard_calendar_title">カレンダー連携</string>
+    <string name="wizard_prompt_title">興味・ニュース設定</string>
+    <string name="wizard_schedule_title">自動生成設定</string>
+    <string name="wizard_test_title">テスト生成</string>
+    <string name="wizard_next">次へ</string>
+    <string name="wizard_back">戻る</string>
+    <string name="wizard_finish">完了</string>
+    <string name="wizard_skip">スキップ</string>
+
+    <!-- 画面タイトル -->
+    <string name="screen_home">ホーム</string>
+    <string name="screen_data">データ</string>
+    <string name="screen_history">履歴</string>
+    <string name="screen_settings">設定</string>
+
+    <!-- 共通 -->
+    <string name="generate_now">今すぐ生成</string>
+    <string name="apply_wallpaper">壁紙に適用</string>
+    <string name="save_to_gallery">ギャラリーに保存</string>
+    <string name="share">共有</string>
+    <string name="delete">削除</string>
+    <string name="reapply">再適用</string>
+    <string name="regenerate">再生成</string>
+    <string name="generating">生成中…</string>
+    <string name="error_api_key_empty">APIキーが設定されていません</string>
+    <string name="error_generation_failed">生成に失敗しました</string>
+    <string name="connection_test">接続確認</string>
+    <string name="connection_test_success">接続確認が完了しました</string>
+    <string name="connection_test_failed">接続確認に失敗しました</string>
+    <string name="calendar_permission_required">カレンダー権限が必要です</string>
+    <string name="request_permission">権限を要求する</string>
+    <string name="runs_per_day_label">1日あたりの自動生成回数</string>
+    <string name="auto_generation_schedule_note">未処理の生成タイミングがあれば生成を試みます。Androidの省電力制御により、実行時刻は前後する場合があります。</string>
+</resources>
