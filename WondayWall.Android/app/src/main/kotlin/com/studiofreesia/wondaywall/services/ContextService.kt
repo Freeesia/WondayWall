@@ -119,19 +119,20 @@ class ContextService(
             CalendarContract.Events.DESCRIPTION,
         )
 
-        // カレンダーIDフィルター
-        val calendarFilter = if (targetCalendarIds.isNotEmpty()) {
-            " AND (" + targetCalendarIds.joinToString(" OR ") {
-                "${CalendarContract.Events.CALENDAR_ID} = ?"
-            } + ")"
-        } else ""
+        // カレンダーIDフィルター（targetCalendarIds が空の場合はフィルターなしで全件取得）
+        val (calendarFilter, calendarArgs) = if (targetCalendarIds.isNotEmpty()) {
+            val placeholders = targetCalendarIds.joinToString(", ") { "?" }
+            " AND ${CalendarContract.Events.CALENDAR_ID} IN ($placeholders)" to targetCalendarIds
+        } else {
+            "" to emptyList()
+        }
 
         val selection = "${CalendarContract.Events.DTSTART} >= ? AND " +
             "${CalendarContract.Events.DTSTART} <= ? AND " +
             "${CalendarContract.Events.DELETED} = 0$calendarFilter"
 
         val selectionArgs = (
-            listOf(rangeStart.toString(), rangeEnd.toString()) + targetCalendarIds
+            listOf(rangeStart.toString(), rangeEnd.toString()) + calendarArgs
         ).toTypedArray()
 
         val result = mutableListOf<CalendarEventItem>()

@@ -100,6 +100,9 @@ class HomeViewModel(
         }
     }
 
+    // 画像共有 Intent を取得する（Activity から startActivity で使用する）
+    fun buildShareIntent(filePath: String) = wallpaperService.buildShareIntent(filePath)
+
     // エラーメッセージをクリアする
     fun clearError() {
         _uiState.value = _uiState.value.copy(errorMessage = null)

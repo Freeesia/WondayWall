@@ -217,7 +217,9 @@ fun HomeScreen(viewModel: HomeViewModel) {
                                 IconButton(
                                     onClick = {
                                         // WallpaperService から share Intent を取得して起動する
-                                        // （ViewModel 外部の処理のため Activity で実行する）
+                                        viewModel.buildShareIntent(item.appliedImagePath)?.let { intent ->
+                                            context.startActivity(Intent.createChooser(intent, null))
+                                        }
                                     },
                                 ) {
                                     Icon(Icons.Default.Share, contentDescription = "共有")

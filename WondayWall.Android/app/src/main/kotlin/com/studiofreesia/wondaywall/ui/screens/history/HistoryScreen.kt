@@ -1,5 +1,6 @@
 package com.studiofreesia.wondaywall.ui.screens.history
 
+import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,6 +22,7 @@ import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Skip
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.Wallpaper
@@ -64,6 +66,7 @@ import java.util.Locale
 fun HistoryScreen(viewModel: HistoryViewModel) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
     var deleteTarget by remember { mutableStateOf<HistoryItem?>(null) }
 
     LaunchedEffect(uiState.errorMessage) {
@@ -117,6 +120,11 @@ fun HistoryScreen(viewModel: HistoryViewModel) {
                         item = item,
                         onReapply = { viewModel.reapplyWallpaper(item) },
                         onSaveToGallery = { viewModel.saveToGallery(item) {} },
+                        onShare = {
+                            viewModel.buildShareIntent(item)?.let { intent ->
+                                context.startActivity(Intent.createChooser(intent, null))
+                            }
+                        },
                         onDelete = { deleteTarget = item },
                     )
                 }
@@ -155,6 +163,7 @@ private fun HistoryItemCard(
     item: HistoryItem,
     onReapply: () -> Unit,
     onSaveToGallery: () -> Unit,
+    onShare: () -> Unit,
     onDelete: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -266,6 +275,13 @@ private fun HistoryItemCard(
                             Icon(
                                 Icons.Default.PhotoLibrary,
                                 contentDescription = "ギャラリーに保存",
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                        IconButton(onClick = onShare, modifier = Modifier.size(36.dp)) {
+                            Icon(
+                                Icons.Default.Share,
+                                contentDescription = "共有",
                                 modifier = Modifier.size(20.dp),
                             )
                         }

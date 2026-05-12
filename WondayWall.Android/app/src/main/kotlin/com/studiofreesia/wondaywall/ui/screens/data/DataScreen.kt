@@ -56,7 +56,8 @@ fun DataScreen(viewModel: DataViewModel) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     var newRssUrl by remember { mutableStateOf("") }
-    var promptText by remember { mutableStateOf(uiState.userPrompt) }
+    // ユーザープロンプトのローカル編集状態（uiState.userPrompt との同期は LaunchedEffect で行う）
+    var promptText by remember { mutableStateOf("") }
 
     // カレンダー権限リクエストランチャー
     val calendarPermissionLauncher = rememberLauncherForActivityResult(
@@ -65,8 +66,9 @@ fun DataScreen(viewModel: DataViewModel) {
         if (granted) viewModel.loadData()
     }
 
+    // 外部からプロンプトが変化した場合（初期ロードや保存後）に同期する
     LaunchedEffect(uiState.userPrompt) {
-        if (promptText != uiState.userPrompt) promptText = uiState.userPrompt
+        promptText = uiState.userPrompt
     }
 
     LaunchedEffect(uiState.errorMessage) {

@@ -86,6 +86,10 @@ class HistoryViewModel(
         }
     }
 
+    // 画像共有 Intent を取得する（Activity から startActivity で使用する）
+    fun buildShareIntent(item: HistoryItem) =
+        item.appliedImagePath?.let { wallpaperService.buildShareIntent(it) }
+
     // エラーメッセージをクリアする
     fun clearError() {
         _uiState.value = _uiState.value.copy(errorMessage = null)

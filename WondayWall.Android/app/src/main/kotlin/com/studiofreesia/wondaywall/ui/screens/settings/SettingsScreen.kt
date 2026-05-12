@@ -39,6 +39,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -95,12 +96,18 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                     OutlinedTextField(
                         value = apiKeyText,
                         onValueChange = { apiKeyText = it },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            // フォーカスを失ったときのみ保存する（毎キーストロークの DataStore 書き込みを防ぐ）
+                            .onFocusChanged { focusState ->
+                                if (!focusState.isFocused && apiKeyText != uiState.config.googleAiApiKey) {
+                                    viewModel.updateApiKey(apiKeyText)
+                                }
+                            },
                         label = { Text("API キー") },
                         visualTransformation = PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         singleLine = true,
-                        trailingIcon = { },
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
@@ -108,12 +115,6 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    // フォーカスが外れた際に保存する（onValueChange では保存しない）
-                    LaunchedEffect(apiKeyText) {
-                        if (apiKeyText != uiState.config.googleAiApiKey) {
-                            viewModel.updateApiKey(apiKeyText)
-                        }
-                    }
                 }
             }
 
