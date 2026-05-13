@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.provider.CalendarContract
 import androidx.core.content.ContextCompat
+import com.prof18.rssparser.RssParserBuilder
+import com.prof18.rssparser.model.RssItem
 import com.studiofreesia.wondaywall.models.CalendarEventItem
 import com.studiofreesia.wondaywall.models.CalendarSourceItem
 import com.studiofreesia.wondaywall.models.ContextBuildResult
@@ -18,22 +20,23 @@ import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import org.xmlpull.v1.XmlPullParser
-import org.xmlpull.v1.XmlPullParserFactory
-import java.io.StringReader
+import org.jsoup.Jsoup
 import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.days
-import kotlin.time.Duration.Companion.hours
 
 // 画像生成に使うコンテキストを構築するサービス
 class ContextService(
     private val context: Context,
     private val appConfigService: AppConfigService,
 ) {
+    // RSS 取得・OGP ページ取得に使う OkHttp クライアント
     private val httpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .build()
+
+    // rssparser（OkHttp クライアントを共有して内部 HTTP コールを統一する）
+    private val rssParser = RssParserBuilder(callFactory = httpClient).build()
 
     // PromptContext を構築して返す
     suspend fun buildPromptContext(baseImagePath: String? = null): ContextBuildResult {
@@ -175,128 +178,76 @@ class ContextService(
         return rssSources.flatMap { url ->
             try {
                 fetchRssFeed(url)
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 emptyList()
             }
         }
     }
 
-    // RSS フィードを取得してパースする
-    private suspend fun fetchRssFeed(url: String): List<NewsTopicItem> = withContext(Dispatchers.IO) {
-        val request = Request.Builder()
-            .url(url)
-            .header("User-Agent", "WondayWall/1.0")
-            .build()
-        val body = httpClient.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) return@withContext emptyList()
-            response.body?.string() ?: return@withContext emptyList()
+    // rssparser を使って RSS フィードを取得・パースしてニューストピック一覧を返す
+    private suspend fun fetchRssFeed(url: String): List<NewsTopicItem> {
+        val channel = rssParser.getRssChannel(url)
+        return channel.items.mapNotNull { item ->
+            val title = item.title ?: return@mapNotNull null
+            val id = item.guid?.ifEmpty { null } ?: item.link ?: title
+            val pubDate = parseRssDate(item.pubDate)
+            // RSS の media:content / enclosure から画像 URL を取得し、なければ OGP を試みる
+            val ogpImageUrl = item.image ?: fetchOgpImageUrl(item)
+            NewsTopicItem(
+                id = id,
+                title = title,
+                summary = item.description?.let { stripHtml(it) }?.takeIf { it.isNotEmpty() },
+                url = item.link?.takeIf { it.isNotEmpty() },
+                publishedAt = pubDate,
+                ogpImageUrl = ogpImageUrl,
+            )
         }
-        parseRss(body)
     }
 
-    // RSS XML をパースしてニューストピック一覧を返す
-    private fun parseRss(xml: String): List<NewsTopicItem> {
-        val result = mutableListOf<NewsTopicItem>()
-        try {
-            val factory = XmlPullParserFactory.newInstance()
-            factory.isNamespaceAware = true
-            val parser = factory.newPullParser()
-            parser.setInput(StringReader(xml))
-
-            var inItem = false
-            var title = ""
-            var link = ""
-            var description = ""
-            var pubDate = ""
-            var guid = ""
-            var mediaUrl: String? = null
-            var enclosureUrl: String? = null
-            var currentTag = ""
-
-            var eventType = parser.eventType
-            while (eventType != XmlPullParser.END_DOCUMENT) {
-                when (eventType) {
-                    XmlPullParser.START_TAG -> {
-                        currentTag = parser.name ?: ""
-                        when (currentTag) {
-                            "item" -> {
-                                inItem = true
-                                title = ""; link = ""; description = ""; pubDate = ""
-                                guid = ""; mediaUrl = null; enclosureUrl = null
-                            }
-                            "enclosure" -> {
-                                val type = parser.getAttributeValue(null, "type") ?: ""
-                                if (type.startsWith("image/")) {
-                                    enclosureUrl = parser.getAttributeValue(null, "url")
-                                }
-                            }
-                            "content", "thumbnail" -> {
-                                // media:content または media:thumbnail
-                                val ns = parser.namespace ?: ""
-                                if (ns.contains("media")) {
-                                    val candidate = parser.getAttributeValue(null, "url")
-                                    if (candidate != null && mediaUrl == null) {
-                                        mediaUrl = candidate
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    XmlPullParser.TEXT -> {
-                        if (inItem) {
-                            val text = parser.text?.trim() ?: ""
-                            when (currentTag) {
-                                "title" -> title = text
-                                "link" -> if (link.isEmpty()) link = text
-                                "description" -> if (description.isEmpty()) description = text
-                                "pubDate", "published", "updated" -> pubDate = text
-                                "guid" -> guid = text
-                            }
-                        }
-                    }
-                    XmlPullParser.END_TAG -> {
-                        if (parser.name == "item" && inItem) {
-                            inItem = false
-                            val id = guid.ifEmpty { link }.ifEmpty { title }
-                            val parsedDate = parseRssDate(pubDate)
-                            if (title.isNotEmpty()) {
-                                result += NewsTopicItem(
-                                    id = id,
-                                    title = title,
-                                    summary = description.takeIf { it.isNotEmpty() },
-                                    url = link.takeIf { it.isNotEmpty() },
-                                    publishedAt = parsedDate,
-                                    ogpImageUrl = mediaUrl ?: enclosureUrl,
-                                )
-                            }
-                        }
-                        currentTag = ""
-                    }
+    // jsoup を使って記事ページの OGP 画像 URL を取得する（rssparser がメディアを返さなかった場合のフォールバック）
+    private suspend fun fetchOgpImageUrl(item: RssItem): String? {
+        val articleUrl = item.link?.takeIf { it.isNotEmpty() } ?: return null
+        return withContext(Dispatchers.IO) {
+            try {
+                val request = Request.Builder()
+                    .url(articleUrl)
+                    .header("User-Agent", "WondayWall/1.0")
+                    .build()
+                val html = httpClient.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) return@withContext null
+                    response.body?.string() ?: return@withContext null
                 }
-                eventType = parser.next()
+                val doc = Jsoup.parse(html, articleUrl)
+                // og:image:secure_url を優先し、なければ og:image を使う
+                doc.select("meta[property=og:image:secure_url]").attr("content")
+                    .takeIf { it.isNotEmpty() }
+                    ?: doc.select("meta[property=og:image]").attr("content")
+                        .takeIf { it.isNotEmpty() }
+            } catch (_: Exception) {
+                null
             }
-        } catch (e: Exception) {
-            // パースエラーは無視して取得済み分を返す
         }
-        return result
     }
+
+    // jsoup を使って HTML タグを除去する
+    private fun stripHtml(html: String): String =
+        Jsoup.parse(html).text()
 
     // RSS の日付文字列をパースする
-    private fun parseRssDate(dateStr: String): Instant {
-        if (dateStr.isEmpty()) return Clock.System.now()
+    private fun parseRssDate(dateStr: String?): Instant {
+        if (dateStr.isNullOrEmpty()) return Clock.System.now()
         return try {
             // ISO 8601 形式の場合
             Instant.parse(dateStr)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             try {
                 // RFC 822 形式（典型的な RSS 形式）のパース
                 val sdf = java.text.SimpleDateFormat(
                     "EEE, dd MMM yyyy HH:mm:ss zzz", java.util.Locale.ENGLISH
                 )
                 val date = sdf.parse(dateStr)
-                if (date != null) Instant.fromEpochMilliseconds(date.time)
-                else Clock.System.now()
-            } catch (e2: Exception) {
+                if (date != null) Instant.fromEpochMilliseconds(date.time) else Clock.System.now()
+            } catch (_: Exception) {
                 Clock.System.now()
             }
         }

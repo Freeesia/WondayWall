@@ -4,6 +4,7 @@ import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
+import com.google.crypto.tink.aead.AeadConfig
 import com.studiofreesia.wondaywall.services.AppConfigService
 import com.studiofreesia.wondaywall.services.ContextService
 import com.studiofreesia.wondaywall.services.GenerationCoordinator
@@ -35,6 +36,8 @@ class App : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // Tink の暗号化アルゴリズムを登録する（AeadConfig.register() はアプリ起動時に1回のみ呼ぶ）
+        AeadConfig.register()
         createNotificationChannels()
         initServices()
     }

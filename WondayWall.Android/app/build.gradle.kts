@@ -46,6 +46,7 @@ android {
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.activity.compose)
 
@@ -61,13 +62,24 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
 
     implementation(libs.kotlinx.serialization.json)
-    implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.datetime)
 
-    implementation(libs.okhttp)
+    // API キー暗号化（Tink）
+    implementation(libs.tink.android)
 
+    // Google AI（Gemini API）
+    implementation(libs.google.genai)
+
+    // HTTP / RSS / OGP
+    implementation(libs.okhttp)
+    implementation(libs.rssparser)
+    implementation(libs.jsoup)
+
+    // 画像表示
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
+
+    androidTestImplementation(libs.androidx.work.testing)
 }

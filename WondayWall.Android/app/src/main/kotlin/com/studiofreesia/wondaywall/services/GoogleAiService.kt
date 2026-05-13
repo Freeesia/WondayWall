@@ -1,29 +1,30 @@
 package com.studiofreesia.wondaywall.services
 
+import com.google.genai.Client
+import com.google.genai.types.Blob
+import com.google.genai.types.Content
+import com.google.genai.types.GenerateContentConfig
+import com.google.genai.types.GoogleSearch
+import com.google.genai.types.Part
+import com.google.genai.types.Schema
+import com.google.genai.types.Tool
 import com.studiofreesia.wondaywall.models.GeneratedImageInfo
 import com.studiofreesia.wondaywall.models.GoogleAiServiceTier
+import com.studiofreesia.wondaywall.models.PromptCalendarEvent
 import com.studiofreesia.wondaywall.models.PromptContext
 import com.studiofreesia.wondaywall.models.PromptNewsTopic
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.encodeToString
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
-import kotlinx.serialization.json.putJsonArray
-import kotlinx.serialization.json.putJsonObject
-import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
-// Google AI Gemini API を使った壁紙画像生成サービス
+// Google AI Gemini API を使った壁紙画像生成サービス（google-genai SDK 使用）
 class GoogleAiService(
     private val appConfigService: AppConfigService,
     private val filesDir: File,
@@ -31,18 +32,15 @@ class GoogleAiService(
     companion object {
         private const val TEXT_MODEL_NAME = "gemini-3-flash-preview"
         private const val IMAGE_MODEL_NAME = "gemini-3.1-flash-image-preview"
-        private const val API_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
-
-        // 通常タイムアウト秒数
-        private const val IMAGE_GENERATION_TIMEOUT_SEC = 300L
-        // Flex モードのタイムアウト（キューに積まれるため長めに設定）
-        private const val FLEX_TIMEOUT_SEC = 660L
     }
 
-    private val jsonSerializer = Json {
-        encodeDefaults = false
-        ignoreUnknownKeys = true
-    }
+    private val json = Json { ignoreUnknownKeys = true }
+
+    // OGP 画像取得用 OkHttp クライアント（google-genai SDK に含まれないため独立して保持する）
+    private val ogpHttpClient = OkHttpClient.Builder()
+        .connectTimeout(10, TimeUnit.SECONDS)
+        .readTimeout(10, TimeUnit.SECONDS)
+        .build()
 
     // 壁紙画像を生成してローカルに保存し、GeneratedImageInfo を返す
     // serviceTier: バックグラウンド生成時は Flex を指定（失敗時は Standard にフォールバック）
@@ -55,15 +53,17 @@ class GoogleAiService(
             throw IllegalStateException("Google AI API キーが設定されていません。")
         }
 
+        val client = Client.builder().apiKey(apiKey).build()
+
         // ステップ1: テキストモデルで詳細な画像プロンプトを生成（Flex→Standard フォールバック付き）
-        val promptSelection = generatePromptSelectionWithFallback(context, apiKey, serviceTier)
+        val promptSelection = generatePromptSelectionWithFallback(client, context, serviceTier)
 
         // ステップ2: 画像モデルで壁紙を生成（Flex→Standard フォールバック付き）
         val imageData = generateImageWithFallback(
+            client = client,
             prompt = promptSelection.imagePrompt,
             context = context,
             selectedNewsIds = promptSelection.selectedNewsIds.toSet(),
-            apiKey = apiKey,
             serviceTier = serviceTier,
         )
 
@@ -82,94 +82,100 @@ class GoogleAiService(
 
     // Flex → Standard フォールバック付きでプロンプトを生成する
     private suspend fun generatePromptSelectionWithFallback(
+        client: Client,
         context: PromptContext,
-        apiKey: String,
         serviceTier: GoogleAiServiceTier,
     ): PromptSelectionResponse {
         if (serviceTier != GoogleAiServiceTier.Flex) {
-            return generatePromptSelection(context, apiKey, GoogleAiServiceTier.Standard)
+            return generatePromptSelection(client, context, GoogleAiServiceTier.Standard)
         }
         return try {
-            generatePromptSelection(context, apiKey, GoogleAiServiceTier.Flex)
+            generatePromptSelection(client, context, GoogleAiServiceTier.Flex)
         } catch (e: IOException) {
             // Flex 容量不足（503/429）→ Standard で再試行
             if (isFlexUnavailableError(e)) {
-                generatePromptSelection(context, apiKey, GoogleAiServiceTier.Standard)
+                generatePromptSelection(client, context, GoogleAiServiceTier.Standard)
             } else throw e
         }
     }
 
     // テキストモデルで画像プロンプト候補を生成する
     private suspend fun generatePromptSelection(
+        client: Client,
         context: PromptContext,
-        apiKey: String,
         serviceTier: GoogleAiServiceTier,
-    ): PromptSelectionResponse {
-        val endpoint = "$API_BASE_URL/$TEXT_MODEL_NAME:generateContent?key=$apiKey"
+    ): PromptSelectionResponse = withContext(Dispatchers.IO) {
         val systemPrompt = buildTextModelPrompt(context)
 
-        val requestBody = GeminiRequest(
-            contents = listOf(
-                GeminiContent(
-                    role = "user",
-                    parts = listOf(GeminiPart(text = systemPrompt)),
+        // レスポンススキーマ（imagePrompt + selectedNewsIds の JSON オブジェクト）
+        val schema = Schema.builder()
+            .type("OBJECT")
+            .properties(
+                mapOf(
+                    "imagePrompt" to Schema.builder().type("STRING").build(),
+                    "selectedNewsIds" to Schema.builder()
+                        .type("ARRAY")
+                        .items(Schema.builder().type("STRING").build())
+                        .build(),
                 )
-            ),
-            generationConfig = GeminiGenerationConfig(
-                responseMimeType = "application/json",
-                responseSchema = promptSelectionSchema,
-            ),
-            tools = listOf(GeminiTool(googleSearch = GeminiGoogleSearch())),
-            serviceTier = if (serviceTier == GoogleAiServiceTier.Flex) "flex" else null,
-        )
+            )
+            .required(listOf("imagePrompt", "selectedNewsIds"))
+            .build()
 
-        val responseText = postJson(
-            url = endpoint,
-            body = jsonSerializer.encodeToString(requestBody),
-            timeoutSec = if (serviceTier == GoogleAiServiceTier.Flex) FLEX_TIMEOUT_SEC else IMAGE_GENERATION_TIMEOUT_SEC,
-        )
+        val configBuilder = GenerateContentConfig.builder()
+            .responseMimeType("application/json")
+            .responseSchema(schema)
+            .tools(listOf(Tool.builder().googleSearch(GoogleSearch.builder().build()).build()))
+        if (serviceTier == GoogleAiServiceTier.Flex) {
+            // Flex ティアは SDK の serviceTier フィールドで設定する
+            configBuilder.serviceTier("flex")
+        }
+        val config = configBuilder.build()
 
-        val response = jsonSerializer.decodeFromString<GeminiResponse>(responseText)
-        val jsonText = response.candidates.firstOrNull()?.content?.parts?.firstOrNull()?.text
+        val content = Content.builder()
+            .role("user")
+            .parts(listOf(Part.builder().text(systemPrompt).build()))
+            .build()
+
+        val response = client.models.generateContent(TEXT_MODEL_NAME, content, config)
+        val jsonText = response.text()
             ?: throw IOException("Google AI から有効なプロンプト選択レスポンスを取得できませんでした。")
 
-        val selection = jsonSerializer.decodeFromString<PromptSelectionResponse>(jsonText)
+        val selection = json.decodeFromString<PromptSelectionResponse>(jsonText)
         if (selection.imagePrompt.isEmpty()) {
             throw IOException("Google AI が有効な画像プロンプトを返しませんでした。")
         }
-        return selection
+        selection
     }
 
     // Flex → Standard フォールバック付きで画像を生成する
     private suspend fun generateImageWithFallback(
+        client: Client,
         prompt: String,
         context: PromptContext,
         selectedNewsIds: Set<String>,
-        apiKey: String,
         serviceTier: GoogleAiServiceTier,
     ): ImageData {
         if (serviceTier != GoogleAiServiceTier.Flex) {
-            return generateImage(prompt, context, selectedNewsIds, apiKey, GoogleAiServiceTier.Standard)
+            return generateImage(client, prompt, context, selectedNewsIds, GoogleAiServiceTier.Standard)
         }
         return try {
-            generateImage(prompt, context, selectedNewsIds, apiKey, GoogleAiServiceTier.Flex)
+            generateImage(client, prompt, context, selectedNewsIds, GoogleAiServiceTier.Flex)
         } catch (e: IOException) {
             if (isFlexUnavailableError(e)) {
-                generateImage(prompt, context, selectedNewsIds, apiKey, GoogleAiServiceTier.Standard)
+                generateImage(client, prompt, context, selectedNewsIds, GoogleAiServiceTier.Standard)
             } else throw e
         }
     }
 
     // 画像モデルで壁紙画像を生成する
     private suspend fun generateImage(
+        client: Client,
         prompt: String,
         context: PromptContext,
         selectedNewsIds: Set<String>,
-        apiKey: String,
         serviceTier: GoogleAiServiceTier,
     ): ImageData = withContext(Dispatchers.IO) {
-        val endpoint = "$API_BASE_URL/$IMAGE_MODEL_NAME:generateContent?key=$apiKey"
-
         // 選択済みニュースの OGP 画像 URL を収集する（最大3件）
         val ogpUrls = context.newsTopics
             .filter { selectedNewsIds.contains(it.id) }
@@ -182,15 +188,18 @@ class GoogleAiService(
             Reference images from the selected news topics are attached. Incorporate their visual themes, color palette, and subject matter into the wallpaper design.
         """.trimIndent()
 
-        val parts = mutableListOf<GeminiPart>()
+        val parts = mutableListOf<Part>()
 
         // ベース壁紙が指定されている場合は先頭に付加する
         if (context.baseImagePath != null) {
             val baseFile = File(context.baseImagePath)
             if (baseFile.exists()) {
                 val mimeType = mimeTypeForPath(context.baseImagePath)
-                val base64 = android.util.Base64.encodeToString(baseFile.readBytes(), android.util.Base64.NO_WRAP)
-                parts += GeminiPart(inlineData = GeminiInlineData(mimeType = mimeType, data = base64))
+                val blob = Blob.builder()
+                    .mimeType(mimeType)
+                    .data(baseFile.readBytes())
+                    .build()
+                parts += Part.builder().inlineData(blob).build()
                 val finalPrompt = """
                     The current wallpaper is provided as the base image.
                     Create a new wallpaper that evolves gradually from this base.
@@ -202,65 +211,55 @@ class GoogleAiService(
 
                     $imagePromptText
                 """.trimIndent()
-                parts += GeminiPart(text = finalPrompt)
+                parts += Part.builder().text(finalPrompt).build()
             } else {
-                parts += GeminiPart(text = imagePromptText)
+                parts += Part.builder().text(imagePromptText).build()
             }
         } else {
-            parts += GeminiPart(text = imagePromptText)
+            parts += Part.builder().text(imagePromptText).build()
         }
 
         // 選択済みニュースの OGP 画像をダウンロードしてインラインデータとして添付する
-        val ogpClient = OkHttpClient.Builder()
-            .connectTimeout(10, TimeUnit.SECONDS)
-            .readTimeout(10, TimeUnit.SECONDS)
-            .build()
         for (ogpUrl in ogpUrls) {
             try {
                 val imgRequest = Request.Builder()
                     .url(ogpUrl)
                     .header("User-Agent", "Mozilla/5.0 (Linux; Android 14)")
                     .build()
-                ogpClient.newCall(imgRequest).execute().use { response ->
+                ogpHttpClient.newCall(imgRequest).execute().use { response ->
                     if (response.isSuccessful) {
                         val bytes = response.body?.bytes() ?: return@use
-                        val contentType = response.header("Content-Type") ?: "image/jpeg"
-                        val mimeType = contentType.substringBefore(";").trim()
-                        val base64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
-                        parts += GeminiPart(inlineData = GeminiInlineData(mimeType = mimeType, data = base64))
+                        val mimeType = (response.header("Content-Type") ?: "image/jpeg")
+                            .substringBefore(";").trim()
+                        val blob = Blob.builder().mimeType(mimeType).data(bytes).build()
+                        parts += Part.builder().inlineData(blob).build()
                     }
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 // OGP 画像のダウンロード失敗は無視する
             }
         }
 
-        val requestBody = GeminiRequest(
-            contents = listOf(GeminiContent(role = "user", parts = parts)),
-            generationConfig = GeminiGenerationConfig(
-                responseModalities = listOf("IMAGE"),
-                imageConfig = GeminiImageConfig(
-                    aspectRatio = context.aspectRatio,
-                    imageSize = context.imageSize,
-                ),
-            ),
-            tools = listOf(GeminiTool(googleSearch = GeminiGoogleSearch())),
-            serviceTier = if (serviceTier == GoogleAiServiceTier.Flex) "flex" else null,
-        )
+        val configBuilder = GenerateContentConfig.builder()
+            .responseModalities(listOf("IMAGE"))
+        if (serviceTier == GoogleAiServiceTier.Flex) {
+            configBuilder.serviceTier("flex")
+        }
+        val config = configBuilder.build()
 
-        val responseText = postJson(
-            url = endpoint,
-            body = jsonSerializer.encodeToString(requestBody),
-            timeoutSec = if (serviceTier == GoogleAiServiceTier.Flex) FLEX_TIMEOUT_SEC else IMAGE_GENERATION_TIMEOUT_SEC,
-        )
+        val content = Content.builder()
+            .role("user")
+            .parts(parts)
+            .build()
 
-        val response = jsonSerializer.decodeFromString<GeminiResponse>(responseText)
-        for (candidate in response.candidates) {
-            for (part in candidate.content.parts) {
-                val inlineData = part.inlineData ?: continue
-                if (!inlineData.mimeType.startsWith("image/")) continue
-                val bytes = android.util.Base64.decode(inlineData.data, android.util.Base64.DEFAULT)
-                val ext = inlineData.mimeType.removePrefix("image/").let {
+        val response = client.models.generateContent(IMAGE_MODEL_NAME, content, config)
+
+        for (candidate in response.candidates() ?: emptyList()) {
+            for (part in candidate.content()?.parts() ?: emptyList()) {
+                val blob = part.inlineData() ?: continue
+                if (blob.mimeType()?.startsWith("image/") != true) continue
+                val bytes = blob.data() ?: continue
+                val ext = blob.mimeType()!!.removePrefix("image/").let {
                     if (it.isEmpty()) "jpg" else it
                 }
                 return@withContext ImageData(bytes = bytes, extension = ext)
@@ -320,7 +319,10 @@ class GoogleAiService(
         }
 
         if (context.calendarEvents.isNotEmpty()) {
-            val eventsJson = jsonSerializer.encodeToString(context.calendarEvents)
+            val eventsJson = json.encodeToString(
+                ListSerializer(PromptCalendarEvent.serializer()),
+                context.calendarEvents
+            )
             parts += "Calendar event candidates (JSON):\n$eventsJson"
         }
 
@@ -332,7 +334,10 @@ class GoogleAiService(
                     url = it.url, publishedAt = it.publishedAt, ogpImageUrl = null,
                 )
             }
-            val newsJson = jsonSerializer.encodeToString(topicsForPrompt)
+            val newsJson = json.encodeToString(
+                ListSerializer(PromptNewsTopic.serializer()),
+                topicsForPrompt
+            )
             parts += "News topic candidates (JSON):\n$newsJson"
         }
 
@@ -341,25 +346,6 @@ class GoogleAiService(
         }
 
         return parts.joinToString("\n\n")
-    }
-
-    // JSON を POST してレスポンス文字列を返す
-    private fun postJson(url: String, body: String, timeoutSec: Long): String {
-        val client = OkHttpClient.Builder()
-            .callTimeout(timeoutSec, TimeUnit.SECONDS)
-            .build()
-        val requestBody = body.toRequestBody("application/json".toMediaType())
-        val request = Request.Builder()
-            .url(url)
-            .post(requestBody)
-            .build()
-        client.newCall(request).execute().use { response ->
-            val responseBody = response.body?.string() ?: ""
-            if (!response.isSuccessful) {
-                throw IOException("Google AI API エラー (${response.code}): $responseBody")
-            }
-            return responseBody
-        }
     }
 
     // Flex 容量不足を示すエラーか判定する（503 / 429）
@@ -377,105 +363,10 @@ class GoogleAiService(
             else -> "image/jpeg"
         }
 
-    // PromptSelectionSchema（テキストモデルへのレスポンススキーマ）
-    private val promptSelectionSchema: JsonObject = buildJsonObject {
-        put("type", "object")
-        putJsonObject("properties") {
-            putJsonObject("imagePrompt") { put("type", "string") }
-            putJsonObject("selectedNewsIds") {
-                put("type", "array")
-                putJsonObject("items") { put("type", "string") }
-            }
-        }
-        putJsonArray("required") {
-            add(kotlinx.serialization.json.JsonPrimitive("imagePrompt"))
-            add(kotlinx.serialization.json.JsonPrimitive("selectedNewsIds"))
-        }
-    }
-
     // 画像データの一時保持用
     private data class ImageData(val bytes: ByteArray, val extension: String)
 
-    // ──────────────────────────────────────────────
-    // Gemini API リクエスト/レスポンスモデル
-    // ──────────────────────────────────────────────
-
-    @Serializable
-    private data class GeminiRequest(
-        val contents: List<GeminiContent>,
-        val generationConfig: GeminiGenerationConfig? = null,
-        val tools: List<GeminiTool>? = null,
-        // Flex 推論時は "flex"、通常は null（省略すると Standard）
-        @SerialName("service_tier") val serviceTier: String? = null,
-    )
-
-    @Serializable
-    private data class GeminiContent(
-        val role: String,
-        val parts: List<GeminiPart>,
-    )
-
-    @Serializable
-    private data class GeminiPart(
-        val text: String? = null,
-        val inlineData: GeminiInlineData? = null,
-    )
-
-    @Serializable
-    private data class GeminiInlineData(
-        val mimeType: String,
-        val data: String,
-    )
-
-    @Serializable
-    private data class GeminiGenerationConfig(
-        val responseMimeType: String? = null,
-        val responseSchema: JsonObject? = null,
-        val responseModalities: List<String>? = null,
-        val imageConfig: GeminiImageConfig? = null,
-    )
-
-    @Serializable
-    private data class GeminiImageConfig(
-        val aspectRatio: String,
-        val imageSize: String,
-    )
-
-    @Serializable
-    private data class GeminiTool(
-        val googleSearch: GeminiGoogleSearch? = null,
-    )
-
-    @Serializable
-    private class GeminiGoogleSearch
-
-    @Serializable
-    private data class GeminiResponse(
-        val candidates: List<GeminiCandidate>,
-    )
-
-    @Serializable
-    private data class GeminiCandidate(
-        val content: GeminiResponseContent,
-    )
-
-    @Serializable
-    private data class GeminiResponseContent(
-        val parts: List<GeminiResponsePart>,
-    )
-
-    @Serializable
-    private data class GeminiResponsePart(
-        val text: String? = null,
-        val inlineData: GeminiResponseInlineData? = null,
-    )
-
-    @Serializable
-    private data class GeminiResponseInlineData(
-        val mimeType: String,
-        val data: String,
-    )
-
+    // テキストモデルのレスポンス（JSON スキーマに合わせた構造体）
     @Serializable
     private data class PromptSelectionResponse(
         val imagePrompt: String,

@@ -13,3 +13,19 @@
 -keepclasseswithmembers class com.studiofreesia.wondaywall.** {
     kotlinx.serialization.KSerializer serializer(...);
 }
+
+# Tink — 暗号化ライブラリのリフレクション利用を保護する
+-keep class com.google.crypto.tink.** { *; }
+-dontwarn com.google.crypto.tink.**
+
+# google-genai SDK — リフレクションで使用される内部クラスを保護する
+-keep class com.google.genai.** { *; }
+-dontwarn com.google.genai.**
+
+# rssparser — KMP ライブラリのリフレクション利用を保護する
+-keep class com.prof18.rssparser.** { *; }
+-dontwarn com.prof18.rssparser.**
+
+# jsoup — HTML パーサーの内部クラスを保護する
+-keep class org.jsoup.** { *; }
+-dontwarn org.jsoup.**
