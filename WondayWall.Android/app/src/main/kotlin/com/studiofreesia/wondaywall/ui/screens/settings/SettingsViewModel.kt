@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.studiofreesia.wondaywall.models.AppConfig
+import com.studiofreesia.wondaywall.models.UpdateSchedule
 import com.studiofreesia.wondaywall.services.AppConfigService
 import com.studiofreesia.wondaywall.services.TaskSchedulerService
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -58,11 +59,11 @@ class SettingsViewModel(
         }
     }
 
-    // 1日の実行回数を更新する
-    fun updateRunsPerDay(runs: Int) {
+    // スケジュールを更新する
+    fun updateSchedule(newSchedule: UpdateSchedule) {
         viewModelScope.launch {
             appConfigService.updateConfig { config ->
-                config.copy(runsPerDay = runs)
+                config.copy(schedule = newSchedule)
             }
             val config = appConfigService.getConfig()
             _uiState.value = _uiState.value.copy(config = config)
@@ -89,9 +90,9 @@ class SettingsViewModel(
         updateConfigValue { it.copy(updateLockScreen = enabled) }
     }
 
-    // 通知設定を切り替える（成功・失敗両方に同じ値を設定する）
+    // 通知設定を切り替える
     fun toggleShowNotification(enabled: Boolean) {
-        updateConfigValue { it.copy(notifyOnSuccess = enabled, notifyOnFailure = enabled) }
+        updateConfigValue { it.copy(showNotification = enabled) }
     }
 
     // 設定値を更新してキャッシュも更新する汎用メソッド

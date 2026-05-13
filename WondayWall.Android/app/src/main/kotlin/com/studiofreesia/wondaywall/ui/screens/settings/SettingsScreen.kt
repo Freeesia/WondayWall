@@ -44,8 +44,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 
-// 1日の実行回数の選択肢
-private val runsPerDayOptions = listOf(1, 2, 3, 4, 6, 8, 12, 24)
+import com.studiofreesia.wondaywall.models.UpdateSchedule
 
 // 設定画面
 @OptIn(ExperimentalMaterial3Api::class)
@@ -54,7 +53,7 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     var apiKeyText by remember { mutableStateOf(uiState.config.googleAiApiKey) }
-    var runsDropdownExpanded by remember { mutableStateOf(false) }
+    var scheduleDropdownExpanded by remember { mutableStateOf(false) }
 
     LaunchedEffect(uiState.config.googleAiApiKey) {
         if (apiKeyText != uiState.config.googleAiApiKey) {
@@ -137,44 +136,38 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                         onCheckedChange = viewModel::toggleAutoGeneration,
                     )
 
-                    // 1日の実行回数ドロップダウン
+                    // スケジュールドロップダウン
                     if (uiState.config.autoGenerationEnabled) {
                         Spacer(Modifier.height(8.dp))
                         ExposedDropdownMenuBox(
-                            expanded = runsDropdownExpanded,
-                            onExpandedChange = { runsDropdownExpanded = it },
+                            expanded = scheduleDropdownExpanded,
+                            onExpandedChange = { scheduleDropdownExpanded = it },
                         ) {
                             OutlinedTextField(
-                                value = "${uiState.config.runsPerDay}回/日",
+                                value = uiState.config.schedule.displayName(),
                                 onValueChange = {},
                                 readOnly = true,
-                                label = { Text("1日の生成回数") },
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(runsDropdownExpanded) },
+                                label = { Text("更新スケジュール") },
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(scheduleDropdownExpanded) },
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .menuAnchor(),
                             )
                             ExposedDropdownMenu(
-                                expanded = runsDropdownExpanded,
-                                onDismissRequest = { runsDropdownExpanded = false },
+                                expanded = scheduleDropdownExpanded,
+                                onDismissRequest = { scheduleDropdownExpanded = false },
                             ) {
-                                runsPerDayOptions.forEach { runs ->
+                                UpdateSchedule.entries.forEach { schedule ->
                                     DropdownMenuItem(
-                                        text = { Text("${runs}回/日") },
+                                        text = { Text(schedule.displayName()) },
                                         onClick = {
-                                            viewModel.updateRunsPerDay(runs)
-                                            runsDropdownExpanded = false
+                                            viewModel.updateSchedule(schedule)
+                                            scheduleDropdownExpanded = false
                                         },
                                     )
                                 }
                             }
                         }
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            text = "0時を起点に均等間隔で生成します",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
                     }
                 }
             }
@@ -208,7 +201,7 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                     )
                     SwitchRow(
                         label = "通知を表示する",
-                        checked = uiState.config.notifyOnSuccess,
+                        checked = uiState.config.showNotification,
                         onCheckedChange = viewModel::toggleShowNotification,
                     )
                 }

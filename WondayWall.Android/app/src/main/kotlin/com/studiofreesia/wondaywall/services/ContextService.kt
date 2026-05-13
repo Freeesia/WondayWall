@@ -48,14 +48,11 @@ class ContextService(
         // ニュースを取得する（最大10件）
         val newsTopics = fetchAllNews(config.rssSources).take(10)
 
-        // 前回壁紙をベースにする設定の場合のみパスを渡す
-        val effectiveBasePath = if (config.useCurrentWallpaperAsBase) baseImagePath else null
-
         val promptContext = PromptContext(
             calendarEvents = calendarEvents.map { it.toPromptCalendarEvent() },
             newsTopics = newsTopics.map { it.toPromptNewsTopic() },
             additionalConstraints = config.userPrompt,
-            baseImagePath = effectiveBasePath,
+            baseImagePath = baseImagePath,
         )
 
         return ContextBuildResult(

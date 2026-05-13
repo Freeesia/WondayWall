@@ -246,7 +246,7 @@ fun HomeScreen(viewModel: HomeViewModel) {
             if (uiState.config.autoGenerationEnabled) {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Text(
-                        text = "自動生成: ${uiState.config.runsPerDay}回/日",
+                        text = "自動生成: ${uiState.config.schedule.displayName()}",
                         modifier = Modifier.padding(12.dp),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,

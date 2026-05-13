@@ -120,10 +120,12 @@ class GenerationCoordinator(
             historyService.addHistoryItem(historyItem)
 
             // 通知を送る
-            if (isSuccess && config.notifyOnSuccess) {
-                notificationHelper.showSuccessNotification()
-            } else if (!isSuccess && config.notifyOnFailure) {
-                notificationHelper.showFailureNotification(errorSummary ?: "不明なエラー")
+            if (config.showNotification) {
+                if (isSuccess) {
+                    notificationHelper.showSuccessNotification()
+                } else {
+                    notificationHelper.showFailureNotification(errorSummary ?: "不明なエラー")
+                }
             }
 
             historyItem
@@ -139,7 +141,7 @@ class GenerationCoordinator(
             )
             historyService.addHistoryItem(historyItem)
 
-            if (config.notifyOnFailure) {
+            if (config.showNotification) {
                 notificationHelper.showFailureNotification(historyItem.errorSummary ?: "不明なエラー")
             }
             historyItem

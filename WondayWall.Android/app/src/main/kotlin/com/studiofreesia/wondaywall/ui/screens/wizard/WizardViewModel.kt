@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.studiofreesia.wondaywall.models.AppConfig
 import com.studiofreesia.wondaywall.models.CalendarSourceItem
+import com.studiofreesia.wondaywall.models.UpdateSchedule
 import com.studiofreesia.wondaywall.services.AppConfigService
 import com.studiofreesia.wondaywall.services.ContextService
 import com.studiofreesia.wondaywall.services.GenerationCoordinator
@@ -29,7 +30,7 @@ data class WizardUiState(
     val selectedCalendarIds: Set<String> = emptySet(),
     val rssSources: List<String> = emptyList(),
     val userPrompt: String = "",
-    val runsPerDay: Int = 4,
+    val schedule: UpdateSchedule = UpdateSchedule.OnceADay,
     val wifiOnly: Boolean = false,
     val skipOnBatterySaver: Boolean = true,
     val showNotification: Boolean = true,
@@ -147,9 +148,9 @@ class WizardViewModel(
         _uiState.value = _uiState.value.copy(userPrompt = prompt)
     }
 
-    // 1日の実行回数を更新する
-    fun updateRunsPerDay(runs: Int) {
-        _uiState.value = _uiState.value.copy(runsPerDay = runs)
+    // スケジュールを更新する
+    fun updateSchedule(schedule: UpdateSchedule) {
+        _uiState.value = _uiState.value.copy(schedule = schedule)
     }
 
     // Wi-Fi のみ設定を切り替える
@@ -181,7 +182,7 @@ class WizardViewModel(
                 errorMessage = null,
             )
             // ウィザード設定を一時的に保存してから生成する
-            saveCurrentConfig(isSetupCompleted = false)
+            saveCurrentConfig(enableAutoGeneration = false)
             try {
                 generationCoordinator.runAsync()
                 // 生成後に最新画像パスを取得する
@@ -198,16 +199,14 @@ class WizardViewModel(
     // ウィザードを完了して設定を保存する
     fun completeWizard(onComplete: () -> Unit) {
         viewModelScope.launch {
-            saveCurrentConfig(isSetupCompleted = true)
-            if (_uiState.value.runsPerDay > 0) {
-                taskSchedulerService.scheduleNext()
-            }
+            saveCurrentConfig(enableAutoGeneration = true)
+            taskSchedulerService.scheduleNext()
             onComplete()
         }
     }
 
     // 現在の ViewModel 状態を AppConfig として保存する
-    private suspend fun saveCurrentConfig(isSetupCompleted: Boolean) {
+    private suspend fun saveCurrentConfig(enableAutoGeneration: Boolean) {
         val state = _uiState.value
         appConfigService.updateConfig {
             it.copy(
@@ -215,14 +214,12 @@ class WizardViewModel(
                 targetCalendarIds = state.selectedCalendarIds.toList(),
                 rssSources = state.rssSources,
                 userPrompt = state.userPrompt,
-                autoGenerationEnabled = isSetupCompleted,
-                runsPerDay = state.runsPerDay,
+                autoGenerationEnabled = enableAutoGeneration,
+                schedule = state.schedule,
                 generateOnlyOnWifi = state.wifiOnly,
                 skipOnBatterySaver = state.skipOnBatterySaver,
-                notifyOnSuccess = state.showNotification,
-                notifyOnFailure = state.showNotification,
+                showNotification = state.showNotification,
                 updateLockScreen = state.updateLockScreen,
-                isSetupCompleted = isSetupCompleted,
             )
         }
     }

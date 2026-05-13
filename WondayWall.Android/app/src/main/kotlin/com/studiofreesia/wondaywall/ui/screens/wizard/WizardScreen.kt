@@ -70,10 +70,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
+import com.studiofreesia.wondaywall.models.UpdateSchedule
 import java.io.File
-
-// 1日の実行回数の選択肢（ウィザード用）
-private val wizardRunsPerDayOptions = listOf(1, 2, 3, 4, 6, 8, 12, 24)
 
 // ウィザード画面（セットアップ）
 @OptIn(ExperimentalMaterial3Api::class)
@@ -415,7 +413,7 @@ private fun StepPromptAndRss(uiState: WizardUiState, viewModel: WizardViewModel)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun StepSchedule(uiState: WizardUiState, viewModel: WizardViewModel) {
-    var runsDropdownExpanded by remember { mutableStateOf(false) }
+    var scheduleDropdownExpanded by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -431,31 +429,31 @@ private fun StepSchedule(uiState: WizardUiState, viewModel: WizardViewModel) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
-        // 1日の生成回数
+        // 更新スケジュール
         ExposedDropdownMenuBox(
-            expanded = runsDropdownExpanded,
-            onExpandedChange = { runsDropdownExpanded = it },
+            expanded = scheduleDropdownExpanded,
+            onExpandedChange = { scheduleDropdownExpanded = it },
         ) {
             OutlinedTextField(
-                value = "${uiState.runsPerDay}回/日",
+                value = uiState.schedule.displayName(),
                 onValueChange = {},
                 readOnly = true,
-                label = { Text("1日の生成回数") },
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(runsDropdownExpanded) },
+                label = { Text("更新スケジュール") },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(scheduleDropdownExpanded) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .menuAnchor(),
             )
             ExposedDropdownMenu(
-                expanded = runsDropdownExpanded,
-                onDismissRequest = { runsDropdownExpanded = false },
+                expanded = scheduleDropdownExpanded,
+                onDismissRequest = { scheduleDropdownExpanded = false },
             ) {
-                wizardRunsPerDayOptions.forEach { runs ->
+                UpdateSchedule.entries.forEach { schedule ->
                     DropdownMenuItem(
-                        text = { Text("${runs}回/日") },
+                        text = { Text(schedule.displayName()) },
                         onClick = {
-                            viewModel.updateRunsPerDay(runs)
-                            runsDropdownExpanded = false
+                            viewModel.updateSchedule(schedule)
+                            scheduleDropdownExpanded = false
                         },
                     )
                 }

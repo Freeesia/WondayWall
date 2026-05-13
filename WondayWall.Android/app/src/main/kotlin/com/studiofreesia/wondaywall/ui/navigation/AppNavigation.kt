@@ -45,7 +45,6 @@ import com.studiofreesia.wondaywall.ui.screens.settings.SettingsScreen
 import com.studiofreesia.wondaywall.ui.screens.settings.SettingsViewModel
 import com.studiofreesia.wondaywall.ui.screens.wizard.WizardScreen
 import com.studiofreesia.wondaywall.ui.screens.wizard.WizardViewModel
-import kotlinx.coroutines.flow.first
 
 // ナビゲーションルート定数
 private object Routes {
@@ -77,11 +76,11 @@ fun AppNavigation(
 ) {
     val rootNavController = rememberNavController()
 
-    // セットアップ完了状態を確認してから開始画面を決定する
+    // セットアップ完了状態をAPIキーの存在で判定する
     var startDestination by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) {
-        val config = appConfigService.configFlow.first()
-        startDestination = if (config.isSetupCompleted) Routes.MAIN else Routes.WIZARD
+        val apiKey = appConfigService.getGoogleAiApiKey()
+        startDestination = if (apiKey.isNotEmpty()) Routes.MAIN else Routes.WIZARD
     }
 
     if (startDestination == null) {

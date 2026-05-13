@@ -13,10 +13,8 @@ data class AppConfig(
     val rssSources: List<String> = emptyList(),
     // ユーザーの追加プロンプト・制約
     val userPrompt: String = "",
-    // 1日あたりの自動生成回数（1/2/3/4/6/8/12/24）
-    val runsPerDay: Int = 1,
-    // 前回生成画像をベースにするか
-    val useCurrentWallpaperAsBase: Boolean = false,
+    // 自動更新スケジュール（Windows版 AppConfig.Schedule と同名）
+    val schedule: UpdateSchedule = UpdateSchedule.OnceADay,
     // 生成材料に変化がなければスキップするか
     val skipGenerationWhenNoChanges: Boolean = false,
     // ロック画面も更新するか（false = ホーム画面のみ）
@@ -27,15 +25,10 @@ data class AppConfig(
     val autoGenerationEnabled: Boolean = false,
     // 生成画像をギャラリーにも保存するか
     val saveToGallery: Boolean = false,
-    // 生成成功時に通知するか
-    val notifyOnSuccess: Boolean = true,
-    // 生成失敗時に通知するか
-    val notifyOnFailure: Boolean = true,
+    // 生成時に通知するか（成功・失敗ともに同一フラグで管理）
+    val showNotification: Boolean = true,
     // Wi-Fi接続時のみ生成するか
     val generateOnlyOnWifi: Boolean = false,
     // 省電力モード時は生成をスキップするか
     val skipOnBatterySaver: Boolean = true,
-
-    // 初回セットアップウィザードが完了しているか
-    val isSetupCompleted: Boolean = false,
 )
