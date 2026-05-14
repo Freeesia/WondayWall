@@ -189,35 +189,7 @@ class GoogleAiService(
         """.trimIndent()
 
         val parts = mutableListOf<Part>()
-
-        // ベース壁紙が指定されている場合は先頭に付加する
-        if (context.baseImagePath != null) {
-            val baseFile = File(context.baseImagePath)
-            if (baseFile.exists()) {
-                val mimeType = mimeTypeForPath(context.baseImagePath)
-                val blob = Blob.builder()
-                    .mimeType(mimeType)
-                    .data(baseFile.readBytes())
-                    .build()
-                parts += Part.builder().inlineData(blob).build()
-                val finalPrompt = """
-                    The current wallpaper is provided as the base image.
-                    Create a new wallpaper that evolves gradually from this base.
-                    Visually inspect the base wallpaper and compare it against the current prompt.
-                    Treat the current prompt's events, news themes, and mood as the source of truth.
-                    Remove or replace any subject, motif, decoration, or symbolic element from the base image that no longer matches the current prompt.
-                    When the base image conflicts with the current prompt, prioritize the current prompt while preserving the base image's overall composition, color palette, and artistic style.
-                    Preserve the overall composition, color palette, and artistic style of the base wallpaper. Incorporate the new themes and events subtly — avoid drastic visual changes.
-
-                    $imagePromptText
-                """.trimIndent()
-                parts += Part.builder().text(finalPrompt).build()
-            } else {
-                parts += Part.builder().text(imagePromptText).build()
-            }
-        } else {
-            parts += Part.builder().text(imagePromptText).build()
-        }
+        parts += Part.builder().text(imagePromptText).build()
 
         // 選択済みニュースの OGP 画像をダウンロードしてインラインデータとして添付する
         for (ogpUrl in ogpUrls) {
@@ -310,14 +282,6 @@ class GoogleAiService(
             - Do not output markdown fences or any extra explanation.
         """.trimIndent()
 
-        if (context.baseImagePath != null && File(context.baseImagePath).exists()) {
-            parts += """
-                A base wallpaper image will be supplied to the image model.
-                Preserve the overall composition, color palette, and artistic style of the base wallpaper.
-                Incorporate the new themes and events subtly — avoid drastic visual changes.
-            """.trimIndent()
-        }
-
         if (context.calendarEvents.isNotEmpty()) {
             val eventsJson = json.encodeToString(
                 ListSerializer(PromptCalendarEvent.serializer()),
@@ -353,15 +317,6 @@ class GoogleAiService(
         val msg = e.message ?: return false
         return msg.contains("503") || msg.contains("429")
     }
-
-    // ファイルパスから MIME タイプを判定する
-    private fun mimeTypeForPath(path: String): String =
-        when (path.substringAfterLast('.').lowercase()) {
-            "jpg", "jpeg" -> "image/jpeg"
-            "png" -> "image/png"
-            "webp" -> "image/webp"
-            else -> "image/jpeg"
-        }
 
     // 画像データの一時保持用
     private data class ImageData(val bytes: ByteArray, val extension: String)

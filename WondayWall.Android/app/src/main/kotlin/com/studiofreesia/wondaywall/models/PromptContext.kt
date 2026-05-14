@@ -39,8 +39,6 @@ data class PromptContext(
     val aspectRatio: String = "9:16",
     // ユーザーの追加制約・プロンプト
     val additionalConstraints: String = "",
-    // ベース壁紙のファイルパス（前回画像をベースにする場合）
-    val baseImagePath: String? = null,
 )
 
 // コンテキスト構築の結果

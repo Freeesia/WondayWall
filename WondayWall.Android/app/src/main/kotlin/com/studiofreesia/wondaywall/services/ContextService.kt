@@ -39,7 +39,7 @@ class ContextService(
     private val rssParser = RssParserBuilder(callFactory = httpClient).build()
 
     // PromptContext を構築して返す
-    suspend fun buildPromptContext(baseImagePath: String? = null): ContextBuildResult {
+    suspend fun buildPromptContext(): ContextBuildResult {
         val config = appConfigService.getConfig()
 
         // カレンダーイベントを取得する
@@ -52,7 +52,6 @@ class ContextService(
             calendarEvents = calendarEvents.map { it.toPromptCalendarEvent() },
             newsTopics = newsTopics.map { it.toPromptNewsTopic() },
             additionalConstraints = config.userPrompt,
-            baseImagePath = baseImagePath,
         )
 
         return ContextBuildResult(

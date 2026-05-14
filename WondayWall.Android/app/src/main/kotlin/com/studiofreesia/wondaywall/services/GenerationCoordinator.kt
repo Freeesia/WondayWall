@@ -78,14 +78,9 @@ class GenerationCoordinator(
     private suspend fun generate(serviceTier: GoogleAiServiceTier): HistoryItem {
         val config = appConfigService.getConfig()
 
-        // 最新の壁紙パスを取得する（ベースに使う場合）
-        val latestWallpaperPath = historyService.getLatestSuccessItem()?.appliedImagePath
-
         return try {
             // コンテキストを構築する
-            val buildResult = contextService.buildPromptContext(
-                baseImagePath = latestWallpaperPath
-            )
+            val buildResult = contextService.buildPromptContext()
 
             // 画像を生成して保存する
             val imageInfo = googleAiService.generateWallpaper(
