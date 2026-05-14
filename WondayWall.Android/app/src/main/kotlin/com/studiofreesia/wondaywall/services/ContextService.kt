@@ -16,8 +16,8 @@ import com.studiofreesia.wondaywall.models.PromptContext
 import com.studiofreesia.wondaywall.models.PromptNewsTopic
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.datetime.Clock
-import kotlinx.datetime.Instant
+import kotlin.time.Clock
+import kotlin.time.Instant
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.jsoup.Jsoup
@@ -35,7 +35,6 @@ class ContextService(
         .readTimeout(30, TimeUnit.SECONDS)
         .build()
 
-    // rssparser（OkHttp クライアントを共有して内部 HTTP コールを統一する）
     private val rssParser = RssParserBuilder(callFactory = httpClient).build()
 
     // PromptContext を構築して返す

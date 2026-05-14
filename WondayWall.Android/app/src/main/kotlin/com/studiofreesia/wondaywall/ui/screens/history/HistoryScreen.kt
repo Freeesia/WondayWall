@@ -23,7 +23,6 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Skip
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.Wallpaper
 import androidx.compose.material3.AlertDialog

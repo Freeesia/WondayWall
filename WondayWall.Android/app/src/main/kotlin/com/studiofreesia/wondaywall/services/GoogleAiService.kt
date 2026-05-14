@@ -2,6 +2,7 @@ package com.studiofreesia.wondaywall.services
 
 import com.google.genai.Client
 import com.google.genai.types.Blob
+import com.google.genai.types.Candidate
 import com.google.genai.types.Content
 import com.google.genai.types.GenerateContentConfig
 import com.google.genai.types.GoogleSearch
@@ -226,12 +227,12 @@ class GoogleAiService(
 
         val response = client.models.generateContent(IMAGE_MODEL_NAME, content, config)
 
-        for (candidate in response.candidates() ?: emptyList()) {
-            for (part in candidate.content()?.parts() ?: emptyList()) {
-                val blob = part.inlineData() ?: continue
-                if (blob.mimeType()?.startsWith("image/") != true) continue
-                val bytes = blob.data() ?: continue
-                val ext = blob.mimeType()!!.removePrefix("image/").let {
+        for (candidate in response.candidates().orElse(emptyList())) {
+            for (part in candidate.content().flatMap(Content::parts).orElse(emptyList())) {
+                val blob = part.inlineData().orElse(null) ?: continue
+                if (blob.mimeType().orElse("").startsWith("image/") != true) continue
+                val bytes = blob.data().orElse(null) ?: continue
+                val ext = blob.mimeType().get().removePrefix("image/").let {
                     if (it.isEmpty()) "jpg" else it
                 }
                 return@withContext ImageData(bytes = bytes, extension = ext)
