@@ -47,3 +47,10 @@ WondayWall.Android/.gradle/
 WondayWall.Android/app/build/
 WondayWall.Android/build/
 WondayWall.Android/local.properties
+
+# JetBrains IDE
+*.iml
+.idea/workspace.xml
+.idea/caches/
+WondayWall.Android/.idea/studiobot.xml
+
