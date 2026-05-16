@@ -1,10 +1,12 @@
 import UIKit
 import BackgroundTasks
 import UserNotifications
+import OSLog
 
 // UIApplicationDelegate — バックグラウンドタスクの登録・通知デリゲート処理を行う
 // BGTaskScheduler の登録は application(_:didFinishLaunchingWithOptions:) で行う必要がある
 final class AppDelegate: NSObject, UIApplicationDelegate {
+    private let logger = Logger(subsystem: "com.studiofreesia.wondaywall", category: "AppDelegate")
     // 通知タップ時に表示する履歴 ID（ContentView に伝達するため静的保持）
     static var pendingHistoryItemID: UUID?
 
@@ -12,23 +14,29 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
+        logger.notice("アプリ起動: バックグラウンドタスクハンドラーを登録開始")
         // BGProcessingTask ハンドラーを登録する
         // iOS は起動完了前にこの登録が完了していることを要求する
         BGTaskScheduler.shared.register(
             forTaskWithIdentifier: BackgroundTaskService.taskIdentifier,
             using: nil
-        ) { task in
+        ) { [weak self] task in
+            self?.logger.notice("BGProcessingTask ハンドラー呼び出し: identifier=\(task.identifier)")
             guard let processingTask = task as? BGProcessingTask else {
+                self?.logger.error("BGProcessingTask: 型キャスト失敗")
                 task.setTaskCompleted(success: false)
                 return
             }
             // AppEnvironment が初期化された後に current が設定される
             if let service = BackgroundTaskService.current {
+                self?.logger.notice("BGProcessingTask: BackgroundTaskService.current あり、handle 呼び出し")
                 service.handle(processingTask)
             } else {
+                self?.logger.error("BGProcessingTask: BackgroundTaskService.current が nil のため完了(失敗)")
                 processingTask.setTaskCompleted(success: false)
             }
         }
+        logger.notice("BGProcessingTask ハンドラー登録完了: identifier=\(BackgroundTaskService.taskIdentifier)")
 
         // BGContinuedProcessingTask ハンドラーを登録する
         registerContinuedProcessingTask()
@@ -46,17 +54,22 @@ extension AppDelegate {
         BGTaskScheduler.shared.register(
             forTaskWithIdentifier: ForegroundBackgroundTaskService.continuedTaskIdentifier,
             using: nil
-        ) { task in
+        ) { [weak self] task in
+            self?.logger.notice("BGContinuedProcessingTask ハンドラー呼び出し: identifier=\(task.identifier)")
             guard let continuedTask = task as? BGContinuedProcessingTask else {
+                self?.logger.error("BGContinuedProcessingTask: 型キャスト失敗 (taskType=\(type(of: task)))")
                 task.setTaskCompleted(success: false)
                 return
             }
             if let service = ForegroundBackgroundTaskService.current {
+                self?.logger.notice("BGContinuedProcessingTask: ForegroundBackgroundTaskService.current あり、handleContinuedTask 呼び出し")
                 service.handleContinuedTask(continuedTask)
             } else {
+                self?.logger.error("BGContinuedProcessingTask: ForegroundBackgroundTaskService.current が nil のため完了(失敗)")
                 continuedTask.setTaskCompleted(success: false)
             }
         }
+        logger.notice("BGContinuedProcessingTask ハンドラー登録完了: identifier=\(ForegroundBackgroundTaskService.continuedTaskIdentifier)")
     }
 }
 
