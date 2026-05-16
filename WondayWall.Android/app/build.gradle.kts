@@ -14,8 +14,13 @@ configure<ApplicationExtension> {
         applicationId = "com.studiofreesia.wondaywall"
         minSdk = 26
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = providers.gradleProperty("wondaywallVersionCode")
+            .orElse("2100000000")
+            .get()
+            .toInt()
+        versionName = providers.gradleProperty("wondaywallVersionName")
+            .orElse("0.0")
+            .get()
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
