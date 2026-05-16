@@ -52,7 +52,8 @@ configure<ApplicationExtension> {
             if (hasReleaseSigningConfig) {
                 signingConfig = signingConfigs.getByName("release")
             }
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -75,6 +76,8 @@ configure<ApplicationExtension> {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
             excludes += "/META-INF/INDEX.LIST"
             excludes += "/META-INF/DEPENDENCIES"
+            // Google GenAI の shaded KotlinModule 参照が未変換の service entry を除外する。
+            excludes += "/META-INF/services/com.fasterxml.jackson.databind.Module"
         }
     }
 }
