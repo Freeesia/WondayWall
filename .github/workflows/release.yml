@@ -17,6 +17,7 @@ jobs:
   android:
     name: Build Android release assets
     uses: ./.github/workflows/android.yml
+    secrets: inherit
 
   release:
     name: Create draft release

@@ -3,6 +3,15 @@ name: Android
 on:
   workflow_dispatch:
   workflow_call:
+    secrets:
+      ANDROID_KEYSTORE_BASE64:
+        required: true
+      ANDROID_KEYSTORE_PASSWORD:
+        required: true
+      ANDROID_KEY_ALIAS:
+        required: true
+      ANDROID_KEY_PASSWORD:
+        required: true
   push:
     branches: [main]
     paths:
@@ -98,14 +107,54 @@ jobs:
         with:
           gradle-version: ${{ steps.gradle-version.outputs.version }}
 
-      - name: Build APK and app bundle
+      - name: Restore release signing key
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          missing=0
+          for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "::error::$name secret is required to build a signed release APK."
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+
+          keystore_file="$RUNNER_TEMP/wondaywall-release.jks"
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$keystore_file"
+          echo "ANDROID_KEYSTORE_FILE=$keystore_file" >> "$GITHUB_ENV"
+
+      - name: Build signed release APK
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           gradle --no-daemon \
             -PwondaywallVersionCode=${{ steps.android-version.outputs.version-code }} \
             "-PwondaywallVersionName=${{ steps.android-version.outputs.version-name }}" \
-            :app:assembleDebug \
-            :app:assembleRelease \
-            :app:bundleRelease
+            :app:assembleRelease
+
+      - name: Verify signed APK
+        run: |
+          apk_path="app/build/outputs/apk/release/app-release.apk"
+          if [ ! -f "$apk_path" ]; then
+            echo "::error::Signed release APK was not found: $apk_path"
+            exit 1
+          fi
+
+          apksigner=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)
+          if [ -z "$apksigner" ]; then
+            echo "::error::apksigner was not found in $ANDROID_HOME/build-tools."
+            exit 1
+          fi
+
+          "$apksigner" verify --print-certs "$apk_path"
 
       - name: Prepare artifacts
         id: prepare-artifacts
@@ -115,12 +164,8 @@ jobs:
           artifact_dir="build/github-artifacts"
           mkdir -p "$artifact_dir"
 
-          cp app/build/outputs/apk/debug/app-debug.apk \
-            "$artifact_dir/WondayWall-Android-debug-$version_label.apk"
-          cp app/build/outputs/apk/release/app-release-unsigned.apk \
-            "$artifact_dir/WondayWall-Android-release-unsigned-$version_label.apk"
-          cp app/build/outputs/bundle/release/app-release.aab \
-            "$artifact_dir/WondayWall-Android-release-$version_label.aab"
+          cp app/build/outputs/apk/release/app-release.apk \
+            "$artifact_dir/WondayWall-Android-$version_label.apk"
 
           (cd "$artifact_dir" && sha256sum * > SHA256SUMS.txt)
 
