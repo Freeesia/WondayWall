@@ -32,8 +32,8 @@ final class AppEnvironment: ObservableObject {
         )
         let googleAi: any GoogleAiServiceProtocol
         #if DEBUG
-        if config.debugUseDummyGoogleAiService {
-            googleAi = DummyGoogleAiService()
+        if config.debugConfig.useDummyGoogleAiService {
+            googleAi = DummyGoogleAiService(configService: config)
         } else {
             googleAi = GoogleAiService(configService: config)
         }

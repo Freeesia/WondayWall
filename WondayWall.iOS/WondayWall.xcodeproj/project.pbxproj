@@ -43,6 +43,7 @@
 		BB000000000000000000000023 /* GoogleAiServiceTier.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000023 /* GoogleAiServiceTier.swift */; };
 		BB000000000000000000000024 /* DisplayHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000024 /* DisplayHelper.swift */; };
 		BB000000000000000000000026 /* DummyGoogleAiService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000026 /* DummyGoogleAiService.swift */; };
+		BB000000000000000000000027 /* DebugConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000000027 /* DebugConfig.swift */; };
 		DD000000000000000000000003 /* FeedKit in Frameworks */ = {isa = PBXBuildFile; productRef = DD000000000000000000000002 /* FeedKit */; };
 		DD000000000000000000000009 /* KeychainAccess in Frameworks */ = {isa = PBXBuildFile; productRef = DD000000000000000000000008 /* KeychainAccess */; };
 		DD00000000000000000000000C /* Defaults in Frameworks */ = {isa = PBXBuildFile; productRef = DD00000000000000000000000B /* Defaults */; };
@@ -92,6 +93,7 @@
 		AA000000000000000000000024 /* DisplayHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayHelper.swift; sourceTree = "<group>"; };
 		AA000000000000000000000025 /* UpdateSchedule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateSchedule.swift; sourceTree = "<group>"; };
 		AA000000000000000000000026 /* DummyGoogleAiService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DummyGoogleAiService.swift; sourceTree = "<group>"; };
+		AA000000000000000000000027 /* DebugConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugConfig.swift; sourceTree = "<group>"; };
 		EE000000000000000000000002 /* EventKitCalendarService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventKitCalendarService.swift; sourceTree = "<group>"; };
 		EE000000000000000000000004 /* CalendarSourceItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarSourceItem.swift; sourceTree = "<group>"; };
 		EE000000000000000000000006 /* ColorExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorExtensions.swift; sourceTree = "<group>"; };
@@ -164,6 +166,7 @@
 				AA000000000000000000000007 /* NewsTopicItem.swift */,
 				AA000000000000000000000008 /* PromptContext.swift */,
 				AA000000000000000000000023 /* GoogleAiServiceTier.swift */,
+				AA000000000000000000000027 /* DebugConfig.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -353,8 +356,7 @@
 				BB00000000000000000000000A /* ContextService.swift in Sources */,
 				EE000000000000000000000001 /* EventKitCalendarService.swift in Sources */,
 				BB00000000000000000000000B /* GoogleAiService.swift in Sources */,
-				BB000000000000000000000026 /* DummyGoogleAiService.swift in Sources */,
-				BB00000000000000000000000C /* GenerationCoordinator.swift in Sources */,
+				BB000000000000000000000026 /* DummyGoogleAiService.swift in Sources */,						BB000000000000000000000027 /* DebugConfig.swift in Sources */,				BB00000000000000000000000C /* GenerationCoordinator.swift in Sources */,
 				BB00000000000000000000000D /* WallpaperService.swift in Sources */,
 				BB00000000000000000000000E /* HistoryService.swift in Sources */,
 				BB00000000000000000000000F /* NotificationService.swift in Sources */,
@@ -444,6 +446,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -502,6 +505,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";

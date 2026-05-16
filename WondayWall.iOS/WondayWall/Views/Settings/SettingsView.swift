@@ -459,13 +459,27 @@ private struct DebugInfoSheetView: View {
     }
 
     private var nextLaunchServiceName: String {
-        environment.configService.debugUseDummyGoogleAiService ? "Dummy" : "Live"
+        environment.configService.debugConfig.useDummyGoogleAiService ? "Dummy" : "Live"
     }
 
     private var useDummyServiceBinding: Binding<Bool> {
         Binding(
-            get: { environment.configService.debugUseDummyGoogleAiService },
-            set: { environment.configService.debugUseDummyGoogleAiService = $0 }
+            get: { environment.configService.debugConfig.useDummyGoogleAiService },
+            set: { environment.configService.debugConfig.useDummyGoogleAiService = $0 }
+        )
+    }
+
+    private var promptDelayBinding: Binding<Int> {
+        Binding(
+            get: { environment.configService.debugConfig.dummyPromptDelaySeconds },
+            set: { environment.configService.debugConfig.dummyPromptDelaySeconds = $0 }
+        )
+    }
+
+    private var imageDelayBinding: Binding<Int> {
+        Binding(
+            get: { environment.configService.debugConfig.dummyImageDelaySeconds },
+            set: { environment.configService.debugConfig.dummyImageDelaySeconds = $0 }
         )
     }
 
@@ -474,10 +488,25 @@ private struct DebugInfoSheetView: View {
             List {
                 Section("デバッグ設定") {
                     Toggle("Google AI をダミー実装に切り替える", isOn: useDummyServiceBinding)
-                    Text("ON のときは Gemini API を呼ばず、プロンプト生成 3 分 + 画像生成 10 分の擬似処理を実行します。")
+                    Text("ON のときは Gemini API を呼ばず、擬似処理を実行します。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Text("切り替えは次回アプリ起動時に反映されます。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Stepper(
+                        "プロンプト生成遅延: \(environment.configService.debugConfig.dummyPromptDelaySeconds) 秒",
+                        value: promptDelayBinding,
+                        in: 1...3600,
+                        step: 10
+                    )
+                    Stepper(
+                        "画像生成遅延: \(environment.configService.debugConfig.dummyImageDelaySeconds) 秒",
+                        value: imageDelayBinding,
+                        in: 1...3600,
+                        step: 10
+                    )
+                    Text("遅延設定は即時反映されます。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

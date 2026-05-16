@@ -8,6 +8,21 @@ final class HistoryService {
 
     init() {
         historyURL = FileHelper.appDataDirectory.appendingPathComponent("history.json")
+        // プロセス起動時に生成中のまま残っている履歴を失敗済みにする
+        // iOSはプロセスが1つしか起動しないため、起動時に generating が残っていれば強制終了された証拠
+        if let latest = load().first, latest.isGenerating {
+            let failed = HistoryItem(
+                id: latest.id,
+                executedAt: latest.executedAt,
+                status: .failure,
+                usedCalendarEvents: latest.usedCalendarEvents,
+                usedNewsTopics: latest.usedNewsTopics,
+                usedPrompt: latest.usedPrompt,
+                errorSummary: "アプリが強制終了したため生成が中断されました",
+                photoAssetId: latest.photoAssetId
+            )
+            update(failed)
+        }
     }
 
     // 全履歴を読み込む

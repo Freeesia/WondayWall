@@ -3,19 +3,25 @@ import UIKit
 
 // 実 API を使わずに遅延付きで動作を再現するダミー実装
 final class DummyGoogleAiService: GoogleAiServiceProtocol {
-    private static let promptDelaySeconds: UInt64 = 180
-    private static let imageDelaySeconds: UInt64 = 600
+    private let configService: AppConfigService
+
+    init(configService: AppConfigService) {
+        self.configService = configService
+    }
 
     func generateWallpaper(
         context: PromptContext,
         serviceTier _: GoogleAiServiceTier,
         onProgress: ((Double, String) -> Void)? = nil
     ) async throws -> GeneratedImageResult {
+        let promptDelay = UInt64(configService.debugConfig.dummyPromptDelaySeconds)
+        let imageDelay = UInt64(configService.debugConfig.dummyImageDelaySeconds)
+
         onProgress?(0.35, "[Dummy] 画像生成プロンプトの生成中")
         try await simulateProgress(
             start: 0.35,
             end: 0.65,
-            totalSeconds: Self.promptDelaySeconds,
+            totalSeconds: promptDelay,
             message: "[Dummy] 画像生成プロンプトの生成中",
             onProgress: onProgress
         )
@@ -24,7 +30,7 @@ final class DummyGoogleAiService: GoogleAiServiceProtocol {
         try await simulateProgress(
             start: 0.65,
             end: 0.95,
-            totalSeconds: Self.imageDelaySeconds,
+            totalSeconds: imageDelay,
             message: "[Dummy] 壁紙画像の生成中",
             onProgress: onProgress
         )
