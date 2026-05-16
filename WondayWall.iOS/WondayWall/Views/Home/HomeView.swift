@@ -334,12 +334,21 @@ private struct GenerationConfirmSheet: View {
                     Button {
                         Task { await vm.generate() }
                     } label: {
-                        Label("生成！", systemImage: "sparkles")
-                            .labelStyle(.titleAndIcon)
-                            .font(.subheadline.bold())
-                            .foregroundStyle(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 8)
+                        HStack(spacing: 6) {
+                            if vm.isLoadingSheetData {
+                                // ニュース取得中はビジーアイコンを表示する
+                                ProgressView()
+                                    .tint(.white)
+                                    .frame(width: 16, height: 16)
+                            } else {
+                                Image(systemName: "sparkles")
+                            }
+                            Text("生成！")
+                        }
+                        .font(.subheadline.bold())
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(environment.isGenerating || vm.isLoadingSheetData)
