@@ -124,7 +124,7 @@ jobs:
 
           (cd "$artifact_dir" && sha256sum * > SHA256SUMS.txt)
 
-          artifact_name="WondayWall-Android-${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}"
+          artifact_name="WondayWall-Android-$version_label"
           echo "artifact-name=$artifact_name" >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@v4
