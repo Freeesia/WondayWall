@@ -2,16 +2,16 @@ name: Android
 
 on:
   workflow_dispatch:
+    inputs:
+      publish-artifact:
+        description: "Build and upload the signed release APK artifact."
+        type: boolean
+        default: true
   workflow_call:
-    secrets:
-      ANDROID_KEYSTORE_BASE64:
-        required: true
-      ANDROID_KEYSTORE_PASSWORD:
-        required: true
-      ANDROID_KEY_ALIAS:
-        required: true
-      ANDROID_KEY_PASSWORD:
-        required: true
+    inputs:
+      publish-artifact:
+        type: boolean
+        default: true
   push:
     branches: [main]
     paths:
@@ -31,9 +31,103 @@ concurrency:
 
 jobs:
   build:
-    name: Build Android app
+    name: Build Android release APK
+    if: ${{ inputs.publish-artifact != true }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: WondayWall.Android
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: gittools/actions/gitversion/setup@v4.5.0
+        with:
+          versionSpec: "6.x"
+
+      - id: gitversion
+        uses: gittools/actions/gitversion/execute@v4.5.0
+
+      - name: Resolve Android version
+        id: android-version
+        run: |
+          file_version="${{ steps.gitversion.outputs.assemblySemFileVer }}"
+          IFS='.' read -r major minor patch revision <<< "$file_version"
+
+          for part in "$major" "$minor" "$patch" "$revision"; do
+            if ! [[ "$part" =~ ^[0-9]+$ ]]; then
+              echo "Invalid GitVersion assemblySemFileVer: $file_version" >&2
+              exit 1
+            fi
+          done
+
+          if [ "$minor" -gt 99 ] || [ "$patch" -gt 99 ] || [ "$revision" -gt 99 ]; then
+            echo "GitVersion assemblySemFileVer is too large for Android versionCode packing: $file_version" >&2
+            exit 1
+          fi
+
+          version_code=$((major * 1000000 + minor * 10000 + patch * 100 + revision))
+          if [ "$version_code" -lt 1 ] || [ "$version_code" -gt 2100000000 ]; then
+            echo "Android versionCode is out of range: $version_code" >&2
+            exit 1
+          fi
+
+          echo "version-code=$version_code" >> "$GITHUB_OUTPUT"
+          echo "version-name=${{ steps.gitversion.outputs.fullSemVer }}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        run: sdkmanager "platforms;android-37.0"
+
+      - name: Resolve Gradle version
+        id: gradle-version
+        run: |
+          version=$(sed -n 's#.*gradle-\([^-]*\)-bin.zip#\1#p' gradle/wrapper/gradle-wrapper.properties)
+          if [ -z "$version" ]; then
+            echo "Gradle version could not be resolved from gradle-wrapper.properties." >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: ${{ steps.gradle-version.outputs.version }}
+
+      - name: Build release APK
+        run: |
+          gradle --no-daemon \
+            -PwondaywallVersionCode=${{ steps.android-version.outputs.version-code }} \
+            "-PwondaywallVersionName=${{ steps.android-version.outputs.version-name }}" \
+            :app:assembleRelease
+
+      - name: Verify release APK output
+        run: |
+          signed_apk="app/build/outputs/apk/release/app-release.apk"
+          unsigned_apk="app/build/outputs/apk/release/app-release-unsigned.apk"
+          if [ ! -f "$signed_apk" ] && [ ! -f "$unsigned_apk" ]; then
+            echo "::error::Release APK was not found."
+            exit 1
+          fi
+
+  release-apk:
+    name: Build signed Android release APK
+    if: ${{ inputs.publish-artifact == true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: android-release
     permissions:
       contents: read
     defaults:
@@ -108,6 +202,7 @@ jobs:
           gradle-version: ${{ steps.gradle-version.outputs.version }}
 
       - name: Restore release signing key
+        id: release-signing
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -128,8 +223,9 @@ jobs:
           keystore_file="$RUNNER_TEMP/wondaywall-release.jks"
           printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$keystore_file"
           echo "ANDROID_KEYSTORE_FILE=$keystore_file" >> "$GITHUB_ENV"
+          echo "signed=true" >> "$GITHUB_OUTPUT"
 
-      - name: Build signed release APK
+      - name: Build release APK
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
