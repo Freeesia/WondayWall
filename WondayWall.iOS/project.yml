@@ -6,7 +6,7 @@ options:
   createIntermediateGroups: true
   developmentLanguage: ja
   deploymentTarget:
-    iOS: "17.0"
+    iOS: "26.0"
 configs:
   Debug: debug
   Release: release
@@ -97,7 +97,7 @@ targets:
   WondayWall:
     type: application
     platform: iOS
-    deploymentTarget: "17.0"
+    deploymentTarget: "26.0"
     sources:
       - path: WondayWall
     dependencies:

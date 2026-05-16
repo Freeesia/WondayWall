@@ -28,14 +28,14 @@ WondayWall.iOS/fastlane/screenshots/
 WondayWall.iOS/fastlane/test_output/
 
 # XcodeGen 生成物
-WondayWall.iOS/WondayWall.xcodeproj/*
-!WondayWall.iOS/WondayWall.xcodeproj/project.xcworkspace/
-WondayWall.iOS/WondayWall.xcodeproj/project.xcworkspace/*
-!WondayWall.iOS/WondayWall.xcodeproj/project.xcworkspace/xcshareddata/
-WondayWall.iOS/WondayWall.xcodeproj/project.xcworkspace/xcshareddata/*
-!WondayWall.iOS/WondayWall.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
-WondayWall.iOS/WondayWall.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/*
-!WondayWall.iOS/WondayWall.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+*.xcodeproj
+*.xcworkspace
+
+# ただし、必要なものが中にある場合は例外設定する
+!*.xcodeproj/project.xcworkspace/
+!*.xcodeproj/project.xcworkspace/xcshareddata/
+!*.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
+!*.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
 
 ## User settings
 xcuserdata/
