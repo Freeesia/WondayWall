@@ -2,7 +2,7 @@ import Foundation
 
 // Google AI Gemini API を使った画像生成サービス
 final class GoogleAiService {
-    private static let textModelName = "gemini-3-flash-preview"
+    private static let textModelName = "gemini-3.1-flash-lite"
     private static let imageModelName = "gemini-3.1-flash-image-preview"
     private static let apiBaseURL =
         "https://generativelanguage.googleapis.com/v1beta/models"

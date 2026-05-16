@@ -19,7 +19,7 @@ public class GoogleAiService(
 {
     private const string GoogleAiApiKeyPageUrl = "https://aistudio.google.com/app/api-keys";
     private static string PaidTierRequiredMessage => AppResources.GoogleAiBillingError + GoogleAiApiKeyPageUrl;
-    private const string TextModelName = "gemini-3-flash-preview";
+    private const string TextModelName = "gemini-3.1-flash-lite";
     private const string ImageModelName = "gemini-3.1-flash-image-preview";
 
     private readonly HttpClient ogpHttpClient = httpClientFactory.CreateClient("WondayWall");

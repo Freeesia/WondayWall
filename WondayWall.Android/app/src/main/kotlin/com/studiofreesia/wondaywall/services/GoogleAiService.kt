@@ -31,7 +31,7 @@ class GoogleAiService(
     private val filesDir: File,
 ) {
     companion object {
-        private const val TEXT_MODEL_NAME = "gemini-3-flash-preview"
+        private const val TEXT_MODEL_NAME = "gemini-3.1-flash-lite"
         private const val IMAGE_MODEL_NAME = "gemini-3.1-flash-image-preview"
     }
 
