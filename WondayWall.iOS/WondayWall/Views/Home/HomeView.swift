@@ -342,7 +342,7 @@ private struct GenerationConfirmSheet: View {
                             .padding(.vertical, 8)
                     }
                     .buttonStyle(.borderedProminent)
-                    .disabled(environment.isGenerating)
+                    .disabled(environment.isGenerating || vm.isLoadingSheetData)
                     .controlSize(.large)
                 }
             }

@@ -130,14 +130,43 @@ final class DummyGoogleAiService: GoogleAiServiceProtocol {
         format.scale = 1
         let renderer = UIGraphicsImageRenderer(size: size, format: format)
 
+        // 毎回異なる見た目になるようにランダム値を生成する
+        let colorThemes: [[(CGFloat, CGFloat, CGFloat)]] = [
+            // 夜の海（デフォルト）
+            [(0.06, 0.12, 0.30), (0.10, 0.28, 0.52), (0.96, 0.47, 0.24)],
+            // 夕焼け
+            [(0.60, 0.10, 0.20), (0.92, 0.40, 0.15), (0.98, 0.85, 0.30)],
+            // 森
+            [(0.05, 0.25, 0.10), (0.10, 0.50, 0.20), (0.80, 0.90, 0.30)],
+            // 宇宙
+            [(0.05, 0.00, 0.15), (0.20, 0.05, 0.40), (0.60, 0.10, 0.80)],
+            // 朝焼け
+            [(0.10, 0.15, 0.50), (0.70, 0.30, 0.50), (1.00, 0.75, 0.40)],
+        ]
+        let theme = colorThemes[Int.random(in: 0..<colorThemes.count)]
+
+        // グラデーション方向のランダム化（斜め成分を加える）
+        let startXOffset = CGFloat.random(in: -0.3...0.3)
+        let endXOffset = CGFloat.random(in: -0.3...0.3)
+
+        // 波形制御点のランダム化
+        let waveStartY = CGFloat.random(in: 0.52...0.70)
+        let waveEndY = CGFloat.random(in: 0.45...0.62)
+        let cp1Y = CGFloat.random(in: 0.65...0.82)
+        let cp2Y = CGFloat.random(in: 0.32...0.50)
+
+        // 光の位置のランダム化
+        let lightXOffset = CGFloat.random(in: -0.25...0.25)
+        let lightYPos = CGFloat.random(in: 0.04...0.18)
+
         let image = renderer.image { renderContext in
             let cg = renderContext.cgContext
             let rect = CGRect(origin: .zero, size: size)
 
             let colors = [
-                UIColor(red: 0.06, green: 0.12, blue: 0.30, alpha: 1).cgColor,
-                UIColor(red: 0.10, green: 0.28, blue: 0.52, alpha: 1).cgColor,
-                UIColor(red: 0.96, green: 0.47, blue: 0.24, alpha: 1).cgColor,
+                UIColor(red: theme[0].0, green: theme[0].1, blue: theme[0].2, alpha: 1).cgColor,
+                UIColor(red: theme[1].0, green: theme[1].1, blue: theme[1].2, alpha: 1).cgColor,
+                UIColor(red: theme[2].0, green: theme[2].1, blue: theme[2].2, alpha: 1).cgColor,
             ] as CFArray
             let locations: [CGFloat] = [0.0, 0.55, 1.0]
             if let gradient = CGGradient(
@@ -147,28 +176,28 @@ final class DummyGoogleAiService: GoogleAiServiceProtocol {
             ) {
                 cg.drawLinearGradient(
                     gradient,
-                    start: CGPoint(x: rect.midX, y: 0),
-                    end: CGPoint(x: rect.midX, y: rect.maxY),
+                    start: CGPoint(x: rect.midX + rect.width * startXOffset, y: 0),
+                    end: CGPoint(x: rect.midX + rect.width * endXOffset, y: rect.maxY),
                     options: []
                 )
             }
 
-            // 上部の柔らかい光
+            // 上部の柔らかい光（位置をランダム化）
             cg.setFillColor(UIColor(white: 1.0, alpha: 0.18).cgColor)
             cg.fillEllipse(in: CGRect(
-                x: rect.midX - rect.width * 0.38,
-                y: rect.height * 0.08,
+                x: rect.midX + rect.width * lightXOffset - rect.width * 0.38,
+                y: rect.height * lightYPos,
                 width: rect.width * 0.76,
                 height: rect.width * 0.76
             ))
 
-            // 波形のアクセント
+            // 波形のアクセント（制御点をランダム化）
             let wavePath = UIBezierPath()
-            wavePath.move(to: CGPoint(x: 0, y: rect.height * 0.62))
+            wavePath.move(to: CGPoint(x: 0, y: rect.height * waveStartY))
             wavePath.addCurve(
-                to: CGPoint(x: rect.maxX, y: rect.height * 0.52),
-                controlPoint1: CGPoint(x: rect.width * 0.25, y: rect.height * 0.74),
-                controlPoint2: CGPoint(x: rect.width * 0.74, y: rect.height * 0.40)
+                to: CGPoint(x: rect.maxX, y: rect.height * waveEndY),
+                controlPoint1: CGPoint(x: rect.width * 0.25, y: rect.height * cp1Y),
+                controlPoint2: CGPoint(x: rect.width * 0.74, y: rect.height * cp2Y)
             )
             wavePath.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
             wavePath.addLine(to: CGPoint(x: 0, y: rect.maxY))
