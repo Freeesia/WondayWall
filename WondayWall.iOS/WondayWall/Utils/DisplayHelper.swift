@@ -14,6 +14,7 @@ enum DisplayHelper {
 
     // 現在のデバイス画面のネイティブピクセルサイズを返す
     // UIScreen.main は iOS 16 で deprecated のため UIWindowScene 経由で取得する
+    // TODO: 初回ウィザードで画面サイズを保存するようにする
     @MainActor
     static func nativeScreenSize() -> CGSize {
         let screen =
