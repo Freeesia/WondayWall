@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FileProviderが共有できるファイルパスの定義 -->
+<paths>
+    <!-- context.filesDir/wallpapers/ 以下の生成画像を共有可能にする -->
+    <files-path name="wallpapers" path="wallpapers/" />
+</paths>

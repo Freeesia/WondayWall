@@ -21,9 +21,37 @@ WondayWall.Wix/generated/
 # パッケージ出力
 publish/
 artifacts/
+WondayWall.iOS/build/
+WondayWall.iOS/fastlane/report.xml
+WondayWall.iOS/fastlane/README.md
+WondayWall.iOS/fastlane/screenshots/
+WondayWall.iOS/fastlane/test_output/
+
+# XcodeGen 生成物
+WondayWall.iOS/WondayWall.xcodeproj/*
+!WondayWall.iOS/WondayWall.xcodeproj/project.xcworkspace/
+WondayWall.iOS/WondayWall.xcodeproj/project.xcworkspace/*
+!WondayWall.iOS/WondayWall.xcodeproj/project.xcworkspace/xcshareddata/
+WondayWall.iOS/WondayWall.xcodeproj/project.xcworkspace/xcshareddata/*
+!WondayWall.iOS/WondayWall.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
+WondayWall.iOS/WondayWall.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/*
+!WondayWall.iOS/WondayWall.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
 
 ## User settings
 xcuserdata/
 
 *_todo.md
 buildServer.json
+
+# Android ビルド成果物
+WondayWall.Android/.gradle/
+WondayWall.Android/app/build/
+WondayWall.Android/build/
+WondayWall.Android/local.properties
+
+# JetBrains IDE
+*.iml
+.idea/workspace.xml
+.idea/caches/
+WondayWall.Android/.idea/studiobot.xml
+
