@@ -17,8 +17,6 @@ jobs:
   android:
     name: Build Android release assets
     uses: ./.github/workflows/android.yml
-    with:
-      publish-artifact: true
 
   release:
     name: Create draft release
