@@ -9,39 +9,51 @@ final class DummyGoogleAiService: GoogleAiServiceProtocol {
         self.configService = configService
     }
 
-    func generateWallpaper(
+    func generatePrompt(
         context: PromptContext,
         serviceTier _: GoogleAiServiceTier,
         onProgress: ((Double, String) -> Void)? = nil
-    ) async throws -> GeneratedImageResult {
+    ) async throws -> PromptGenerationResult {
         let promptDelay = UInt64(configService.debugConfig.dummyPromptDelaySeconds)
-        let imageDelay = UInt64(configService.debugConfig.dummyImageDelaySeconds)
-
-        onProgress?(0.35, "[Dummy] 画像生成プロンプトの生成中")
         try await simulateProgress(
-            start: 0.35,
-            end: 0.65,
+            start: 0.0,
+            end: 1.0,
             totalSeconds: promptDelay,
             message: "[Dummy] 画像生成プロンプトの生成中",
             onProgress: onProgress
         )
+        return PromptGenerationResult(
+            imagePrompt: "[Dummy] Simulated prompt",
+            selectedNewsIds: []
+        )
+    }
 
-        onProgress?(0.65, "[Dummy] 壁紙画像の生成中")
+    func fetchOgpImages(
+        context: PromptContext,
+        selectedNewsIds _: [String]
+    ) async -> PromptContext {
+        // ダミー実装: OGP 取得なしで context をそのまま返す
+        return context
+    }
+
+    func generateImageFromPrompt(
+        imagePrompt: String,
+        context: PromptContext,
+        serviceTier _: GoogleAiServiceTier,
+        onProgress: ((Double, String) -> Void)? = nil
+    ) async throws -> GeneratedImageResult {
+        let imageDelay = UInt64(configService.debugConfig.dummyImageDelaySeconds)
         try await simulateProgress(
-            start: 0.65,
-            end: 0.95,
+            start: 0.0,
+            end: 1.0,
             totalSeconds: imageDelay,
             message: "[Dummy] 壁紙画像の生成中",
             onProgress: onProgress
         )
-
         let fileURL = try await saveDummyImage(context: context)
-        onProgress?(1.0, "[Dummy] 画像生成完了")
-
         return GeneratedImageResult(
             filePath: fileURL.path,
-            imagePrompt: "[Dummy] Simulated prompt after 3 minutes",
-            selectedNewsIds: []
+            imagePrompt: imagePrompt
         )
     }
 

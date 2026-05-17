@@ -112,24 +112,40 @@ actor GenerationCoordinator {
         var usedEvents: [CalendarEventItem]? = nil
         var usedNews: [NewsTopicItem]? = nil
         var errorSummary: String? = nil
+        var generatedPrompt: String? = nil
 
-        // 生成開始前に「生成中」ステータスの履歴を保存する
-        let generatingItem = HistoryItem(
-            executedAt: Date(),
-            status: .generating
-        )
-        historyService.append(generatingItem)
+        // 再開チェック: プロンプト生成済み（generatingPromptReady）→ 画像生成のみ再試行
+        let resumable = historyService.getGeneratingWithPrompt()
+
+        // generatingItem の決定（再開 | プロンプト生成前の再起動 | 新規）
+        let generatingItem: HistoryItem
+        if let resumable {
+            generatingItem = resumable
+        } else if let pending = historyService.getPendingGeneratingItem() {
+            let retrying = HistoryItem(id: pending.id, executedAt: Date(), status: .generating)
+            historyService.update(retrying)
+            generatingItem = retrying
+        } else {
+            let newItem = HistoryItem(executedAt: Date(), status: .generating)
+            historyService.append(newItem)
+            generatingItem = newItem
+        }
+
+        let isResume = resumable != nil
 
         do {
-            await postProgress(0.01, message: "処理を開始")
+            await postProgress(0.01, message: isResume ? "処理を再開中" : "処理を開始")
+
+            // コンテキスト取得（再開時は進捗通知なし）
             let contextResult = await contextService.buildContext { [weak self] progress, message in
-                guard let self else { return }
+                guard let self, !isResume else { return }
                 Task { await self.postProgress(progress, message: message) }
             }
             let context = contextResult.promptContext
 
-            // 変化がなければスキップする判定
-            if skipIfNoChanges
+            // 変化がなければスキップする判定（再開時はスキップしない）
+            if !isResume
+                && skipIfNoChanges
                 && contextResult.calendarEvents.isEmpty
                 && !hasNewsChanged(
                     current: contextResult.newsTopics,
@@ -138,16 +154,77 @@ actor GenerationCoordinator {
             {
                 status = .skipped
             } else {
-                let imageResult = try await googleAiService.generateWallpaper(
+                // ステップ 1: プロンプト生成 or 保存済みプロンプト再利用
+                let promptResult: PromptGenerationResult
+                if let savedPrompt = resumable?.generatedPrompt {
+                    // 再開フロー: 保存済みプロンプトと採用ニュース ID を再利用（中間保存① はスキップ）
+                    let selectedIds = resumable?.usedNewsTopics?.map { $0.id } ?? []
+                    promptResult = PromptGenerationResult(imagePrompt: savedPrompt, selectedNewsIds: selectedIds)
+                    generatedPrompt = savedPrompt
+                } else {
+                    // 通常フロー: テキストモデルで画像プロンプトを生成
+                    let result = try await googleAiService.generatePrompt(
+                        context: context,
+                        serviceTier: serviceTier,
+                        onProgress: { [weak self] progress, message in
+                            guard let self else { return }
+                            let scaled = 0.35 + progress * 0.30  // 全体の 0.35 → 0.65 の範囲で報告
+                            Task { await self.postProgress(scaled, message: message) }
+                        }
+                    )
+                    generatedPrompt = result.imagePrompt
+                    promptResult = result
+
+                    // 中間保存①: generatingPromptReady（プロンプト生成完了・画像 API 呼び出し前）
+                    let adoptedNewsForPrompt = contextResult.newsTopics.filter {
+                        result.selectedNewsIds.contains($0.id)
+                    }
+                    historyService.update(HistoryItem(
+                        id: generatingItem.id,
+                        executedAt: generatingItem.executedAt,
+                        status: .generatingPromptReady,
+                        usedCalendarEvents: contextResult.calendarEvents,
+                        usedNewsTopics: adoptedNewsForPrompt,
+                        usedPrompt: configService.config.userPrompt.isEmpty ? nil : configService.config.userPrompt,
+                        generatedPrompt: result.imagePrompt
+                    ))
+                }
+
+                // 採用ニュースを決定（再開: resumable.usedNewsTopics / 新規: selectedNewsIds でフィルタ）
+                let adoptedNews = resumable?.usedNewsTopics
+                    ?? contextResult.newsTopics.filter { promptResult.selectedNewsIds.contains($0.id) }
+
+                // ステップ 1.5: 採用ニュースの OGP 画像をダウンロードする
+                let contextWithOgp = await googleAiService.fetchOgpImages(
                     context: context,
+                    selectedNewsIds: promptResult.selectedNewsIds
+                )
+
+                // 中間保存②: generatingImageRequested（画像 API 呼び出し直前）
+                // ここで BG kill された場合は起動時に failure 変換されスロット消費済みとなる
+                historyService.update(HistoryItem(
+                    id: generatingItem.id,
+                    executedAt: generatingItem.executedAt,
+                    status: .generatingImageRequested,
+                    usedCalendarEvents: resumable?.usedCalendarEvents ?? contextResult.calendarEvents,
+                    usedNewsTopics: adoptedNews,
+                    usedPrompt: resumable?.usedPrompt ?? (configService.config.userPrompt.isEmpty ? nil : configService.config.userPrompt),
+                    generatedPrompt: promptResult.imagePrompt
+                ))
+
+                // ステップ 2: 画像モデルで壁紙を生成
+                let imageResult = try await googleAiService.generateImageFromPrompt(
+                    imagePrompt: promptResult.imagePrompt,
+                    context: contextWithOgp,
                     serviceTier: serviceTier,
                     onProgress: { [weak self] progress, message in
                         guard let self else { return }
-                        Task { await self.postProgress(progress, message: message) }
+                        let scaled = 0.65 + progress * 0.30  // 全体の 0.65 → 0.95 の範囲で報告
+                        Task { await self.postProgress(scaled, message: message) }
                     }
                 )
-                usedEvents = contextResult.calendarEvents
-                usedNews = contextResult.newsTopics
+                usedEvents = resumable?.usedCalendarEvents ?? contextResult.calendarEvents
+                usedNews = adoptedNews
                 status = .success
 
                 // 前回生成のアセット識別子を取得する
@@ -183,10 +260,10 @@ actor GenerationCoordinator {
             status: status,
             usedCalendarEvents: usedEvents,
             usedNewsTopics: usedNews,
-            usedPrompt: configService.config.userPrompt.isEmpty
-                ? nil : configService.config.userPrompt,
+            usedPrompt: resumable?.usedPrompt ?? (configService.config.userPrompt.isEmpty ? nil : configService.config.userPrompt),
             errorSummary: errorSummary,
-            photoAssetId: photoAssetId
+            photoAssetId: photoAssetId,
+            generatedPrompt: generatedPrompt
         )
 
         // 生成中履歴を最終ステータスで更新する

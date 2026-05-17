@@ -2,7 +2,24 @@ import Foundation
 
 // 壁紙生成サービスの抽象インターフェイス
 protocol GoogleAiServiceProtocol: AnyObject {
-    func generateWallpaper(
+    // テキストモデルで画像生成プロンプトを生成する（ステップ 1）
+    func generatePrompt(
+        context: PromptContext,
+        serviceTier: GoogleAiServiceTier,
+        onProgress: ((Double, String) -> Void)?
+    ) async throws -> PromptGenerationResult
+
+    // 採用ニュースの OGP 画像をダウンロードして context に付加する（ステップ 1.5）
+    // 失敗は無視し、ダウンロードできた分だけ反映した context を返す
+    func fetchOgpImages(
+        context: PromptContext,
+        selectedNewsIds: [String]
+    ) async -> PromptContext
+
+    // 画像プロンプトから壁紙を生成してローカルに保存する（ステップ 2）
+    // context.newsTopics の ogpImageData が非 nil のものをリファレンス画像として使用する
+    func generateImageFromPrompt(
+        imagePrompt: String,
         context: PromptContext,
         serviceTier: GoogleAiServiceTier,
         onProgress: ((Double, String) -> Void)?
@@ -27,64 +44,125 @@ final class GoogleAiService: GoogleAiServiceProtocol {
         self.configService = configService
     }
 
-    // 壁紙画像を生成してローカルに保存し、ファイルパスを返す
-    // serviceTier: バックグラウンド生成時は .flex を指定（Flex 失敗時は Standard にフォールバック）
-    func generateWallpaper(
+    // API キーを取得する（未設定の場合はエラーを投げる）
+    private func requireApiKey() throws -> String {
+        let key = configService.googleAiApiKey
+        guard !key.isEmpty else {
+            throw NSError(
+                domain: "WondayWall", code: 400,
+                userInfo: [NSLocalizedDescriptionKey: "Google AI API キーが設定されていません。"]
+            )
+        }
+        return key
+    }
+
+    // テキストモデルで詳細な画像プロンプトを生成する（ステップ 1）
+    // Flex 失敗時は Standard にフォールバック
+    func generatePrompt(
+        context: PromptContext,
+        serviceTier: GoogleAiServiceTier = .standard,
+        onProgress: ((Double, String) -> Void)? = nil
+    ) async throws -> PromptGenerationResult {
+        let apiKey = try requireApiKey()
+        let promptSelection = try await runWithSyntheticProgress(
+            start: 0.0,
+            end: 1.0,
+            onProgress: { onProgress?($0, "画像生成プロンプトの生成中") }
+        ) {
+            try await self.generatePromptSelectionWithFallback(
+                context: context, apiKey: apiKey, serviceTier: serviceTier
+            )
+        }
+        return PromptGenerationResult(
+            imagePrompt: promptSelection.imagePrompt,
+            selectedNewsIds: promptSelection.selectedNewsIds
+        )
+    }
+
+    // 採用ニュースの OGP 画像をダウンロードして context に付加する（ステップ 1.5）
+    // ダウンロード失敗は無視し、成功分だけ ogpImageData / ogpImageMimeType を設定して返す
+    func fetchOgpImages(
+        context: PromptContext,
+        selectedNewsIds: [String]
+    ) async -> PromptContext {
+        let selectedIds = Set(selectedNewsIds)
+        var newsTopics = context.newsTopics
+
+        // 採用ニュースのインデックスを最大3件抽出する
+        let targets = Array(
+            newsTopics.enumerated()
+                .filter { selectedIds.contains($0.element.id) }
+                .prefix(3)
+        )
+
+        // 並列ダウンロードし (index, data, mimeType) を収集する
+        let downloads = await withTaskGroup(
+            of: (Int, Data, String)?.self,
+            returning: [(Int, Data, String)].self
+        ) { group in
+            for (idx, topic) in targets {
+                guard let urlString = topic.ogpImageUrl,
+                    let imgUrl = URL(string: urlString)
+                else { continue }
+                group.addTask {
+                    do {
+                        var request = URLRequest(url: imgUrl, timeoutInterval: 10)
+                        request.setValue(
+                            "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)",
+                            forHTTPHeaderField: "User-Agent"
+                        )
+                        let (data, response) = try await URLSession.shared.data(for: request)
+                        return (idx, data, response.mimeType ?? "image/jpeg")
+                    } catch {
+                        // OGP 画像のダウンロード失敗は無視する
+                        return nil
+                    }
+                }
+            }
+            var collected: [(Int, Data, String)] = []
+            for await item in group {
+                if let item { collected.append(item) }
+            }
+            return collected
+        }
+
+        for (idx, data, mimeType) in downloads {
+            newsTopics[idx].ogpImageData = data
+            newsTopics[idx].ogpImageMimeType = mimeType
+        }
+
+        var updatedContext = context
+        updatedContext.newsTopics = newsTopics
+        return updatedContext
+    }
+
+    // 画像プロンプトから壁紙を生成してローカルに保存する（ステップ 2）
+    // context.newsTopics の ogpImageData が非 nil のものをリファレンス画像として使用する
+    // Flex 失敗時は Standard にフォールバック
+    func generateImageFromPrompt(
+        imagePrompt: String,
         context: PromptContext,
         serviceTier: GoogleAiServiceTier = .standard,
         onProgress: ((Double, String) -> Void)? = nil
     ) async throws -> GeneratedImageResult {
-        let apiKey = configService.googleAiApiKey
-        guard !apiKey.isEmpty else {
-            throw NSError(
-                domain: "WondayWall", code: 400,
-                userInfo: [
-                    NSLocalizedDescriptionKey: "Google AI API キーが設定されていません。"
-                ]
-            )
-        }
-
-        // ステップ1: テキストモデルで詳細な画像プロンプトを生成
-        // Flex 失敗時は Standard にフォールバック
-        onProgress?(0.35, "画像生成プロンプトの生成中")
-        let promptSelection = try await runWithSyntheticProgress(
-            start: 0.35,
-            end: 0.65,
-            onProgress: { onProgress?($0, "画像生成プロンプトの生成中") }
-        ) {
-            try await self.generatePromptSelectionWithFallback(
-                context: context,
-                apiKey: apiKey,
-                serviceTier: serviceTier
-            )
-        }
-
-        // ステップ2: 画像モデルで壁紙を生成
-        // Flex 失敗時は Standard にフォールバック
-        onProgress?(0.65, "壁紙画像の生成中")
+        let apiKey = try requireApiKey()
         let imageData = try await runWithSyntheticProgress(
-            start: 0.65,
-            end: 0.95,
+            start: 0.0,
+            end: 1.0,
             onProgress: { onProgress?($0, "壁紙画像の生成中") }
         ) {
             try await self.generateImageWithFallback(
-                prompt: promptSelection.imagePrompt,
+                prompt: imagePrompt,
                 context: context,
-                selectedNewsIds: Set(promptSelection.selectedNewsIds),
                 apiKey: apiKey,
                 serviceTier: serviceTier
             )
         }
-
-        // 画像をローカルに保存
         let filePath = FileHelper.getImageFilePath(extension: imageData.extension)
         try imageData.bytes.write(to: filePath, options: .atomic)
-        onProgress?(1.0, "画像生成完了")
-
         return GeneratedImageResult(
             filePath: filePath.path,
-            imagePrompt: promptSelection.imagePrompt,
-            selectedNewsIds: promptSelection.selectedNewsIds
+            imagePrompt: imagePrompt
         )
     }
 
@@ -162,24 +240,23 @@ final class GoogleAiService: GoogleAiServiceProtocol {
     private func generateImageWithFallback(
         prompt: String,
         context: PromptContext,
-        selectedNewsIds: Set<String>,
         apiKey: String,
         serviceTier: GoogleAiServiceTier
     ) async throws -> (bytes: Data, `extension`: String) {
         if serviceTier != .flex {
             return try await generateImage(
                 prompt: prompt, context: context,
-                selectedNewsIds: selectedNewsIds, apiKey: apiKey, serviceTier: .standard)
+                apiKey: apiKey, serviceTier: .standard)
         }
         do {
             return try await generateImage(
                 prompt: prompt, context: context,
-                selectedNewsIds: selectedNewsIds, apiKey: apiKey, serviceTier: .flex)
+                apiKey: apiKey, serviceTier: .flex)
         } catch let error as NSError where isFlexUnavailableError(error) {
             // Flex 容量不足（503/429）→ Standard で再試行
             return try await generateImage(
                 prompt: prompt, context: context,
-                selectedNewsIds: selectedNewsIds, apiKey: apiKey, serviceTier: .standard)
+                apiKey: apiKey, serviceTier: .standard)
         }
     }
 
@@ -187,7 +264,6 @@ final class GoogleAiService: GoogleAiServiceProtocol {
     private func generateImage(
         prompt: String,
         context: PromptContext,
-        selectedNewsIds: Set<String>,
         apiKey: String,
         serviceTier: GoogleAiServiceTier = .standard
     ) async throws -> (bytes: Data, `extension`: String) {
@@ -196,14 +272,12 @@ final class GoogleAiService: GoogleAiServiceProtocol {
             throw URLError(.badURL)
         }
 
-        // テキストモデルが採用したニュースのOGP画像URLを収集する（最大3件）
-        let ogpUrls = context.newsTopics
-            .filter { selectedNewsIds.contains($0.id) }
-            .compactMap { $0.ogpImageUrl }
+        // OGP 画像データを持つニューストピックを収集する（最大3件）
+        let ogpTopics = context.newsTopics
+            .filter { $0.ogpImageData != nil }
             .prefix(3)
-            .map { $0 }
 
-        let imagePrompt = ogpUrls.isEmpty ? prompt : """
+        let imagePrompt = ogpTopics.isEmpty ? prompt : """
             \(prompt)
 
             Reference images from the selected news topics are attached. Incorporate their visual themes, color palette, and subject matter into the wallpaper design.
@@ -241,24 +315,14 @@ final class GoogleAiService: GoogleAiServiceProtocol {
             parts.append(GeminiPart(text: imagePrompt))
         }
 
-        // 選択済みニュースのOGP画像をダウンロードしてインラインデータとして添付する
-        for ogpUrl in ogpUrls {
-            guard let imgUrl = URL(string: ogpUrl) else { continue }
-            do {
-                var imgRequest = URLRequest(url: imgUrl, timeoutInterval: 10)
-                imgRequest.setValue(
-                    "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)",
-                    forHTTPHeaderField: "User-Agent"
-                )
-                let (imgData, imgResponse) = try await URLSession.shared.data(for: imgRequest)
-                let contentMimeType = imgResponse.mimeType ?? "image/jpeg"
-                parts.append(GeminiPart(inlineData: GeminiInlineData(
-                    mimeType: contentMimeType,
-                    data: imgData.base64EncodedString()
-                )))
-            } catch {
-                // OGP画像のダウンロード失敗は無視する
-            }
+        // ダウンロード済み OGP 画像をインラインデータとして添付する
+        for topic in ogpTopics {
+            guard let data = topic.ogpImageData else { continue }
+            let mimeType = topic.ogpImageMimeType ?? "image/jpeg"
+            parts.append(GeminiPart(inlineData: GeminiInlineData(
+                mimeType: mimeType,
+                data: data.base64EncodedString()
+            )))
         }
 
         let requestBody = GeminiRequest(
@@ -554,11 +618,16 @@ final class GoogleAiService: GoogleAiServiceProtocol {
     }
 }
 
-// 画像生成結果
+// テキストモデルのプロンプト生成結果（ステップ 1 の戻り値）
+struct PromptGenerationResult {
+    let imagePrompt: String
+    let selectedNewsIds: [String]
+}
+
+// 画像生成結果（ステップ 2 の戻り値）
 struct GeneratedImageResult {
     let filePath: String
     let imagePrompt: String
-    let selectedNewsIds: [String]
 }
 
 // Gemini API スキーマ定義用の汎用 JSON 値型
