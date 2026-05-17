@@ -55,6 +55,7 @@ import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import com.studiofreesia.wondaywall.models.CalendarEventItem
 import com.studiofreesia.wondaywall.models.NewsTopicItem
+import com.studiofreesia.wondaywall.ui.components.FaviconIcon
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -297,14 +298,21 @@ private fun GenerationConfirmSheet(
                         Spacer(Modifier.height(8.dp))
                         uiState.sheetNews.forEachIndexed { index, item ->
                             if (index > 0) HorizontalDivider(modifier = Modifier.padding(start = 12.dp))
-                            Text(
-                                text = item.title,
-                                style = MaterialTheme.typography.bodyMedium,
+                            Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(vertical = 6.dp),
-                                maxLines = 2,
-                            )
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                FaviconIcon(url = item.url)
+                                Text(
+                                    text = item.title,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.weight(1f),
+                                    maxLines = 2,
+                                )
+                            }
                         }
                     }
                 }
@@ -402,14 +410,21 @@ private fun UsedNewsSection(
                 news.forEachIndexed { index, item ->
                     if (index > 0) HorizontalDivider(modifier = Modifier.padding(start = 12.dp))
                     val content: @Composable () -> Unit = {
-                        Text(
-                            text = item.title,
-                            style = MaterialTheme.typography.bodyMedium,
+                        Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 12.dp, vertical = 10.dp),
-                            maxLines = 2,
-                        )
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            FaviconIcon(url = item.url)
+                            Text(
+                                text = item.title,
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.weight(1f),
+                                maxLines = 2,
+                            )
+                        }
                     }
                     if (!item.url.isNullOrEmpty()) {
                         // URLがある場合はタップでリンクを開く

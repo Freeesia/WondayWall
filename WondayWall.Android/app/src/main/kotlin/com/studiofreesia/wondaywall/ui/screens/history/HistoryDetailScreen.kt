@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import com.studiofreesia.wondaywall.models.HistoryItem
+import com.studiofreesia.wondaywall.ui.components.FaviconIcon
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -188,14 +189,21 @@ fun HistoryDetailScreen(
                             news.forEachIndexed { index, newsItem ->
                                 if (index > 0) HorizontalDivider(modifier = Modifier.padding(start = 12.dp))
                                 val content: @Composable () -> Unit = {
-                                    Text(
-                                        text = newsItem.title,
-                                        style = MaterialTheme.typography.bodyMedium,
+                                    Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .padding(horizontal = 12.dp, vertical = 10.dp),
-                                        maxLines = 3,
-                                    )
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    ) {
+                                        FaviconIcon(url = newsItem.url)
+                                        Text(
+                                            text = newsItem.title,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            modifier = Modifier.weight(1f),
+                                            maxLines = 3,
+                                        )
+                                    }
                                 }
                                 if (!newsItem.url.isNullOrEmpty()) {
                                     // URLがある場合はタップでリンクを開く

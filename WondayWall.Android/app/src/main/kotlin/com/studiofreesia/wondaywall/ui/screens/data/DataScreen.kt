@@ -45,6 +45,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.studiofreesia.wondaywall.ui.components.FaviconIcon
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -219,7 +220,9 @@ fun DataScreen(viewModel: DataViewModel) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
+                            FaviconIcon(url = url, size = 24.dp)
                             Text(
                                 text = url,
                                 modifier = Modifier.weight(1f),
@@ -242,12 +245,22 @@ fun DataScreen(viewModel: DataViewModel) {
                             style = MaterialTheme.typography.labelMedium,
                         )
                         uiState.newsTopics.take(3).forEach { news ->
-                            Text(
-                                text = "・${news.title}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 2,
-                            )
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                FaviconIcon(url = news.url, size = 24.dp)
+                                Text(
+                                    text = news.title,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.weight(1f),
+                                    maxLines = 2,
+                                )
+                            }
                         }
                     }
                 }

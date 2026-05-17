@@ -79,6 +79,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import com.studiofreesia.wondaywall.models.UpdateSchedule
+import com.studiofreesia.wondaywall.ui.components.FaviconIcon
 import java.io.File
 
 // ウィザード画面（セットアップ）
@@ -450,7 +451,9 @@ private fun StepPromptAndRss(uiState: WizardUiState, viewModel: WizardViewModel)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                FaviconIcon(url = url, size = 24.dp)
                 Text(
                     text = url,
                     modifier = Modifier.weight(1f),
