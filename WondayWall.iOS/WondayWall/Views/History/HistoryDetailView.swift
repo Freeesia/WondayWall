@@ -4,11 +4,8 @@ import SwiftUI
 struct HistoryDetailView: View {
     let item: HistoryItem
     @EnvironmentObject private var environment: AppEnvironment
-    @State private var isRegenerating = false
-    @State private var errorMessage: String?
     // Photos から非同期読み込まれた画像
     @State private var loadedImage: UIImage?
-    @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
 
     var body: some View {
@@ -21,11 +18,6 @@ struct HistoryDetailView: View {
 
                 // ステータスバッジ
                 statusBadge
-
-                // アクションボタン群
-                if loadedImage != nil && item.isSuccess {
-                    actionButtons
-                }
 
                 // 使用した予定
                 if let events = item.usedCalendarEvents, !events.isEmpty {
@@ -53,14 +45,6 @@ struct HistoryDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             Task<Void, Never> { @MainActor in await self.loadImage() }
-        }
-        .alert("エラー", isPresented: Binding(
-            get: { errorMessage != nil },
-            set: { if !$0 { errorMessage = nil } }
-        )) {
-            Button("OK") { errorMessage = nil }
-        } message: {
-            Text(errorMessage ?? "")
         }
     }
 
@@ -102,36 +86,6 @@ struct HistoryDetailView: View {
         .padding(12)
         .background(Color(.systemGray6))
         .cornerRadius(10)
-    }
-
-    // アクションボタン群
-    @ViewBuilder
-    private var actionButtons: some View {
-        // 同じ条件で再生成
-        Button {
-            Task {
-                isRegenerating = true
-                defer { isRegenerating = false }
-                let result = await environment.coordinator.runManual()
-                if !result.isSuccess {
-                    errorMessage = result.errorSummary ?? "再生成に失敗しました"
-                } else {
-                    dismiss()
-                }
-            }
-        } label: {
-            HStack {
-                if isRegenerating { ProgressView().tint(.white) }
-                Text(isRegenerating ? "生成中..." : "同じ条件で再生成")
-                    .fontWeight(.semibold)
-            }
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(isRegenerating ? Color.gray : Color.accentColor)
-            .foregroundStyle(.white)
-            .cornerRadius(14)
-        }
-        .disabled(isRegenerating)
     }
 
     // 使用した予定セクション
@@ -241,6 +195,7 @@ struct HistoryDetailView: View {
     }
 
     private var statusIcon: String {        if item.isSkipped { return "minus.circle" }
+        if item.isGenerating { return "hourglass.circle" }
         if item.isSuccess { return "checkmark.circle.fill" }
         return "xmark.circle.fill"
     }
@@ -253,12 +208,14 @@ struct HistoryDetailView: View {
 
     private var statusColor: Color {
         if item.isSkipped { return .gray }
+        if item.isGenerating { return .orange }
         if item.isSuccess { return .green }
         return .red
     }
 
     private var statusLabel: String {
         if item.isSkipped { return "スキップ" }
+        if item.isGenerating { return "生成中" }
         if item.isSuccess { return "成功" }
         return "失敗"
     }

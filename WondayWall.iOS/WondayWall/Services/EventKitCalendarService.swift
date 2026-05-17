@@ -7,19 +7,7 @@ final class EventKitCalendarService {
 
     // カレンダーへのフルアクセス権限をリクエストする
     func requestAccess() async throws -> Bool {
-        if #available(iOS 17.0, *) {
-            return try await eventStore.requestFullAccessToEvents()
-        } else {
-            return try await withCheckedThrowingContinuation { continuation in
-                eventStore.requestAccess(to: .event) { granted, error in
-                    if let error {
-                        continuation.resume(throwing: error)
-                    } else {
-                        continuation.resume(returning: granted)
-                    }
-                }
-            }
-        }
+        return try await eventStore.requestFullAccessToEvents()
     }
 
     // 現在の権限ステータスを返す

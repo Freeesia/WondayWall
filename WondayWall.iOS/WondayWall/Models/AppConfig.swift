@@ -18,5 +18,9 @@ struct AppConfig: Codable {
     var notificationsEnabled: Bool = true
     // Wi-Fi 接続時のみ生成する
     var wifiOnlyGeneration: Bool = false
+    // 手動生成でも Flex ティアを強制使用する
+    var forceFlexTier: Bool = false
+    // WondayWall アルバムの最大保存枚数（超過分は古い順にアルバムから外す）
+    var albumMaxCount: Int = 1
 }
 

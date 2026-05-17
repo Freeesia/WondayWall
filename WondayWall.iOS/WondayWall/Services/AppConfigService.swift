@@ -28,9 +28,19 @@ final class AppConfigService {
         }
     }
 
+    // DEBUG 時のみ有効: デバッグ専用設定
+    #if DEBUG
+    var debugConfig: DebugConfig {
+        didSet { Defaults[.debugConfig] = debugConfig }
+    }
+    #endif
+
     init() {
         config = Defaults[.appConfig]
         googleAiApiKey = Self.keychain[Self.apiKeyKeychainKey] ?? ""
+        #if DEBUG
+        debugConfig = Defaults[.debugConfig]
+        #endif
     }
 
     // 設定を保存する
@@ -42,5 +52,17 @@ final class AppConfigService {
     func update(_ block: (inout AppConfig) -> Void) {
         block(&config)
         save()
+    }
+
+    // 起動時補完生成を実行できる最低限の設定が揃っているかを判定する
+    // APIキー未設定、かつ入力コンテキストが一切ない場合は未設定とみなす
+    func hasMinimumConfigurationForStartupGeneration() -> Bool {
+        let hasApiKey = !googleAiApiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        guard hasApiKey else { return false }
+
+        let hasCalendar = !config.targetCalendarIds.isEmpty
+        let hasRss = !config.rssSources.isEmpty
+        let hasUserPrompt = !config.userPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        return hasCalendar || hasRss || hasUserPrompt
     }
 }

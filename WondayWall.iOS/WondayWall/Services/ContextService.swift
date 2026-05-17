@@ -10,6 +10,12 @@ final class ContextService {
     private let historyService: HistoryService
     private let calendarService: EventKitCalendarService
 
+    private static let newsCacheTTL: TimeInterval = 3600
+    private static var newsCacheURL: URL {
+        let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+        return caches.appendingPathComponent("news-cache.json")
+    }
+
     init(
         configService: AppConfigService,
         historyService: HistoryService,
@@ -22,17 +28,17 @@ final class ContextService {
 
     // カレンダーへアクセス許可済みかを確認する
     func canAccessCalendarSilently() -> Bool {
-        let status = calendarService.authorizationStatus()
-        if #available(iOS 17.0, *) {
-            return status == .fullAccess
-        } else {
-            return status == .authorized
-        }
+        calendarService.authorizationStatus() == .fullAccess
     }
 
-    // 端末に登録されているカレンダー一覧を返す
+    // 端末に登録されているカレンダー一覧を返す（ソース名→1カレンダー名順）
     func fetchAvailableCalendars() -> [CalendarSourceItem] {
-        calendarService.fetchCalendars().map { cal in
+        calendarService.fetchCalendars()
+            .sorted {
+                if $0.source.title != $1.source.title { return $0.source.title < $1.source.title }
+                return $0.title < $1.title
+            }
+            .map { cal in
             CalendarSourceItem(
                 id: cal.calendarIdentifier,
                 title: cal.title,
@@ -44,10 +50,13 @@ final class ContextService {
     }
 
     // 取得対象カレンダーの直近 7 日間のイベントを返す
+    // カレンダーが未選択の場合はイベントを取得しない
     func fetchCalendarEvents() -> [CalendarEventItem] {
         let targetIds = Set(configService.config.targetCalendarIds)
+        // カレンダーが未選択の場合はカレンダーを利用しない
+        guard !targetIds.isEmpty else { return [] }
         let allCalendars = calendarService.fetchCalendars()
-        let calendars = targetIds.isEmpty ? nil : allCalendars.filter { targetIds.contains($0.calendarIdentifier) }
+        let calendars = allCalendars.filter { targetIds.contains($0.calendarIdentifier) }
         return calendarService.fetchEvents(calendars: calendars).map { event in
             // eventIdentifier が nil の場合はタイトル・開始日・カレンダー ID のハッシュで代替する
             let eventId = event.eventIdentifier
@@ -65,9 +74,25 @@ final class ContextService {
         }
     }
 
-    // RSS/Atom フィードからニュースを取得し、OGP 画像 URL を付与する
+    private struct NewsCacheFile: Codable {
+        let sources: [String]
+        let items: [NewsTopicItem]
+    }
+
+    // RSS/Atom フィードからニュースを取得し、OGP 画像 URL を付与する（1時間キャッシュ）
     func fetchNews() async -> [NewsTopicItem] {
         let rssSources = configService.config.rssSources
+        // ファイルキャッシュが有効かつRSSソースが変わっていなければそのまま返す
+        let cacheURL = Self.newsCacheURL
+        if let attrs = try? FileManager.default.attributesOfItem(atPath: cacheURL.path),
+            let modDate = attrs[.modificationDate] as? Date,
+            Date().timeIntervalSince(modDate) < Self.newsCacheTTL,
+            let data = try? Data(contentsOf: cacheURL),
+            let cache = try? JSONDecoder().decode(NewsCacheFile.self, from: data),
+            cache.sources == rssSources
+        {
+            return cache.items
+        }
         guard !rssSources.isEmpty else { return [] }
         let weekAgo = Date().addingTimeInterval(-7 * 24 * 3600)
 
@@ -98,7 +123,7 @@ final class ContextService {
             return map
         }
 
-        return sortedItems.map { item in
+        let result = sortedItems.map { item in
             let ogp = item.url.flatMap { ogpURLs[$0] }
             return NewsTopicItem(
                 id: item.url ?? item.title,
@@ -109,6 +134,12 @@ final class ContextService {
                 ogpImageUrl: ogp
             )
         }
+        // 結果をファイルにキャッシュする（RSSソース一覧も一緒に保存して変更検出に使う）
+        let cacheFile = NewsCacheFile(sources: rssSources, items: result)
+        if let data = try? JSONEncoder().encode(cacheFile) {
+            try? data.write(to: cacheURL)
+        }
+        return result
     }
 
     // 1つの RSS ソースからアイテムを取得してパースする（FeedKit使用）
@@ -194,7 +225,8 @@ final class ContextService {
     }
 
     // 画像生成用コンテキストを構築する
-    func buildContext() async -> ContextBuildResult {
+    // onProgress は 0.0〜1.0 の進捗を通知する
+    func buildContext(onProgress: ((Double, String) -> Void)? = nil) async -> ContextBuildResult {
         let config = configService.config
         let cal = Calendar.current
 
@@ -203,10 +235,13 @@ final class ContextService {
         let aspectRatio = DisplayHelper.closestGeminiAspectRatio(for: nativeSize)
 
         // カレンダーイベントを最大5件取得
+        onProgress?(0.05, "カレンダーの取得中")
         let allEvents = fetchCalendarEvents()
         let events = Array(allEvents.prefix(5))
+        onProgress?(0.12, "カレンダーの取得完了")
 
         // ニューストピックを取得して選別する
+        onProgress?(0.18, "ニュースの取得中")
         let weekAgo = Date().addingTimeInterval(-7 * 24 * 3600)
         let rawRssItems = await withTaskGroup(of: [RssItem].self) { group in
             for sourceUrl in configService.config.rssSources {
@@ -216,12 +251,14 @@ final class ContextService {
             for await items in group { all.append(contentsOf: items) }
             return all.sorted { $0.publishedAt > $1.publishedAt }
         }
+        onProgress?(0.24, "ニュースの取得完了")
         let lastGenerated = historyService.getLastSuccessfulGenerated()
         let selectedRssItems = selectPromptNewsItems(
             recentNews: rawRssItems,
             lastGeneratedAt: lastGenerated?.executedAt
         )
         // 選別したアイテムの OGP 画像を並列取得する（最大10件）
+        onProgress?(0.30, "OGP画像の取得中")
         let ogpURLs = await withTaskGroup(of: (String, String?).self) { group in
             for item in selectedRssItems.prefix(10) {
                 if let url = item.url {
@@ -234,6 +271,7 @@ final class ContextService {
             }
             return map
         }
+        onProgress?(0.35, "コンテキスト生成完了")
         let news: [NewsTopicItem] = selectedRssItems.map { item in
             let ogp = item.url.flatMap { ogpURLs[$0] }
             return NewsTopicItem(
