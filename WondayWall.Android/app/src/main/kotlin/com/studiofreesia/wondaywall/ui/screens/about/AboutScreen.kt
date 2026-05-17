@@ -1,8 +1,5 @@
 package com.studiofreesia.wondaywall.ui.screens.about
 
-import android.content.Context
-import android.graphics.drawable.BitmapDrawable
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -34,20 +31,15 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
-import androidx.core.graphics.drawable.toBitmap
 import com.studiofreesia.wondaywall.BuildConfig
+import com.studiofreesia.wondaywall.ui.components.SquareAppIcon
 
 // アプリ情報画面（iOS の AboutView 相当）
 @OptIn(ExperimentalMaterial3Api::class)
@@ -58,16 +50,6 @@ fun AboutScreen(
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
     val versionName = remember { context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "?" }
-
-    // アプリアイコンを PackageManager から取得する
-    val appIconBitmap = remember {
-        try {
-            val drawable = context.packageManager.getApplicationIcon(context.packageName)
-            (drawable as? BitmapDrawable)?.bitmap ?: drawable.toBitmap()
-        } catch (e: Exception) {
-            null
-        }
-    }
 
     Scaffold(
         topBar = {
@@ -97,15 +79,7 @@ fun AboutScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                appIconBitmap?.let { bitmap ->
-                    Image(
-                        bitmap = bitmap.asImageBitmap(),
-                        contentDescription = "アプリアイコン",
-                        modifier = Modifier
-                            .size(80.dp)
-                            .clip(RoundedCornerShape(18.dp)),
-                    )
-                }
+                SquareAppIcon()
                 Text("WondayWall", style = MaterialTheme.typography.titleLarge)
                 Text(
                     "Version $versionName",

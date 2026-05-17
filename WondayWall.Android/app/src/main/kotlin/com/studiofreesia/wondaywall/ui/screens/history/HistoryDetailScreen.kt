@@ -91,9 +91,9 @@ fun HistoryDetailScreen(
                     contentDescription = "生成された壁紙",
                     modifier = Modifier
                         .fillMaxWidth()
-                        .aspectRatio(9f / 19.5f)
+                        .aspectRatio(9f / 16f)
                         .clip(RoundedCornerShape(16.dp)),
-                    contentScale = ContentScale.Fit,
+                    contentScale = ContentScale.Crop,
                 )
             }
 

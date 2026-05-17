@@ -38,7 +38,6 @@ import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Wallpaper
 import androidx.compose.material3.FilterChip
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
@@ -69,7 +68,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
@@ -81,6 +79,7 @@ import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import com.studiofreesia.wondaywall.models.UpdateSchedule
 import com.studiofreesia.wondaywall.ui.components.FaviconIcon
+import com.studiofreesia.wondaywall.ui.components.SquareAppIcon
 import java.io.File
 
 // ウィザード画面（セットアップ）
@@ -189,7 +188,6 @@ fun WizardScreen(
 // ステップ 1: ようこそ
 @Composable
 private fun StepWelcome() {
-    val context = LocalContext.current
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -197,15 +195,7 @@ private fun StepWelcome() {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        AsyncImage(
-            model = ImageRequest.Builder(context)
-                .data(context.packageManager.getApplicationIcon(context.packageName))
-                .build(),
-            contentDescription = "WondayWall",
-            modifier = Modifier
-                .size(80.dp)
-                .clip(RoundedCornerShape(0.dp)),
-        )
+        SquareAppIcon()
         Spacer(Modifier.height(24.dp))
         Text(
             text = "WondayWall へようこそ",
