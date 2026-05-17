@@ -40,7 +40,11 @@ class HomeViewModel(
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
     init {
-        loadData()
+        viewModelScope.launch {
+            historyService.historyChanges.collect {
+                refreshData()
+            }
+        }
         // 生成中フラグを監視する
         viewModelScope.launch {
             generationCoordinator.isGenerating.collect { isGenerating ->
@@ -52,14 +56,18 @@ class HomeViewModel(
     // 画面データを読み込む
     fun loadData() {
         viewModelScope.launch {
-            val history = historyService.loadHistory()
-            val config = appConfigService.getConfig()
-            _uiState.value = _uiState.value.copy(
-                latestHistoryItem = history.firstOrNull { !it.isSkipped },
-                config = config,
-                errorMessage = null,
-            )
+            refreshData()
         }
+    }
+
+    private suspend fun refreshData() {
+        val history = historyService.loadHistory()
+        val config = appConfigService.getConfig()
+        _uiState.value = _uiState.value.copy(
+            latestHistoryItem = history.firstOrNull { !it.isSkipped },
+            config = config,
+            errorMessage = null,
+        )
     }
 
     // 今すぐ生成を実行する

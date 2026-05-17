@@ -34,7 +34,11 @@ class HistoryViewModel(
     val uiState: StateFlow<HistoryUiState> = _uiState.asStateFlow()
 
     init {
-        loadHistory()
+        viewModelScope.launch {
+            historyService.historyChanges.collect {
+                refreshHistory()
+            }
+        }
         viewModelScope.launch {
             generationCoordinator.isGenerating.collect { generating ->
                 _uiState.value = _uiState.value.copy(isGenerating = generating)
@@ -45,14 +49,18 @@ class HistoryViewModel(
     // 履歴を読み込む
     fun loadHistory() {
         viewModelScope.launch {
-            val history = historyService.loadHistory()
-            val config = appConfigService.getConfig()
-            _uiState.value = _uiState.value.copy(
-                historyItems = history,
-                config = config,
-                errorMessage = null,
-            )
+            refreshHistory()
         }
+    }
+
+    private suspend fun refreshHistory() {
+        val history = historyService.loadHistory()
+        val config = appConfigService.getConfig()
+        _uiState.value = _uiState.value.copy(
+            historyItems = history,
+            config = config,
+            errorMessage = null,
+        )
     }
 
     // 履歴アイテムを削除する

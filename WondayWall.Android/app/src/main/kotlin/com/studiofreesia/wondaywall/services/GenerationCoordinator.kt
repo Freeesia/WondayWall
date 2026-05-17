@@ -1,6 +1,7 @@
 package com.studiofreesia.wondaywall.services
 
 import android.content.Context
+import android.util.Log
 import com.studiofreesia.wondaywall.models.GoogleAiServiceTier
 import com.studiofreesia.wondaywall.models.HistoryItem
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -58,7 +59,7 @@ class GenerationCoordinator(
                     serviceTier = GoogleAiServiceTier.Flex,
                     isSkipped = true,
                 )
-                historyService.addHistoryItem(skippedItem)
+                recordHistoryItem(skippedItem)
                 return@withLock skippedItem
             }
 
@@ -112,7 +113,7 @@ class GenerationCoordinator(
                 serviceTier = serviceTier,
                 usedPrompt = config.userPrompt.takeIf { it.isNotEmpty() },
             )
-            historyService.addHistoryItem(historyItem)
+            recordHistoryItem(historyItem)
 
             // 通知を送る
             if (config.showNotification) {
@@ -134,12 +135,19 @@ class GenerationCoordinator(
                 usedNewsTopics = null,
                 serviceTier = serviceTier,
             )
-            historyService.addHistoryItem(historyItem)
+            recordHistoryItem(historyItem)
 
             if (config.showNotification) {
                 notificationHelper.showFailureNotification(historyItem.errorSummary ?: "不明なエラー")
             }
             historyItem
+        }
+    }
+
+    // 生成結果を履歴に保存する。保存失敗は生成処理自体の戻り値を壊さず、ログに残す。
+    private suspend fun recordHistoryItem(item: HistoryItem) {
+        if (!historyService.addHistoryItem(item)) {
+            Log.e(TAG, "生成履歴の保存に失敗しました")
         }
     }
 
@@ -179,5 +187,9 @@ class GenerationCoordinator(
         val powerManager = context.getSystemService(Context.POWER_SERVICE)
             as android.os.PowerManager
         return powerManager.isPowerSaveMode
+    }
+
+    companion object {
+        private const val TAG = "GenerationCoordinator"
     }
 }
