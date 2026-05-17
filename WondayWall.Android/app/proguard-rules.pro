@@ -2,8 +2,9 @@
 # デフォルトのルールはビルドツールが自動生成するため、ここでは追加ルールのみ記載する。
 
 # Google GenAI SDK は Jackson で SDK モデルを JSON 変換するため、
-# R8 によるクラス削除・難読化でデシリアライズが壊れないよう保持する。
+# R8 によるクラス削除・難読化でデシリアライズや型変換が壊れないよう保持する。
 -keepattributes Signature,*Annotation*,InnerClasses,EnclosingMethod,MethodParameters
+-keep class com.google.genai.* { *; }
 -keep class com.google.genai.JsonSerializable { *; }
 -keep class com.google.genai.JsonSerializable$* { *; }
 -keep class com.google.genai.errors.** { *; }
