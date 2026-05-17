@@ -1,0 +1,63 @@
+name: Release
+
+on:
+  push:
+    tags: ["*.*.*", "v*.*.*"]
+
+permissions:
+  contents: read
+
+jobs:
+  desktop:
+    name: Build desktop release assets
+    uses: ./.github/workflows/dotnet-desktop.yml
+    with:
+      include-installers: true
+
+  android:
+    name: Build Android release assets
+    uses: ./.github/workflows/android.yml
+
+  release:
+    name: Create draft release
+    needs:
+      - desktop
+      - android
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+
+      - name: Prepare release files
+        run: |
+          mkdir -p release-files
+
+          for dir in release-artifacts/WondayWall-*/; do
+            [ -d "$dir" ] || continue
+            base=$(basename "$dir")
+            case "$base" in
+              WondayWall-Android-*)
+                continue
+                ;;
+            esac
+
+            if find "$dir" -maxdepth 1 -type f \( -name "*.msi" -o -name "*.msix" \) | read; then
+              continue
+            fi
+
+            (cd "$dir" && zip -r "$GITHUB_WORKSPACE/release-files/${base}.zip" .)
+          done
+
+          cp release-artifacts/WondayWall-*.msi/*.msi release-files/
+          cp release-artifacts/WondayWall-*.msix/*.msix release-files/
+          cp release-artifacts/WondayWall-Android-*/* release-files/
+
+      - uses: softprops/action-gh-release@v3.0.0
+        with:
+          generate_release_notes: true
+          draft: true
+          prerelease: false
+          files: release-files/*
