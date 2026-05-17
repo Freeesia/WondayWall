@@ -57,6 +57,8 @@ final class BackgroundTaskService {
         task.expirationHandler = { [weak self] in
             self?.logger.warning("handle: expirationHandler 呼び出し — タスク期限切れ")
             Task { await self?.coordinator.cancel() }
+            // 期限切れを明示的にシステムへ通知する
+            task.setTaskCompleted(success: false)
         }
 
         Task {
