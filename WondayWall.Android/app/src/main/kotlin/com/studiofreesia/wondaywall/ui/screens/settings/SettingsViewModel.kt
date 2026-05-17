@@ -95,6 +95,11 @@ class SettingsViewModel(
         updateConfigValue { it.copy(showNotification = enabled) }
     }
 
+    // Flex ティア強制使用を切り替える
+    fun toggleForceFlexTier(enabled: Boolean) {
+        updateConfigValue { it.copy(forceFlexTier = enabled) }
+    }
+
     // 設定値を更新してキャッシュも更新する汎用メソッド
     private fun updateConfigValue(update: (AppConfig) -> AppConfig) {
         viewModelScope.launch {

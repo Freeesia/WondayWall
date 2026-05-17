@@ -13,6 +13,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Tune
@@ -22,6 +23,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -49,7 +51,10 @@ import com.studiofreesia.wondaywall.models.UpdateSchedule
 // 設定画面
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel) {
+fun SettingsScreen(
+    viewModel: SettingsViewModel,
+    onNavigateToAbout: () -> Unit = {},
+) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     var apiKeyText by remember { mutableStateOf(uiState.config.googleAiApiKey) }
@@ -69,7 +74,16 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
     }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("設定") }) },
+        topBar = {
+            TopAppBar(
+                title = { Text("設定") },
+                actions = {
+                    IconButton(onClick = onNavigateToAbout) {
+                        Icon(Icons.Default.Info, contentDescription = "アプリについて")
+                    }
+                },
+            )
+        },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         Column(
@@ -203,6 +217,11 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                         label = "通知を表示する",
                         checked = uiState.config.showNotification,
                         onCheckedChange = viewModel::toggleShowNotification,
+                    )
+                    SwitchRow(
+                        label = "Flex ティアを強制使用する",
+                        checked = uiState.config.forceFlexTier,
+                        onCheckedChange = viewModel::toggleForceFlexTier,
                     )
                 }
             }

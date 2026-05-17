@@ -196,11 +196,22 @@ class WizardViewModel(
         }
     }
 
-    // ウィザードを完了して設定を保存する
+    // ウィザードを完了して設定を保存し、壁紙を生成する
     fun completeWizard(onComplete: () -> Unit) {
         viewModelScope.launch {
             saveCurrentConfig(enableAutoGeneration = true)
             taskSchedulerService.scheduleNext()
+            // テスト生成がまだ実行されていない場合は自動で生成する
+            if (_uiState.value.testGenerationImagePath == null) {
+                _uiState.value = _uiState.value.copy(isTestGenerating = true)
+                try {
+                    generationCoordinator.runAsync()
+                } catch (e: Exception) {
+                    // 生成エラーは無視してウィザードを完了する
+                } finally {
+                    _uiState.value = _uiState.value.copy(isTestGenerating = false)
+                }
+            }
             onComplete()
         }
     }

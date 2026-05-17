@@ -34,7 +34,10 @@ class GenerationCoordinator(
         return mutex.withLock {
             _isGenerating.value = true
             try {
-                generate(serviceTier = GoogleAiServiceTier.Standard)
+                val config = appConfigService.getConfig()
+                // forceFlexTier が有効な場合は Flex ティアを使用する
+                val tier = if (config.forceFlexTier) GoogleAiServiceTier.Flex else GoogleAiServiceTier.Standard
+                generate(serviceTier = tier)
             } finally {
                 _isGenerating.value = false
             }

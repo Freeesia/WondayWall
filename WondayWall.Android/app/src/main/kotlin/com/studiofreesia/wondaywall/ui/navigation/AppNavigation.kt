@@ -1,6 +1,7 @@
 package com.studiofreesia.wondaywall.ui.navigation
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.calculateBottomPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -37,10 +38,12 @@ import com.studiofreesia.wondaywall.services.TaskSchedulerService
 import com.studiofreesia.wondaywall.services.WallpaperService
 import com.studiofreesia.wondaywall.ui.screens.data.DataScreen
 import com.studiofreesia.wondaywall.ui.screens.data.DataViewModel
+import com.studiofreesia.wondaywall.ui.screens.history.HistoryDetailScreen
 import com.studiofreesia.wondaywall.ui.screens.history.HistoryScreen
 import com.studiofreesia.wondaywall.ui.screens.history.HistoryViewModel
 import com.studiofreesia.wondaywall.ui.screens.home.HomeScreen
 import com.studiofreesia.wondaywall.ui.screens.home.HomeViewModel
+import com.studiofreesia.wondaywall.ui.screens.about.AboutScreen
 import com.studiofreesia.wondaywall.ui.screens.settings.SettingsScreen
 import com.studiofreesia.wondaywall.ui.screens.settings.SettingsViewModel
 import com.studiofreesia.wondaywall.ui.screens.wizard.WizardScreen
@@ -54,7 +57,9 @@ private object Routes {
     const val HOME = "home"
     const val DATA = "data"
     const val HISTORY = "history"
+    const val HISTORY_DETAIL = "history_detail"
     const val SETTINGS = "settings"
+    const val ABOUT = "about"
 }
 
 // ボトムナビゲーションの項目定義
@@ -174,7 +179,8 @@ private fun MainScreen(
         NavHost(
             navController = navController,
             startDestination = Routes.HOME,
-            modifier = Modifier.padding(innerPadding),
+            // ボトムナビゲーション分のみパディングを適用する（上部はedge-to-edgeのためStatusBarはシステムが制御する）
+            modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding()),
         ) {
             composable(Routes.HOME) {
                 val vm: HomeViewModel = viewModel(
@@ -184,6 +190,7 @@ private fun MainScreen(
                         historyService = historyService,
                         wallpaperService = wallpaperService,
                         taskSchedulerService = taskSchedulerService,
+                        contextService = contextService,
                     )
                 )
                 HomeScreen(viewModel = vm)
@@ -206,7 +213,29 @@ private fun MainScreen(
                         appConfigService = appConfigService,
                     )
                 )
-                HistoryScreen(viewModel = vm)
+                HistoryScreen(
+                    viewModel = vm,
+                    onNavigateToDetail = { itemId ->
+                        navController.navigate("${Routes.HISTORY_DETAIL}/$itemId")
+                    },
+                )
+            }
+            composable(
+                route = "${Routes.HISTORY_DETAIL}/{itemId}",
+                arguments = listOf(androidx.navigation.navArgument("itemId") { type = androidx.navigation.NavType.StringType }),
+            ) { backStackEntry ->
+                val itemId = backStackEntry.arguments?.getString("itemId") ?: return@composable
+                // historyService から非同期でアイテムを取得する
+                var item by remember { mutableStateOf<com.studiofreesia.wondaywall.models.HistoryItem?>(null) }
+                LaunchedEffect(itemId) {
+                    item = historyService.loadHistory().firstOrNull { it.id == itemId }
+                }
+                item?.let {
+                    HistoryDetailScreen(
+                        item = it,
+                        onBack = { navController.popBackStack() },
+                    )
+                }
             }
             composable(Routes.SETTINGS) {
                 val vm: SettingsViewModel = viewModel(
@@ -215,7 +244,15 @@ private fun MainScreen(
                         taskSchedulerService = taskSchedulerService,
                     )
                 )
-                SettingsScreen(viewModel = vm)
+                SettingsScreen(
+                    viewModel = vm,
+                    onNavigateToAbout = { navController.navigate(Routes.ABOUT) },
+                )
+            }
+            composable(Routes.ABOUT) {
+                AboutScreen(
+                    onBack = { navController.popBackStack() },
+                )
             }
         }
     }

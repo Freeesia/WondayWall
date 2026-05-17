@@ -10,6 +10,8 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -31,8 +33,11 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Wallpaper
+import androidx.compose.material3.FilterChip
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
@@ -53,6 +58,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -62,8 +68,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
@@ -170,6 +178,7 @@ fun WizardScreen(
 // ステップ 1: ようこそ
 @Composable
 private fun StepWelcome() {
+    val context = LocalContext.current
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -177,11 +186,14 @@ private fun StepWelcome() {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Icon(
-            Icons.Default.Wallpaper,
-            contentDescription = null,
-            modifier = Modifier.size(80.dp),
-            tint = MaterialTheme.colorScheme.primary,
+        AsyncImage(
+            model = ImageRequest.Builder(context)
+                .data(context.packageManager.getApplicationIcon(context.packageName))
+                .build(),
+            contentDescription = "WondayWall",
+            modifier = Modifier
+                .size(80.dp)
+                .clip(RoundedCornerShape(18.dp)),
         )
         Spacer(Modifier.height(24.dp))
         Text(
@@ -202,6 +214,7 @@ private fun StepWelcome() {
 // ステップ 2: API キー入力
 @Composable
 private fun StepApiKey(uiState: WizardUiState, viewModel: WizardViewModel) {
+    val uriHandler = LocalUriHandler.current
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -215,6 +228,19 @@ private fun StepApiKey(uiState: WizardUiState, viewModel: WizardViewModel) {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+
+        // API キー取得リンク
+        TextButton(
+            onClick = { uriHandler.openUri("https://aistudio.google.com/apikey") },
+        ) {
+            Icon(
+                Icons.Default.OpenInNew,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+            )
+            Spacer(Modifier.width(4.dp))
+            Text("API キーを取得する")
+        }
 
         OutlinedTextField(
             value = uiState.apiKey,
@@ -334,9 +360,19 @@ private fun StepCalendar(uiState: WizardUiState, viewModel: WizardViewModel) {
 }
 
 // ステップ 4: プロンプトと RSS
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun StepPromptAndRss(uiState: WizardUiState, viewModel: WizardViewModel) {
     var newRssUrl by remember { mutableStateOf("") }
+
+    // プロンプトテンプレート一覧
+    val promptTemplates = listOf(
+        "水彩画風で生成してください",
+        "写実的な風景で生成してください",
+        "ミニマルなデザインで生成してください",
+        "イラスト・アニメ調で生成してください",
+        "油絵風で生成してください",
+    )
 
     Column(
         modifier = Modifier
@@ -354,6 +390,26 @@ private fun StepPromptAndRss(uiState: WizardUiState, viewModel: WizardViewModel)
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+
+        // テンプレートチップ
+        Text("テンプレート", style = MaterialTheme.typography.labelMedium)
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            promptTemplates.forEach { template ->
+                FilterChip(
+                    selected = uiState.userPrompt == template,
+                    onClick = {
+                        viewModel.updateUserPrompt(
+                            if (uiState.userPrompt == template) "" else template
+                        )
+                    },
+                    label = { Text(template, style = MaterialTheme.typography.labelSmall) },
+                )
+            }
+        }
+
         OutlinedTextField(
             value = uiState.userPrompt,
             onValueChange = { viewModel.updateUserPrompt(it) },

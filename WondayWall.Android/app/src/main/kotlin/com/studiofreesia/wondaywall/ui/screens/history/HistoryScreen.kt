@@ -1,6 +1,6 @@
 package com.studiofreesia.wondaywall.ui.screens.history
 
-import android.content.Intent
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,14 +21,10 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.PhotoLibrary
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.Wallpaper
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -62,10 +58,12 @@ import java.util.Locale
 // 履歴画面
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HistoryScreen(viewModel: HistoryViewModel) {
+fun HistoryScreen(
+    viewModel: HistoryViewModel,
+    onNavigateToDetail: (String) -> Unit = {},
+) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
-    val context = LocalContext.current
     var deleteTarget by remember { mutableStateOf<HistoryItem?>(null) }
 
     LaunchedEffect(uiState.errorMessage) {
@@ -117,13 +115,7 @@ fun HistoryScreen(viewModel: HistoryViewModel) {
                 ) { item ->
                     HistoryItemCard(
                         item = item,
-                        onReapply = { viewModel.reapplyWallpaper(item) },
-                        onSaveToGallery = { viewModel.saveToGallery(item) {} },
-                        onShare = {
-                            viewModel.buildShareIntent(item)?.let { intent ->
-                                context.startActivity(Intent.createChooser(intent, null))
-                            }
-                        },
+                        onClick = { onNavigateToDetail(item.id) },
                         onDelete = { deleteTarget = item },
                     )
                 }
@@ -156,18 +148,20 @@ fun HistoryScreen(viewModel: HistoryViewModel) {
     }
 }
 
-// 履歴アイテムカード
+// 履歴アイテムカード（タップで詳細へ遷移）
 @Composable
 private fun HistoryItemCard(
     item: HistoryItem,
-    onReapply: () -> Unit,
-    onSaveToGallery: () -> Unit,
-    onShare: () -> Unit,
+    onClick: () -> Unit,
     onDelete: () -> Unit,
 ) {
     val context = LocalContext.current
 
-    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+    ElevatedCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+    ) {
         Row(
             modifier = Modifier.padding(12.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -179,14 +173,14 @@ private fun HistoryItemCard(
                     model = ImageRequest.Builder(context).data(File(imagePath)).build(),
                     contentDescription = "壁紙サムネイル",
                     modifier = Modifier
-                        .width(72.dp)
+                        .width(56.dp)
                         .aspectRatio(9f / 16f),
                     contentScale = ContentScale.Crop,
                 )
             } else {
                 Box(
                     modifier = Modifier
-                        .width(72.dp)
+                        .width(56.dp)
                         .aspectRatio(9f / 16f),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -257,34 +251,6 @@ private fun HistoryItemCard(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                }
-
-                // アクションボタン
-                if (imagePath != null) {
-                    Spacer(Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        IconButton(onClick = onReapply, modifier = Modifier.size(36.dp)) {
-                            Icon(
-                                Icons.Default.Wallpaper,
-                                contentDescription = "壁紙に適用",
-                                modifier = Modifier.size(20.dp),
-                            )
-                        }
-                        IconButton(onClick = onSaveToGallery, modifier = Modifier.size(36.dp)) {
-                            Icon(
-                                Icons.Default.PhotoLibrary,
-                                contentDescription = "ギャラリーに保存",
-                                modifier = Modifier.size(20.dp),
-                            )
-                        }
-                        IconButton(onClick = onShare, modifier = Modifier.size(36.dp)) {
-                            Icon(
-                                Icons.Default.Share,
-                                contentDescription = "共有",
-                                modifier = Modifier.size(20.dp),
-                            )
-                        }
-                    }
                 }
             }
 
