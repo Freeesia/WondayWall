@@ -122,77 +122,6 @@ class HomeViewModel(
         }
     }
 
-    // エラーメッセージをクリアする
-    fun clearError() {
-        _uiState.value = _uiState.value.copy(errorMessage = null)
-    }
-
-    companion object {
-        fun factory(
-            appConfigService: AppConfigService,
-            generationCoordinator: GenerationCoordinator,
-            historyService: HistoryService,
-            wallpaperService: WallpaperService,
-            taskSchedulerService: TaskSchedulerService,
-            contextService: ContextService,
-        ): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
-            @Suppress("UNCHECKED_CAST")
-            override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                HomeViewModel(
-                    appConfigService,
-                    generationCoordinator,
-                    historyService,
-                    wallpaperService,
-                    taskSchedulerService,
-                    contextService,
-                ) as T
-        }
-    }
-}
-
-// ホーム画面の ViewModel
-class HomeViewModel(
-    private val appConfigService: AppConfigService,
-    private val generationCoordinator: GenerationCoordinator,
-    private val historyService: HistoryService,
-    private val wallpaperService: WallpaperService,
-    private val taskSchedulerService: TaskSchedulerService,
-) : ViewModel() {
-
-    private val _uiState = MutableStateFlow(HomeUiState())
-    val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
-
-    init {
-        viewModelScope.launch {
-            historyService.historyChanges.collect {
-                refreshData()
-            }
-        }
-        // 生成中フラグを監視する
-        viewModelScope.launch {
-            generationCoordinator.isGenerating.collect { isGenerating ->
-                _uiState.value = _uiState.value.copy(isGenerating = isGenerating)
-            }
-        }
-    }
-
-    // 画面データを読み込む
-    fun loadData() {
-        viewModelScope.launch {
-            refreshData()
-        }
-    }
-
-    private suspend fun refreshData() {
-        val history = historyService.loadHistory()
-        val config = appConfigService.getConfig()
-        _uiState.value = _uiState.value.copy(
-            latestHistoryItem = history.firstOrNull { !it.isSkipped },
-            config = config,
-            errorMessage = null,
-        )
-    }
-
     // 今すぐ生成を実行する
     fun generateNow() {
         viewModelScope.launch {
@@ -246,6 +175,7 @@ class HomeViewModel(
             historyService: HistoryService,
             wallpaperService: WallpaperService,
             taskSchedulerService: TaskSchedulerService,
+            contextService: ContextService,
         ): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T =
@@ -255,6 +185,7 @@ class HomeViewModel(
                     historyService,
                     wallpaperService,
                     taskSchedulerService,
+                    contextService,
                 ) as T
         }
     }
