@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 // 壁紙生成サービスの抽象インターフェイス
@@ -80,6 +81,7 @@ final class GoogleAiService: GoogleAiServiceProtocol {
     }
 
     // 採用ニュースの OGP 画像をダウンロードして context に付加する（ステップ 1.5）
+    // キャッシュ（Caches/WondayWall/ogp/）があればダウンロードをスキップする
     // ダウンロード失敗は無視し、成功分だけ ogpImageData / ogpImageMimeType を設定して返す
     func fetchOgpImages(
         context: PromptContext,
@@ -95,7 +97,7 @@ final class GoogleAiService: GoogleAiServiceProtocol {
                 .prefix(3)
         )
 
-        // 並列ダウンロードし (index, data, mimeType) を収集する
+        // 並列でキャッシュ確認 or ダウンロードし (index, data, mimeType) を収集する
         let downloads = await withTaskGroup(
             of: (Int, Data, String)?.self,
             returning: [(Int, Data, String)].self
@@ -105,6 +107,11 @@ final class GoogleAiService: GoogleAiServiceProtocol {
                     let imgUrl = URL(string: urlString)
                 else { continue }
                 group.addTask {
+                    // キャッシュがあれば即返す
+                    if let (cachedData, cachedMime) = Self.loadOgpFromCache(for: imgUrl) {
+                        return (idx, cachedData, cachedMime)
+                    }
+                    // キャッシュがなければダウンロードしてキャッシュに保存する
                     do {
                         var request = URLRequest(url: imgUrl, timeoutInterval: 10)
                         request.setValue(
@@ -112,7 +119,9 @@ final class GoogleAiService: GoogleAiServiceProtocol {
                             forHTTPHeaderField: "User-Agent"
                         )
                         let (data, response) = try await URLSession.shared.data(for: request)
-                        return (idx, data, response.mimeType ?? "image/jpeg")
+                        let mimeType = response.mimeType ?? "image/jpeg"
+                        Self.saveOgpToCache(data: data, mimeType: mimeType, for: imgUrl)
+                        return (idx, data, mimeType)
                     } catch {
                         // OGP 画像のダウンロード失敗は無視する
                         return nil
@@ -134,6 +143,41 @@ final class GoogleAiService: GoogleAiServiceProtocol {
         var updatedContext = context
         updatedContext.newsTopics = newsTopics
         return updatedContext
+    }
+
+    // MARK: - OGP 画像キャッシュ
+
+    // キャッシュの保存先ディレクトリ
+    private static var ogpCacheDirectory: URL {
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("WondayWall/ogp", isDirectory: true)
+    }
+
+    // URL の SHA256 ハッシュをファイル名としたキャッシュファイル URL を返す
+    private static func ogpCacheFileURL(for imageUrl: URL) -> URL {
+        let hash = SHA256.hash(data: Data(imageUrl.absoluteString.utf8))
+        let filename = hash.compactMap { String(format: "%02x", $0) }.joined()
+        return ogpCacheDirectory.appendingPathComponent(filename)
+    }
+
+    // OGP 画像をキャッシュから読み込む（キャッシュなしは nil）
+    private static func loadOgpFromCache(for imageUrl: URL) -> (Data, String)? {
+        let fileURL = ogpCacheFileURL(for: imageUrl)
+        guard let data = try? Data(contentsOf: fileURL) else { return nil }
+        let mimeType =
+            (try? String(contentsOf: fileURL.appendingPathExtension("mime"), encoding: .utf8))
+            ?? "image/jpeg"
+        return (data, mimeType)
+    }
+
+    // OGP 画像をキャッシュに保存する（失敗は無視する）
+    private static func saveOgpToCache(data: Data, mimeType: String, for imageUrl: URL) {
+        let fileURL = ogpCacheFileURL(for: imageUrl)
+        try? FileManager.default.createDirectory(
+            at: ogpCacheDirectory, withIntermediateDirectories: true)
+        try? data.write(to: fileURL, options: .atomic)
+        try? mimeType.write(
+            to: fileURL.appendingPathExtension("mime"), atomically: true, encoding: .utf8)
     }
 
     // 画像プロンプトから壁紙を生成してローカルに保存する（ステップ 2）
