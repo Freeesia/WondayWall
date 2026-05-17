@@ -3,11 +3,11 @@ package com.studiofreesia.wondaywall.ui.screens.home
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -107,11 +107,12 @@ fun HomeScreen(viewModel: HomeViewModel) {
             }
         },
     ) { padding ->
-        Box(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(bottom = padding.calculateBottomPadding()),
         ) {
+            val wallpaperPeekHeight = maxHeight * 2f / 3f
             val imagePath = uiState.latestHistoryItem?.appliedImagePath
             if (imagePath != null && File(imagePath).exists()) {
                 // 最新壁紙を全画面背景として表示する
@@ -159,7 +160,7 @@ fun HomeScreen(viewModel: HomeViewModel) {
 
                 if (imagePath != null && (events.isNotEmpty() || news.isNotEmpty())) {
                     // 画像を見せるための空白（画面の2/3）
-                    Spacer(modifier = Modifier.fillMaxHeight(0.67f))
+                    Spacer(modifier = Modifier.height(wallpaperPeekHeight))
                 }
 
                 if (events.isNotEmpty()) {

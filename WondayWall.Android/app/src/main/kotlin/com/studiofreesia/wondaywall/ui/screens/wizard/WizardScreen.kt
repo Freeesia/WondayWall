@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -105,7 +106,8 @@ fun WizardScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
+                .padding(padding)
+                .imePadding(),
         ) {
             // プログレスバー
             LinearProgressIndicator(
@@ -166,9 +168,17 @@ fun WizardScreen(
                         Icon(Icons.Default.ArrowForward, contentDescription = null)
                     }
                 } else {
-                    Button(onClick = { viewModel.completeWizard(onComplete) }) {
-                        Icon(Icons.Default.Check, contentDescription = null)
-                        Text("  完了")
+                    Button(
+                        onClick = { viewModel.completeWizard(onComplete) },
+                        enabled = !uiState.isCompleting && !uiState.isTestGenerating,
+                    ) {
+                        if (uiState.isCompleting || uiState.isTestGenerating) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                            Text("  完了中…")
+                        } else {
+                            Icon(Icons.Default.Check, contentDescription = null)
+                            Text("  完了")
+                        }
                     }
                 }
             }
@@ -194,7 +204,7 @@ private fun StepWelcome() {
             contentDescription = "WondayWall",
             modifier = Modifier
                 .size(80.dp)
-                .clip(RoundedCornerShape(18.dp)),
+                .clip(RoundedCornerShape(0.dp)),
         )
         Spacer(Modifier.height(24.dp))
         Text(

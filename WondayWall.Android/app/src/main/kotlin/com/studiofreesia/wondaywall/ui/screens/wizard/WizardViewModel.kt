@@ -36,6 +36,7 @@ data class WizardUiState(
     val showNotification: Boolean = true,
     val updateLockScreen: Boolean = false,
     val isTestGenerating: Boolean = false,
+    val isCompleting: Boolean = false,
     val testGenerationImagePath: String? = null,
     val errorMessage: String? = null,
 )
@@ -198,21 +199,27 @@ class WizardViewModel(
 
     // ウィザードを完了して設定を保存し、壁紙を生成する
     fun completeWizard(onComplete: () -> Unit) {
+        if (_uiState.value.isCompleting) return
         viewModelScope.launch {
-            saveCurrentConfig(enableAutoGeneration = true)
-            taskSchedulerService.scheduleNext()
-            // テスト生成がまだ実行されていない場合は自動で生成する
-            if (_uiState.value.testGenerationImagePath == null) {
-                _uiState.value = _uiState.value.copy(isTestGenerating = true)
-                try {
-                    generationCoordinator.runAsync()
-                } catch (e: Exception) {
-                    // 生成エラーは無視してウィザードを完了する
-                } finally {
-                    _uiState.value = _uiState.value.copy(isTestGenerating = false)
+            _uiState.value = _uiState.value.copy(isCompleting = true, errorMessage = null)
+            try {
+                saveCurrentConfig(enableAutoGeneration = true)
+                taskSchedulerService.scheduleNext()
+                // テスト生成がまだ実行されていない場合は自動で生成する
+                if (_uiState.value.testGenerationImagePath == null) {
+                    _uiState.value = _uiState.value.copy(isTestGenerating = true)
+                    try {
+                        generationCoordinator.runAsync()
+                    } catch (e: Exception) {
+                        // 生成エラーは無視してウィザードを完了する
+                    } finally {
+                        _uiState.value = _uiState.value.copy(isTestGenerating = false)
+                    }
                 }
+                onComplete()
+            } finally {
+                _uiState.value = _uiState.value.copy(isCompleting = false)
             }
-            onComplete()
         }
     }
 
