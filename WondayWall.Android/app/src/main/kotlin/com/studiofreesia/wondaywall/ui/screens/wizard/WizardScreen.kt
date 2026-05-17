@@ -91,6 +91,7 @@ fun WizardScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val canGoNext = uiState.currentStep != 1 || uiState.apiKey.isNotBlank()
 
     LaunchedEffect(uiState.errorMessage) {
         uiState.errorMessage?.let {
@@ -162,7 +163,10 @@ fun WizardScreen(
                 )
 
                 if (uiState.currentStep < WIZARD_TOTAL_STEPS - 1) {
-                    Button(onClick = { viewModel.nextStep() }) {
+                    Button(
+                        onClick = { viewModel.nextStep() },
+                        enabled = canGoNext,
+                    ) {
                         Text("次へ  ")
                         Icon(Icons.Default.ArrowForward, contentDescription = null)
                     }
@@ -252,6 +256,12 @@ private fun StepApiKey(uiState: WizardUiState, viewModel: WizardViewModel) {
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             singleLine = true,
+            isError = uiState.apiKey.isBlank(),
+            supportingText = {
+                if (uiState.apiKey.isBlank()) {
+                    Text("API キーは必須です")
+                }
+            },
         )
 
         FilledTonalButton(

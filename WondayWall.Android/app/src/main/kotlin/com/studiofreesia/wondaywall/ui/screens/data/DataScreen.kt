@@ -44,12 +44,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.studiofreesia.wondaywall.ui.components.FaviconIcon
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import com.studiofreesia.wondaywall.ui.util.formatCalendarEventDateTime
+import com.studiofreesia.wondaywall.ui.util.formatNewsPublishedAt
 
 // データ画面（カレンダー・RSS・プロンプト設定）
 @OptIn(ExperimentalMaterial3Api::class)
@@ -169,10 +167,7 @@ fun DataScreen(viewModel: DataViewModel) {
                             )
                             uiState.calendarEvents.take(3).forEach { event ->
                                 Text(
-                                    text = "・${event.title}  ${
-                                        SimpleDateFormat("MM/dd HH:mm", Locale.JAPAN)
-                                            .format(Date(event.startTime.toEpochMilliseconds()))
-                                    }",
+                                    text = "・${event.title}  ${formatCalendarEventDateTime(event)}",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -255,13 +250,22 @@ fun DataScreen(viewModel: DataViewModel) {
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
                                 FaviconIcon(url = news.url, size = 24.dp)
-                                Text(
-                                    text = news.title,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                Column(
                                     modifier = Modifier.weight(1f),
-                                    maxLines = 2,
-                                )
+                                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                                ) {
+                                    Text(
+                                        text = news.title,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 2,
+                                    )
+                                    Text(
+                                        text = formatNewsPublishedAt(news.publishedAt),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
                             }
                         }
                     }

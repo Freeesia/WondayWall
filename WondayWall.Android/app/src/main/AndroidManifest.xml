@@ -10,6 +10,9 @@
     <!-- 壁紙設定権限 -->
     <uses-permission android:name="android.permission.SET_WALLPAPER" />
 
+    <!-- 生成中に画面ロック・スリープへ移行しても処理を継続するために使用 -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
     <!-- 通知権限（Android 13以上） -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 

@@ -15,12 +15,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.TextSnippet
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Newspaper
 import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.TextSnippet
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -45,6 +45,8 @@ import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import com.studiofreesia.wondaywall.models.HistoryItem
 import com.studiofreesia.wondaywall.ui.components.FaviconIcon
+import com.studiofreesia.wondaywall.ui.util.formatCalendarEventDateTime
+import com.studiofreesia.wondaywall.ui.util.formatNewsPublishedAt
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -161,8 +163,7 @@ fun HistoryDetailScreen(
                                 ) {
                                     Text(event.title, style = MaterialTheme.typography.bodyMedium)
                                     Text(
-                                        text = SimpleDateFormat("MM/dd HH:mm", Locale.JAPAN)
-                                            .format(Date(event.startTime.toEpochMilliseconds())),
+                                        text = formatCalendarEventDateTime(event),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
@@ -197,12 +198,21 @@ fun HistoryDetailScreen(
                                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                                     ) {
                                         FaviconIcon(url = newsItem.url)
-                                        Text(
-                                            text = newsItem.title,
-                                            style = MaterialTheme.typography.bodyMedium,
+                                        Column(
                                             modifier = Modifier.weight(1f),
-                                            maxLines = 3,
-                                        )
+                                            verticalArrangement = Arrangement.spacedBy(2.dp),
+                                        ) {
+                                            Text(
+                                                text = newsItem.title,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                maxLines = 3,
+                                            )
+                                            Text(
+                                                text = formatNewsPublishedAt(newsItem.publishedAt),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        }
                                     }
                                 }
                                 if (!newsItem.url.isNullOrEmpty()) {
@@ -229,7 +239,7 @@ fun HistoryDetailScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Icon(Icons.Default.TextSnippet, contentDescription = null)
+                        Icon(Icons.AutoMirrored.Filled.TextSnippet, contentDescription = null)
                         Text("使用したプロンプト", style = MaterialTheme.typography.titleSmall)
                     }
                     ElevatedCard(modifier = Modifier.fillMaxWidth()) {

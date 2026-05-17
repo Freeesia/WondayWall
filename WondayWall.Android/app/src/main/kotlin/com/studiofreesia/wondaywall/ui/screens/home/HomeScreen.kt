@@ -56,10 +56,9 @@ import coil3.request.ImageRequest
 import com.studiofreesia.wondaywall.models.CalendarEventItem
 import com.studiofreesia.wondaywall.models.NewsTopicItem
 import com.studiofreesia.wondaywall.ui.components.FaviconIcon
+import com.studiofreesia.wondaywall.ui.util.formatCalendarEventDateTime
+import com.studiofreesia.wondaywall.ui.util.formatNewsPublishedAt
 import java.io.File
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 // ホーム画面（iOSのHomeViewと同等の構成）
 @OptIn(ExperimentalMaterial3Api::class)
@@ -113,6 +112,7 @@ fun HomeScreen(viewModel: HomeViewModel) {
                 .padding(bottom = padding.calculateBottomPadding()),
         ) {
             val wallpaperPeekHeight = maxHeight * 2f / 3f
+            val usedInfoBackground = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
             val imagePath = uiState.latestHistoryItem?.appliedImagePath
             if (imagePath != null && File(imagePath).exists()) {
                 // 最新壁紙を全画面背景として表示する
@@ -171,7 +171,7 @@ fun HomeScreen(viewModel: HomeViewModel) {
                             .height(24.dp)
                             .background(
                                 brush = Brush.verticalGradient(
-                                    colors = listOf(Color.Transparent, Color(0xCCF5F5F5)),
+                                    colors = listOf(Color.Transparent, usedInfoBackground),
                                 )
                             )
                     )
@@ -180,7 +180,7 @@ fun HomeScreen(viewModel: HomeViewModel) {
                         events = events,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Color(0xCCF5F5F5))
+                            .background(usedInfoBackground)
                             .padding(horizontal = 16.dp, vertical = 8.dp),
                     )
                 }
@@ -192,7 +192,7 @@ fun HomeScreen(viewModel: HomeViewModel) {
                             .height(24.dp)
                             .background(
                                 brush = Brush.verticalGradient(
-                                    colors = listOf(Color.Transparent, Color(0xCCF5F5F5)),
+                                    colors = listOf(Color.Transparent, usedInfoBackground),
                                 )
                             )
                     )
@@ -201,7 +201,7 @@ fun HomeScreen(viewModel: HomeViewModel) {
                         news = news,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Color(0xCCF5F5F5))
+                            .background(usedInfoBackground)
                             .padding(horizontal = 16.dp, vertical = 8.dp),
                     )
                 }
@@ -275,7 +275,7 @@ private fun GenerationConfirmSheet(
                             ) {
                                 Text(event.title, style = MaterialTheme.typography.bodyMedium)
                                 Text(
-                                    formatInstant(event.startTime.toEpochMilliseconds()),
+                                    formatCalendarEventDateTime(event),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -307,12 +307,21 @@ private fun GenerationConfirmSheet(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
                                 FaviconIcon(url = item.url)
-                                Text(
-                                    text = item.title,
-                                    style = MaterialTheme.typography.bodyMedium,
+                                Column(
                                     modifier = Modifier.weight(1f),
-                                    maxLines = 2,
-                                )
+                                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                                ) {
+                                    Text(
+                                        text = item.title,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        maxLines = 2,
+                                    )
+                                    Text(
+                                        text = formatNewsPublishedAt(item.publishedAt),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
                             }
                         }
                     }
@@ -379,7 +388,7 @@ private fun UsedEventsSection(
                     ) {
                         Text(event.title, style = MaterialTheme.typography.bodyMedium)
                         Text(
-                            formatInstant(event.startTime.toEpochMilliseconds()),
+                            formatCalendarEventDateTime(event),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -419,12 +428,21 @@ private fun UsedNewsSection(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             FaviconIcon(url = item.url)
-                            Text(
-                                text = item.title,
-                                style = MaterialTheme.typography.bodyMedium,
+                            Column(
                                 modifier = Modifier.weight(1f),
-                                maxLines = 2,
-                            )
+                                verticalArrangement = Arrangement.spacedBy(2.dp),
+                            ) {
+                                Text(
+                                    text = item.title,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    maxLines = 2,
+                                )
+                                Text(
+                                    text = formatNewsPublishedAt(item.publishedAt),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                         }
                     }
                     if (!item.url.isNullOrEmpty()) {
@@ -441,10 +459,4 @@ private fun UsedNewsSection(
             }
         }
     }
-}
-
-// エポックミリ秒を読みやすい文字列に変換する
-private fun formatInstant(epochMs: Long): String {
-    val sdf = SimpleDateFormat("MM/dd HH:mm", Locale.JAPAN)
-    return sdf.format(Date(epochMs))
 }

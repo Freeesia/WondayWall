@@ -8,12 +8,16 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Newspaper
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -58,7 +62,6 @@ private object Routes {
     const val HISTORY = "history"
     const val HISTORY_DETAIL = "history_detail"
     const val SETTINGS = "settings"
-    const val ABOUT = "about"
 }
 
 // ボトムナビゲーションの項目定義
@@ -133,6 +136,7 @@ fun AppNavigation(
 }
 
 // ボトムナビゲーション付きメイン画面
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MainScreen(
     appConfigService: AppConfigService,
@@ -143,6 +147,8 @@ private fun MainScreen(
     taskSchedulerService: TaskSchedulerService,
 ) {
     val navController = rememberNavController()
+    var showAboutSheet by remember { mutableStateOf(false) }
+    val aboutSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     val bottomNavItems = listOf(
         BottomNavItem(Routes.HOME, "ホーム", Icons.Default.Home),
@@ -245,14 +251,23 @@ private fun MainScreen(
                 )
                 SettingsScreen(
                     viewModel = vm,
-                    onNavigateToAbout = { navController.navigate(Routes.ABOUT) },
+                    onNavigateToAbout = { showAboutSheet = true },
                 )
             }
-            composable(Routes.ABOUT) {
-                AboutScreen(
-                    onBack = { navController.popBackStack() },
-                )
-            }
+        }
+    }
+
+    if (showAboutSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showAboutSheet = false },
+            sheetState = aboutSheetState,
+            dragHandle = { BottomSheetDefaults.DragHandle() },
+        ) {
+            AboutScreen(
+                appConfigService = appConfigService,
+                generationCoordinator = generationCoordinator,
+                onClose = { showAboutSheet = false },
+            )
         }
     }
 }
