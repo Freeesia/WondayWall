@@ -72,6 +72,12 @@ actor GenerationCoordinator {
     // 現在時刻で定期生成が必要かどうかを返す（起動時・復帰時の事前確認用）
     func isScheduledGenerationNeeded(now: Date = Date()) -> Bool {
         guard !isGenerating else { return false }
+
+        // 前回の生成が中断されている場合は、設定に関わらずなるはやで再実行する
+        if historyService.getPendingGeneratingItem() != nil || historyService.getGeneratingWithPrompt() != nil {
+            return true
+        }
+
         let config = configService.config
         guard config.autoGenerationEnabled else { return false }
         if config.wifiOnlyGeneration && !isOnWiFi() { return false }

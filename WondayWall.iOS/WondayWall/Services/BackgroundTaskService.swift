@@ -50,10 +50,31 @@ final class BackgroundTaskService {
         }
     }
 
+    // 30分後のフォールバックスケジュールを登録する（強制kill・expiration 対策）
+    // 同一 taskIdentifier で submit するため、既存のリクエストは上書きされる
+    private func scheduleFallbackBackgroundTask() {
+        let request = BGProcessingTaskRequest(identifier: Self.taskIdentifier)
+        request.requiresNetworkConnectivity = true
+        request.requiresExternalPower = false
+        request.earliestBeginDate = Date().addingTimeInterval(30 * 60)
+        do {
+            try BGTaskScheduler.shared.submit(request)
+            logger.notice("scheduleFallbackBackgroundTask: 30分後フォールバック登録成功")
+        } catch {
+            logger.error("scheduleFallbackBackgroundTask: submit 失敗 error=\(error.localizedDescription)")
+        }
+    }
+
     // BGProcessingTask が起動されたときの処理（AppDelegate から呼ばれる）
     func handle(_ task: BGProcessingTask) {
         logger.notice("handle: BGProcessingTask 受信 identifier=\(task.identifier)")
+
+        // 強制kill・expiration に備えて30分後フォールバックを先に登録する（安全弁）
+        // 正常完了時は scheduleNextBackgroundTask() で次スロットへ上書きされる
+        scheduleFallbackBackgroundTask()
+
         // タスク期限切れ時のキャンセルハンドラー
+        // 先頭で登録済みの30分後フォールバックはOSに残るため、ここでの再登録は不要
         task.expirationHandler = { [weak self] in
             self?.logger.warning("handle: expirationHandler 呼び出し — タスク期限切れ")
             Task { await self?.coordinator.cancel() }
@@ -62,6 +83,14 @@ final class BackgroundTaskService {
         }
 
         Task {
+            // 前の BGTask 起動から引き継いだ生成処理がまだ動いている場合は
+            // フォールバックスケジュールを維持したまま即終了する
+            if await coordinator.isGenerating {
+                logger.notice("handle: 生成中のため即終了（フォールバックスケジュール維持）")
+                task.setTaskCompleted(success: true)
+                return
+            }
+
             do {
                 let result = try await coordinator.runScheduledIfNeeded()
                 if let result {
@@ -71,9 +100,14 @@ final class BackgroundTaskService {
                 }
             } catch {
                 // エラーは coordinator 内で履歴保存済み
+                // 30分後フォールバックが残り、自動再試行される
                 logger.error("handle: runScheduledIfNeeded エラー error=\(error.localizedDescription)")
+                logger.notice("handle: setTaskCompleted(success: false)")
+                task.setTaskCompleted(success: false)
+                return
             }
-            // 次回タスクを登録してから完了を通知する
+
+            // 正常完了・スキップ時は次スロットへ上書きしてフォールバックを延長する
             scheduleNextBackgroundTask()
             logger.notice("handle: setTaskCompleted(success: true)")
             task.setTaskCompleted(success: true)
