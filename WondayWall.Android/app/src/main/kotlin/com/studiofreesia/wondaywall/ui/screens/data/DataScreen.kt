@@ -189,7 +189,7 @@ fun DataScreen(viewModel: DataViewModel) {
                     }
                     Spacer(Modifier.height(8.dp))
 
-                    // RSS URL 追加フィールド
+                    // ニュースサイト URL 追加フィールド
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -199,13 +199,14 @@ fun DataScreen(viewModel: DataViewModel) {
                             value = newRssUrl,
                             onValueChange = { newRssUrl = it },
                             modifier = Modifier.weight(1f),
-                            placeholder = { Text("RSS フィード URL") },
+                            placeholder = { Text("ニュースサイト URL") },
                             singleLine = true,
                         )
                         IconButton(
                             onClick = {
-                                viewModel.addRssSource(newRssUrl.trim())
-                                newRssUrl = ""
+                                viewModel.addRssSource(newRssUrl.trim()) {
+                                    newRssUrl = ""
+                                }
                             },
                         ) {
                             Icon(Icons.Default.Add, contentDescription = "追加")

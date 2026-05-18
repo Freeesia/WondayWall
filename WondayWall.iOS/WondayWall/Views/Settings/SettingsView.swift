@@ -158,7 +158,7 @@ private struct SettingsContentView: View {
             } header: {
                 Text("RSS ソース")
             } footer: {
-                Text("ニュースを取得する RSS フィードの URL を登録します。")
+                Text("ニュースサイト URL を登録します。RSS URL が分かる場合は直接入力もできます。")
                     .font(.caption)
             }
 
@@ -261,14 +261,14 @@ private struct SettingsContentView: View {
                     TextField(
                         "",
                         text: $vm.newRssURL,
-                        prompt: Text(verbatim: "https://example.com/feed.rss")
+                        prompt: Text(verbatim: "https://example.com")
                             .foregroundColor(Color(UIColor.placeholderText))
                     )
                     .keyboardType(.URL)
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)
                 } header: {
-                    Text("RSS フィード URL")
+                    Text("ニュースサイト URL")
                 }
             }
             .navigationTitle("RSS ソースを追加")
@@ -282,7 +282,9 @@ private struct SettingsContentView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("追加") {
-                        vm.addRssSource()
+                        Task {
+                            await vm.addRssSource()
+                        }
                     }
                     .disabled(vm.newRssURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }

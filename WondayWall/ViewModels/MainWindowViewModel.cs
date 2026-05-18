@@ -5,8 +5,8 @@ using System.Net.Http;
 using System.Reflection;
 using System.Security;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Windows;
+using AngleSharp.Html.Parser;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
@@ -20,8 +20,6 @@ namespace WondayWall.ViewModels;
 public partial class MainWindowViewModel : ObservableObject
 {
     private const int MaxSiteHtmlChars = 512_000;
-    private static readonly Regex LinkTagRegex = new("<link\\b[^>]*>", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
-    private static readonly Regex HtmlAttributeRegex = new("(?<name>[a-zA-Z_:][\\w:.-]*)\\s*=\\s*(?:\"(?<value>[^\"]*)\"|'(?<value>[^']*)'|(?<value>[^\\s>]+))", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
     private readonly AppConfigService _configService;
     private readonly HistoryService _historyService;
@@ -575,17 +573,19 @@ public partial class MainWindowViewModel : ObservableObject
             return null;
         }
 
-        foreach (Match linkTag in LinkTagRegex.Matches(content))
+        var parser = new HtmlParser();
+        var document = await parser.ParseDocumentAsync(content, ct);
+        foreach (var linkTag in document.QuerySelectorAll("link[rel][type][href]"))
         {
-            var relValue = GetHtmlAttributeValue(linkTag.Value, "rel");
+            var relValue = linkTag.GetAttribute("rel");
             if (!ContainsToken(relValue, "alternate"))
                 continue;
 
-            var typeValue = GetHtmlAttributeValue(linkTag.Value, "type");
+            var typeValue = linkTag.GetAttribute("type");
             if (typeValue is null || !IsFeedContentType(typeValue))
                 continue;
 
-            var hrefValue = GetHtmlAttributeValue(linkTag.Value, "href");
+            var hrefValue = linkTag.GetAttribute("href");
             if (string.IsNullOrWhiteSpace(hrefValue))
                 continue;
 
@@ -593,19 +593,6 @@ public partial class MainWindowViewModel : ObservableObject
                 continue;
 
             return rssUri.ToString();
-        }
-
-        return null;
-    }
-
-    private static string? GetHtmlAttributeValue(string htmlTag, string attributeName)
-    {
-        foreach (Match attributeMatch in HtmlAttributeRegex.Matches(htmlTag))
-        {
-            if (!string.Equals(attributeMatch.Groups["name"].Value, attributeName, StringComparison.OrdinalIgnoreCase))
-                continue;
-
-            return attributeMatch.Groups["value"].Value;
         }
 
         return null;

@@ -432,7 +432,7 @@ private fun StepPromptAndRss(uiState: WizardUiState, viewModel: WizardViewModel)
         // RSS ソース
         Text("RSS ニュースソース", style = MaterialTheme.typography.titleMedium)
         Text(
-            text = "ニュースを参考にした壁紙を生成したい場合は RSS フィード URL を追加してください。",
+            text = "ニュースを参考にした壁紙を生成したい場合はニュースサイト URL を追加してください。RSS URL の直接入力もできます。",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -446,12 +446,13 @@ private fun StepPromptAndRss(uiState: WizardUiState, viewModel: WizardViewModel)
                 value = newRssUrl,
                 onValueChange = { newRssUrl = it },
                 modifier = Modifier.weight(1f),
-                placeholder = { Text("RSS URL") },
+                placeholder = { Text("ニュースサイト URL") },
                 singleLine = true,
             )
             IconButton(onClick = {
-                viewModel.addRssSource(newRssUrl.trim())
-                newRssUrl = ""
+                viewModel.addRssSource(newRssUrl.trim()) {
+                    newRssUrl = ""
+                }
             }) {
                 Icon(Icons.Default.Add, contentDescription = "追加")
             }
