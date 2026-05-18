@@ -1,5 +1,5 @@
 ---
-applyTo: "WondayWall/**/*.{cs,xaml,csproj,resx,props,targets,json}"
+applyTo: "WondayWall/**/*.cs"
 ---
 
 # .NET版（Win版）実装ルール
