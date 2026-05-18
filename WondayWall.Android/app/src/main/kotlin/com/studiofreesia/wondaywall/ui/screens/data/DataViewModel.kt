@@ -104,14 +104,28 @@ class DataViewModel(
     }
 
     // RSS ソースを追加する
-    fun addRssSource(url: String) {
+    fun addRssSource(url: String, onAdded: () -> Unit = {}) {
         if (url.isBlank()) return
         viewModelScope.launch {
+            val sourceUrl = url.trim()
+            val resolvedRssUrl = contextService.resolveRssSourceUrl(sourceUrl)
+            if (resolvedRssUrl == null) {
+                _uiState.value = _uiState.value.copy(
+                    errorMessage = "指定のサイトからニュース情報を得られませんでした。"
+                )
+                return@launch
+            }
+
+            var added = false
             appConfigService.updateConfig { config ->
-                if (config.rssSources.contains(url)) config
-                else config.copy(rssSources = config.rssSources + url)
+                if (config.rssSources.contains(resolvedRssUrl)) config
+                else {
+                    added = true
+                    config.copy(rssSources = config.rssSources + resolvedRssUrl)
+                }
             }
             loadData()
+            if (added) onAdded()
         }
     }
 

@@ -129,6 +129,7 @@ public static class Resources
     public static string SetupGenerationFailed => GetString(nameof(SetupGenerationFailed));
     public static string SetupImagePathUnavailable => GetString(nameof(SetupImagePathUnavailable));
     public static string SetupNewsDescription => GetString(nameof(SetupNewsDescription));
+    public static string SetupNewsSiteRssNotFound => GetString(nameof(SetupNewsSiteRssNotFound));
     public static string SetupRssUrlInvalid => GetString(nameof(SetupRssUrlInvalid));
     public static string SetupSavedGenerating => GetString(nameof(SetupSavedGenerating));
     public static string SetupStepApiKey => GetString(nameof(SetupStepApiKey));

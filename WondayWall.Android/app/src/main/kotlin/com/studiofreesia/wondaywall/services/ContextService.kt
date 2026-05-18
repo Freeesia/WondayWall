@@ -21,6 +21,7 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
+import java.net.URI
 import java.security.MessageDigest
 import kotlin.time.Clock
 import kotlin.time.Instant
@@ -46,6 +47,56 @@ class ContextService(
     private val cacheJson = Json {
         ignoreUnknownKeys = true
         encodeDefaults = true
+    }
+
+    // 入力URLからRSS URLを解決する（RSS URLが直接入力された場合はそのまま返す）
+    suspend fun resolveRssSourceUrl(sourceUrl: String): String? {
+        val sourceUri = try {
+            URI(sourceUrl)
+        } catch (_: Exception) {
+            return null
+        }
+
+        val scheme = sourceUri.scheme?.lowercase() ?: return null
+        if (scheme != "http" && scheme != "https") return null
+
+        if (isLikelyRssUrl(sourceUri)) return sourceUrl
+
+        return withContext(Dispatchers.IO) {
+            try {
+                val request = Request.Builder()
+                    .url(sourceUrl)
+                    .header("User-Agent", "WondayWall/1.0")
+                    .build()
+                val html = httpClient.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) return@withContext null
+                    response.body?.string() ?: return@withContext null
+                }
+                val doc = Jsoup.parse(html, sourceUrl)
+                doc.select("link[rel][type][href]").firstNotNullOfOrNull { link ->
+                    val rel = link.attr("rel")
+                    if (!containsToken(rel, "alternate")) return@firstNotNullOfOrNull null
+
+                    val type = link.attr("type")
+                    if (!isFeedContentType(type)) return@firstNotNullOfOrNull null
+
+                    val absoluteHref = link.absUrl("href")
+                    if (absoluteHref.isNotBlank()) {
+                        return@firstNotNullOfOrNull absoluteHref
+                    }
+
+                    val href = link.attr("href")
+                    if (href.isBlank()) return@firstNotNullOfOrNull null
+                    try {
+                        sourceUri.resolve(href).toString()
+                    } catch (_: Exception) {
+                        null
+                    }
+                }
+            } catch (_: Exception) {
+                null
+            }
+        }
     }
 
     // PromptContext を構築して返す
@@ -288,6 +339,32 @@ class ContextService(
     // jsoup を使って HTML タグを除去する
     private fun stripHtml(html: String): String =
         Jsoup.parse(html).text()
+
+    private fun containsToken(source: String, token: String): Boolean =
+        source.split(Regex("\\s+"))
+            .any { it.equals(token, ignoreCase = true) }
+
+    private fun isFeedContentType(contentType: String): Boolean =
+        contentType.contains("application/rss+xml", ignoreCase = true)
+            || contentType.contains("application/atom+xml", ignoreCase = true)
+
+    private fun isLikelyRssUrl(uri: URI): Boolean {
+        val path = uri.path ?: ""
+        if (path.endsWith(".xml", ignoreCase = true)
+            || path.endsWith(".rss", ignoreCase = true)
+            || path.endsWith(".atom", ignoreCase = true)
+        ) {
+            return true
+        }
+
+        val query = uri.query ?: ""
+        return path.contains("feed", ignoreCase = true)
+            || path.contains("rss", ignoreCase = true)
+            || path.contains("atom", ignoreCase = true)
+            || query.contains("feed", ignoreCase = true)
+            || query.contains("rss", ignoreCase = true)
+            || query.contains("atom", ignoreCase = true)
+    }
 
     // RSS の日付文字列をパースする
     private fun parseRssDate(dateStr: String?): Instant {
