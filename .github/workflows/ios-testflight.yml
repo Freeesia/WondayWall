@@ -37,7 +37,7 @@ jobs:
       TEAM_ID: KDJQJM26Y7
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Show Xcode version
         run: xcodebuild -version
