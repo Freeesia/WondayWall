@@ -4,6 +4,7 @@ using System.IO;
 using System.Net.Http;
 using System.Reflection;
 using System.Security;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -18,6 +19,10 @@ namespace WondayWall.ViewModels;
 
 public partial class MainWindowViewModel : ObservableObject
 {
+    private const int MaxSiteHtmlChars = 512_000;
+    private static readonly Regex LinkTagRegex = new("<link\\b[^>]*>", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+    private static readonly Regex HtmlAttributeRegex = new("(?<name>[a-zA-Z_:][\\w:.-]*)\\s*=\\s*(?:\"(?<value>[^\"]*)\"|'(?<value>[^']*)'|(?<value>[^\\s>]+))", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+
     private readonly AppConfigService _configService;
     private readonly HistoryService _historyService;
     private readonly ContextService _contextService;
@@ -551,7 +556,18 @@ public partial class MainWindowViewModel : ObservableObject
         string content;
         try
         {
-            content = await httpClient.GetStringAsync(siteUri, ct);
+            using var response = await httpClient.GetAsync(siteUri, HttpCompletionOption.ResponseHeadersRead, ct);
+            response.EnsureSuccessStatusCode();
+
+            if (response.Content.Headers.ContentLength is > MaxSiteHtmlChars)
+            {
+                _logger.LogDebug("サイトのHTMLサイズが上限を超えたためRSS検出を中止しました [{SiteUrl}]", siteUri);
+                return null;
+            }
+
+            await using var stream = await response.Content.ReadAsStreamAsync(ct);
+            using var reader = new StreamReader(stream);
+            content = await ReadToLimitAsync(reader, MaxSiteHtmlChars, ct);
         }
         catch (Exception ex)
         {
@@ -559,7 +575,7 @@ public partial class MainWindowViewModel : ObservableObject
             return null;
         }
 
-        foreach (Match linkTag in Regex.Matches(content, "<link\\b[^>]*>", RegexOptions.IgnoreCase))
+        foreach (Match linkTag in LinkTagRegex.Matches(content))
         {
             var relValue = GetHtmlAttributeValue(linkTag.Value, "rel");
             if (!ContainsToken(relValue, "alternate"))
@@ -584,12 +600,37 @@ public partial class MainWindowViewModel : ObservableObject
 
     private static string? GetHtmlAttributeValue(string htmlTag, string attributeName)
     {
-        var pattern = $"{attributeName}\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s>]+))";
-        var match = Regex.Match(htmlTag, pattern, RegexOptions.IgnoreCase);
-        if (!match.Success)
-            return null;
+        foreach (Match attributeMatch in HtmlAttributeRegex.Matches(htmlTag))
+        {
+            if (!string.Equals(attributeMatch.Groups["name"].Value, attributeName, StringComparison.OrdinalIgnoreCase))
+                continue;
 
-        return match.Groups.Cast<Group>().Skip(1).Select(g => g.Value).FirstOrDefault(static v => !string.IsNullOrEmpty(v));
+            return attributeMatch.Groups["value"].Value;
+        }
+
+        return null;
+    }
+
+    private static async Task<string> ReadToLimitAsync(TextReader reader, int maxChars, CancellationToken ct)
+    {
+        var buffer = new char[4_096];
+        var content = new StringBuilder(capacity: Math.Min(maxChars, 64_000));
+        while (true)
+        {
+            ct.ThrowIfCancellationRequested();
+            var readCount = await reader.ReadAsync(buffer.AsMemory(0, buffer.Length), ct);
+            if (readCount <= 0)
+                break;
+
+            var writableCount = Math.Min(readCount, maxChars - content.Length);
+            if (writableCount > 0)
+                content.Append(buffer, 0, writableCount);
+
+            if (content.Length >= maxChars)
+                break;
+        }
+
+        return content.ToString();
     }
 
     private static bool ContainsToken(string? source, string token)
