@@ -1,96 +1,37 @@
-# WondayWall — Instructions
+# WondayWall — App-specific Instructions
 
-WondayWall は、ユーザーの予定や興味に基づいて壁紙を自動生成する Windows 向け .NET 10 WPF アプリ。
-詳細は [概要.md](/概要.md) および [dev.md](/dev.md) を参照。
+このファイルは **アプリ固有の実装方針（常時読み込み）** の正本です。
 
-## ビルドと実行
+## プロダクト方針（共通）
 
-```powershell
-# プロジェクトルートから
-cd WondayWall
-dotnet build
+- WondayWall は、ユーザーの予定や興味に基づいて壁紙を生成するアプリ。
+- 実装対象は複数プラットフォーム（.NET/Windows、iOS、Android）。
+- 生成処理の中心は `GenerationCoordinator` に集約し、ビジネスロジックの重複を避ける。
+- 設計は「完成の速さ」「修正のしやすさ」「構成の分かりやすさ」を優先する。
 
-# GUI 起動
-WondayWall.exe
-
-# CLI モード（Task Scheduler から呼ぶパターン）
-WondayWall.exe run-once    # 1回だけ生成して終了
-WondayWall.exe generate    # 即時生成
-WondayWall.exe check-calendar
-WondayWall.exe check-news
-WondayWall.exe check-google-ai
-```
-
-環境要件:
-- Windows OS のみ（`net10.0-windows`; WPF は Windows 専用）
-- .NET 10 SDK
-- Google Cloud プロジェクト（Calendar API + GenAI API 有効化済み）
-- `EnableWindowsTargeting=true` は Linux CI ビルド用に csproj に設定済み。削除しないこと。
-
-## アーキテクチャ
-
-### ハイブリッド GUI/CLI 構成
-
-同一 exe から GUI と CLI を使い分ける設計。常駐アプリにはしない。
-
-```
-Program.cs
-├─ CLI モード: args[0] が既知コマンドなら ConsoleAppFramework → CliCommands → Services
-└─ GUI モード: WpfApplication<App,MainWindow>.CreateBuilder() → DI → WPF 起動
-```
-
-### サービス層
-
-| サービス | 責務 |
-|---------|------|
-| `AppConfigService` | JSON 設定の読み書き（`%LocalAppData%/StudioFreesia/WondayWall/config.json`） |
-| `ContextService` | Google Calendar + RSS フィードからプロンプトコンテキストを構築 |
-| `GoogleAiService` | Gemini API で壁紙画像を生成・保存 |
-| `WallpaperService` | Win32 API で壁紙を適用 |
-| `GenerationCoordinator` | 上記サービスを順次呼び出すオーケストレーター。`SemaphoreSlim(1,1)` で多重実行を防止 |
-
-`GenerationCoordinator` は GUI・CLI 両方から呼ばれる。ビジネスロジックの重複を避けるため変更はここに集約する。
-
-### DI 登録ルール
-
-- サービスはすべて **Singleton** (`AddSingleton`)
-- ViewModel・View は **Transient** (`AddTransient`)
-
-## 規約
+## 共通実装ルール
 
 - コメントは日本語で記載する。
+- 必要になるまで過剰な抽象化を行わない。
+- サービスインターフェースは、複数実装が必要になった時点で導入する。
+- 変更は最小限にし、関連しない箇所は触らない。
 
-### MVVM
+## Copilot Instructions の分割
 
-- CommunityToolkit.MVVM を使用。`[ObservableProperty]`・`[RelayCommand]` 属性でボイラープレートを排除。
-- サービスインターフェースは設けない（具体クラス直接参照）。複数実装が必要になったときに追加する。
-- 現状 ViewModel は `MainWindowViewModel` のみ。単純に保つことを優先。
+- **常時読み込み**: この `AGENTS.md`（アプリ固有）
+- **条件付き読み込み**: プラットフォーム別 instruction files
 
-### UI
+### .NET版（Win版）
 
-- WPF-UI を使用。コントロールは `<ui:FluentWindow>`, `<ui:CardControl>`, `<ui:Button Appearance="Primary">` など WPF-UI のコンポーネントを優先する。
-- 標準の WPF コントロールより WPF-UI コントロールを選ぶこと。
+- `.github/instructions/dotnet-win.instructions.md`
+- 詳細仕様: `/dev.md`
 
-### 設定・データ保存
+### iOS版
 
-- 設定・履歴・OAuth トークン・生成画像はすべて `%LocalAppData%/StudioFreesia/WondayWall/` 以下に保存。
-- 履歴は `history.json`（JSON ファイル、DB は使わない）。
+- `.github/instructions/ios.instructions.md`
+- 詳細仕様: `/dev_ios.md`
 
-### 非同期
+### Android版
 
-- 長時間処理は `async Task` コマンド（`AsyncRelayCommand`）で実行。
-- 多重実行防止には `SemaphoreSlim` を使う（Mutex は使わない）。
-
-## よくある落とし穴
-
-- **`StartupObject` の削除禁止**: `<StartupObject>WondayWall.Program</StartupObject>` を削除すると WPF デフォルトエントリーポイントになり CLI モードが壊れる。
-- **OAuth トークンキャッシュ**: `%LocalAppData%/StudioFreesia/WondayWall/calendar-token/` に保存。クレデンシャル変更後は手動削除が必要。
-- **プロンプトサイズ**: カレンダーは5件、ニュースは最大10件に絞って送信。それ以上に増やす場合は GenAI API の制限を確認。
-- **`IsGenerating` フラグ**: 生成中はボタンを無効化する設計。`CanExecuteChanged` を忘れずに呼ぶ。
-
-## 実装ルール
-
-### `*todo.md`のタスクを実装する場合
-
-- 未チェックタスクのみ実装する
-- 一度に全ての編集を行わず、タスクごとに検討、実装、ビルド、ビルドエラー修正、チェック記入を1ループとして、全タスク完了まで実行を継続する
+- `.github/instructions/android.instructions.md`
+- 詳細仕様: `/dev_android.md`
