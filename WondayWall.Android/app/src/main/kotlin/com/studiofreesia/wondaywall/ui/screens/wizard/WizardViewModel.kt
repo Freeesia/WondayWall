@@ -36,6 +36,7 @@ data class WizardUiState(
     val showNotification: Boolean = true,
     val updateLockScreen: Boolean = false,
     val isTestGenerating: Boolean = false,
+    val isCompleting: Boolean = false,
     val testGenerationImagePath: String? = null,
     val errorMessage: String? = null,
 )
@@ -62,6 +63,12 @@ class WizardViewModel(
     // 次のステップに進む
     fun nextStep() {
         val current = _uiState.value.currentStep
+        if (current == 1 && _uiState.value.apiKey.isBlank()) {
+            _uiState.value = _uiState.value.copy(
+                apiTestResult = ApiTestResult.Failure("API キーを入力してください"),
+            )
+            return
+        }
         if (current < WIZARD_TOTAL_STEPS - 1) {
             _uiState.value = _uiState.value.copy(currentStep = current + 1)
         }
@@ -196,12 +203,36 @@ class WizardViewModel(
         }
     }
 
-    // ウィザードを完了して設定を保存する
+    // ウィザードを完了して設定を保存し、壁紙を生成する
     fun completeWizard(onComplete: () -> Unit) {
+        if (_uiState.value.isCompleting) return
+        if (_uiState.value.apiKey.isBlank()) {
+            _uiState.value = _uiState.value.copy(
+                currentStep = 1,
+                apiTestResult = ApiTestResult.Failure("API キーを入力してください"),
+            )
+            return
+        }
         viewModelScope.launch {
-            saveCurrentConfig(enableAutoGeneration = true)
-            taskSchedulerService.scheduleNext()
-            onComplete()
+            _uiState.value = _uiState.value.copy(isCompleting = true, errorMessage = null)
+            try {
+                saveCurrentConfig(enableAutoGeneration = true)
+                taskSchedulerService.scheduleNext()
+                // テスト生成がまだ実行されていない場合は自動で生成する
+                if (_uiState.value.testGenerationImagePath == null) {
+                    _uiState.value = _uiState.value.copy(isTestGenerating = true)
+                    try {
+                        generationCoordinator.runAsync()
+                    } catch (e: Exception) {
+                        // 生成エラーは無視してウィザードを完了する
+                    } finally {
+                        _uiState.value = _uiState.value.copy(isTestGenerating = false)
+                    }
+                }
+                onComplete()
+            } finally {
+                _uiState.value = _uiState.value.copy(isCompleting = false)
+            }
         }
     }
 

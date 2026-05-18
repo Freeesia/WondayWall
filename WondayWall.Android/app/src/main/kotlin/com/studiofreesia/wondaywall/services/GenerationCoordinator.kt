@@ -1,6 +1,7 @@
 package com.studiofreesia.wondaywall.services
 
 import android.content.Context
+import android.os.PowerManager
 import android.util.Log
 import com.studiofreesia.wondaywall.models.GoogleAiServiceTier
 import com.studiofreesia.wondaywall.models.HistoryItem
@@ -34,7 +35,12 @@ class GenerationCoordinator(
         return mutex.withLock {
             _isGenerating.value = true
             try {
-                generate(serviceTier = GoogleAiServiceTier.Standard)
+                withGenerationWakeLock {
+                    val config = appConfigService.getConfig()
+                    // forceFlexTier が有効な場合は Flex ティアを使用する
+                    val tier = if (config.forceFlexTier) GoogleAiServiceTier.Flex else GoogleAiServiceTier.Standard
+                    generate(serviceTier = tier)
+                }
             } finally {
                 _isGenerating.value = false
             }
@@ -65,10 +71,12 @@ class GenerationCoordinator(
 
             _isGenerating.value = true
             try {
-                val result = generate(serviceTier = GoogleAiServiceTier.Flex)
-                // 次回スロットの WorkManager を登録する
-                taskSchedulerService.scheduleNext()
-                result
+                withGenerationWakeLock {
+                    val result = generate(serviceTier = GoogleAiServiceTier.Flex)
+                    // 次回スロットの WorkManager を登録する
+                    taskSchedulerService.scheduleNext()
+                    result
+                }
             } finally {
                 _isGenerating.value = false
             }
@@ -151,6 +159,22 @@ class GenerationCoordinator(
         }
     }
 
+    private suspend fun <T> withGenerationWakeLock(block: suspend () -> T): T {
+        val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+        val wakeLock = powerManager.newWakeLock(
+            PowerManager.PARTIAL_WAKE_LOCK,
+            "$TAG:Generation",
+        )
+        return try {
+            wakeLock.acquire(GENERATION_WAKE_LOCK_TIMEOUT_MS)
+            block()
+        } finally {
+            if (wakeLock.isHeld) {
+                wakeLock.release()
+            }
+        }
+    }
+
     // スキップ理由を確認する（スキップ不要なら null を返す）
     private suspend fun checkSkipReason(): String? {
         val appConfig = appConfigService.getConfig()
@@ -191,5 +215,6 @@ class GenerationCoordinator(
 
     companion object {
         private const val TAG = "GenerationCoordinator"
+        private const val GENERATION_WAKE_LOCK_TIMEOUT_MS = 30 * 60 * 1000L
     }
 }

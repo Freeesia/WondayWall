@@ -16,6 +16,12 @@ import com.studiofreesia.wondaywall.models.PromptContext
 import com.studiofreesia.wondaywall.models.PromptNewsTopic
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import java.io.File
+import java.security.MessageDigest
 import kotlin.time.Clock
 import kotlin.time.Instant
 import okhttp3.OkHttpClient
@@ -23,6 +29,7 @@ import okhttp3.Request
 import org.jsoup.Jsoup
 import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.hours
 
 // 画像生成に使うコンテキストを構築するサービス
 class ContextService(
@@ -36,6 +43,10 @@ class ContextService(
         .build()
 
     private val rssParser = RssParserBuilder(callFactory = httpClient).build()
+    private val cacheJson = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+    }
 
     // PromptContext を構築して返す
     suspend fun buildPromptContext(): ContextBuildResult {
@@ -181,6 +192,18 @@ class ContextService(
 
     // rssparser を使って RSS フィードを取得・パースしてニューストピック一覧を返す
     private suspend fun fetchRssFeed(url: String): List<NewsTopicItem> {
+        readRssCache(url, allowExpired = false)?.let { return it }
+
+        return try {
+            val items = fetchRssFeedFromNetwork(url)
+            writeRssCache(url, items)
+            items
+        } catch (e: Exception) {
+            readRssCache(url, allowExpired = true) ?: throw e
+        }
+    }
+
+    private suspend fun fetchRssFeedFromNetwork(url: String): List<NewsTopicItem> {
         val channel = rssParser.getRssChannel(url)
         return channel.items.mapNotNull { item ->
             val title = item.title ?: return@mapNotNull null
@@ -198,6 +221,44 @@ class ContextService(
             )
         }
     }
+
+    // RSS 取得結果を1時間キャッシュする。キャッシュはプロセス終了後も残るよう cacheDir に保存する。
+    private suspend fun readRssCache(url: String, allowExpired: Boolean): List<NewsTopicItem>? =
+        withContext(Dispatchers.IO) {
+            val cacheFile = rssCacheFile(url)
+            if (!cacheFile.exists() || cacheFile.length() == 0L) return@withContext null
+
+            runCatching {
+                val entry = cacheJson.decodeFromString<RssFeedCacheEntry>(cacheFile.readText())
+                val ageMillis = Clock.System.now().toEpochMilliseconds() - entry.fetchedAtEpochMillis
+                if (!allowExpired && ageMillis > RSS_CACHE_TTL.inWholeMilliseconds) {
+                    null
+                } else {
+                    entry.items
+                }
+            }.getOrNull()
+        }
+
+    private suspend fun writeRssCache(url: String, items: List<NewsTopicItem>) =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val cacheFile = rssCacheFile(url)
+                cacheFile.parentFile?.mkdirs()
+                val tempFile = File(cacheFile.parentFile, "${cacheFile.name}.tmp")
+                val entry = RssFeedCacheEntry(
+                    fetchedAtEpochMillis = Clock.System.now().toEpochMilliseconds(),
+                    items = items,
+                )
+                tempFile.writeText(cacheJson.encodeToString(entry))
+                if (!tempFile.renameTo(cacheFile)) {
+                    tempFile.copyTo(cacheFile, overwrite = true)
+                    tempFile.delete()
+                }
+            }
+        }
+
+    private fun rssCacheFile(url: String): File =
+        File(File(context.cacheDir, "rss-cache"), "${url.sha256()}.json")
 
     // jsoup を使って記事ページの OGP 画像 URL を取得する（rssparser がメディアを返さなかった場合のフォールバック）
     private suspend fun fetchOgpImageUrl(item: RssItem): String? {
@@ -277,4 +338,21 @@ class ContextService(
         publishedAt = publishedAt,
         ogpImageUrl = ogpImageUrl,
     )
+
+    private fun String.sha256(): String =
+        MessageDigest.getInstance("SHA-256")
+            .digest(toByteArray(Charsets.UTF_8))
+            .joinToString("") { byte ->
+                (byte.toInt() and 0xff).toString(16).padStart(2, '0')
+            }
+
+    companion object {
+        private val RSS_CACHE_TTL = 1.hours
+    }
 }
+
+@Serializable
+private data class RssFeedCacheEntry(
+    val fetchedAtEpochMillis: Long,
+    val items: List<NewsTopicItem>,
+)

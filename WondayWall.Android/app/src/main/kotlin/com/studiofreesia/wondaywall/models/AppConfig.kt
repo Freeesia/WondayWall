@@ -31,4 +31,6 @@ data class AppConfig(
     val generateOnlyOnWifi: Boolean = false,
     // 省電力モード時は生成をスキップするか
     val skipOnBatterySaver: Boolean = true,
+    // 手動生成でも Flex ティアを強制使用する
+    val forceFlexTier: Boolean = false,
 )

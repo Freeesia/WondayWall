@@ -8,12 +8,16 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Newspaper
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -37,10 +41,12 @@ import com.studiofreesia.wondaywall.services.TaskSchedulerService
 import com.studiofreesia.wondaywall.services.WallpaperService
 import com.studiofreesia.wondaywall.ui.screens.data.DataScreen
 import com.studiofreesia.wondaywall.ui.screens.data.DataViewModel
+import com.studiofreesia.wondaywall.ui.screens.history.HistoryDetailScreen
 import com.studiofreesia.wondaywall.ui.screens.history.HistoryScreen
 import com.studiofreesia.wondaywall.ui.screens.history.HistoryViewModel
 import com.studiofreesia.wondaywall.ui.screens.home.HomeScreen
 import com.studiofreesia.wondaywall.ui.screens.home.HomeViewModel
+import com.studiofreesia.wondaywall.ui.screens.about.AboutScreen
 import com.studiofreesia.wondaywall.ui.screens.settings.SettingsScreen
 import com.studiofreesia.wondaywall.ui.screens.settings.SettingsViewModel
 import com.studiofreesia.wondaywall.ui.screens.wizard.WizardScreen
@@ -54,6 +60,7 @@ private object Routes {
     const val HOME = "home"
     const val DATA = "data"
     const val HISTORY = "history"
+    const val HISTORY_DETAIL = "history_detail"
     const val SETTINGS = "settings"
 }
 
@@ -129,6 +136,7 @@ fun AppNavigation(
 }
 
 // ボトムナビゲーション付きメイン画面
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MainScreen(
     appConfigService: AppConfigService,
@@ -139,6 +147,8 @@ private fun MainScreen(
     taskSchedulerService: TaskSchedulerService,
 ) {
     val navController = rememberNavController()
+    var showAboutSheet by remember { mutableStateOf(false) }
+    val aboutSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     val bottomNavItems = listOf(
         BottomNavItem(Routes.HOME, "ホーム", Icons.Default.Home),
@@ -174,7 +184,8 @@ private fun MainScreen(
         NavHost(
             navController = navController,
             startDestination = Routes.HOME,
-            modifier = Modifier.padding(innerPadding),
+            // ボトムナビゲーション分のみパディングを適用する（上部はedge-to-edgeのためStatusBarはシステムが制御する）
+            modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding()),
         ) {
             composable(Routes.HOME) {
                 val vm: HomeViewModel = viewModel(
@@ -184,6 +195,7 @@ private fun MainScreen(
                         historyService = historyService,
                         wallpaperService = wallpaperService,
                         taskSchedulerService = taskSchedulerService,
+                        contextService = contextService,
                     )
                 )
                 HomeScreen(viewModel = vm)
@@ -206,7 +218,29 @@ private fun MainScreen(
                         appConfigService = appConfigService,
                     )
                 )
-                HistoryScreen(viewModel = vm)
+                HistoryScreen(
+                    viewModel = vm,
+                    onNavigateToDetail = { itemId ->
+                        navController.navigate("${Routes.HISTORY_DETAIL}/$itemId")
+                    },
+                )
+            }
+            composable(
+                route = "${Routes.HISTORY_DETAIL}/{itemId}",
+                arguments = listOf(androidx.navigation.navArgument("itemId") { type = androidx.navigation.NavType.StringType }),
+            ) { backStackEntry ->
+                val itemId = backStackEntry.arguments?.getString("itemId") ?: return@composable
+                // historyService から非同期でアイテムを取得する
+                var item by remember { mutableStateOf<com.studiofreesia.wondaywall.models.HistoryItem?>(null) }
+                LaunchedEffect(itemId) {
+                    item = historyService.loadHistory().firstOrNull { it.id == itemId }
+                }
+                item?.let {
+                    HistoryDetailScreen(
+                        item = it,
+                        onBack = { navController.popBackStack() },
+                    )
+                }
             }
             composable(Routes.SETTINGS) {
                 val vm: SettingsViewModel = viewModel(
@@ -215,8 +249,25 @@ private fun MainScreen(
                         taskSchedulerService = taskSchedulerService,
                     )
                 )
-                SettingsScreen(viewModel = vm)
+                SettingsScreen(
+                    viewModel = vm,
+                    onNavigateToAbout = { showAboutSheet = true },
+                )
             }
+        }
+    }
+
+    if (showAboutSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showAboutSheet = false },
+            sheetState = aboutSheetState,
+            dragHandle = { BottomSheetDefaults.DragHandle() },
+        ) {
+            AboutScreen(
+                appConfigService = appConfigService,
+                generationCoordinator = generationCoordinator,
+                onClose = { showAboutSheet = false },
+            )
         }
     }
 }

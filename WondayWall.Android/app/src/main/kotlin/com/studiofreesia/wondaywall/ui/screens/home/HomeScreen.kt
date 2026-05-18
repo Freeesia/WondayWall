@@ -1,42 +1,42 @@
 package com.studiofreesia.wondaywall.ui.screens.home
 
-import android.content.Intent
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.BrokenImage
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.PhotoLibrary
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Wallpaper
+import androidx.compose.material.icons.filled.Newspaper
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -44,26 +44,30 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
-import com.studiofreesia.wondaywall.models.HistoryItem
-import com.studiofreesia.wondaywall.services.WallpaperService
+import com.studiofreesia.wondaywall.models.CalendarEventItem
+import com.studiofreesia.wondaywall.models.NewsTopicItem
+import com.studiofreesia.wondaywall.ui.components.FaviconIcon
+import com.studiofreesia.wondaywall.ui.util.formatCalendarEventDateTime
+import com.studiofreesia.wondaywall.ui.util.formatNewsPublishedAt
 import java.io.File
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
-// ホーム画面
+// ホーム画面（iOSのHomeViewと同等の構成）
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(viewModel: HomeViewModel) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     // エラー表示
     LaunchedEffect(uiState.errorMessage) {
@@ -74,155 +78,249 @@ fun HomeScreen(viewModel: HomeViewModel) {
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(title = { Text("WondayWall") })
-        },
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        // 壁紙生成フローティングボタン（右下）
+        floatingActionButton = {
+            Button(
+                onClick = {
+                    if (!uiState.isGenerating) {
+                        viewModel.openGenerationSheet()
+                    }
+                },
+                enabled = !uiState.isGenerating,
+                shape = RoundedCornerShape(50),
+            ) {
+                if (uiState.isGenerating) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp,
+                        color = Color.White,
+                    )
+                    Spacer(Modifier.size(8.dp))
+                    Text("生成中...")
+                } else {
+                    Icon(Icons.Default.AutoAwesome, contentDescription = null)
+                    Spacer(Modifier.size(8.dp))
+                    Text("壁紙生成")
+                }
+            }
+        },
     ) { padding ->
-        Column(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(bottom = padding.calculateBottomPadding()),
         ) {
-            // 最新生成画像プレビューカード
-            ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "最新の壁紙",
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    Spacer(Modifier.height(8.dp))
-
-                    val imagePath = uiState.latestHistoryItem?.appliedImagePath
-                    if (imagePath != null && File(imagePath).exists()) {
-                        AsyncImage(
-                            model = ImageRequest.Builder(context)
-                                .data(File(imagePath))
-                                .build(),
-                            contentDescription = "最新の壁紙",
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .aspectRatio(9f / 16f),
-                            contentScale = ContentScale.Crop,
+            val wallpaperPeekHeight = maxHeight * 2f / 3f
+            val usedInfoBackground = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
+            val imagePath = uiState.latestHistoryItem?.appliedImagePath
+            if (imagePath != null && File(imagePath).exists()) {
+                // 最新壁紙を全画面背景として表示する
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .data(File(imagePath))
+                        .build(),
+                    contentDescription = "最新の壁紙",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                )
+            } else {
+                // 壁紙がない場合はプレースホルダーを表示する
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            Icons.Default.Image,
+                            contentDescription = null,
+                            modifier = Modifier.size(64.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .aspectRatio(9f / 16f),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(
-                                    Icons.Default.Image,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                                Text(
-                                    text = "壁紙がまだ生成されていません",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    textAlign = TextAlign.Center,
-                                )
-                            }
-                        }
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            text = "まだ壁紙がありません",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                        )
                     }
                 }
             }
 
-            // 生成ボタン
-            Button(
-                onClick = { viewModel.generateNow() },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !uiState.isGenerating,
+            // スクロール可能なコンテンツ（背景画像の上に重ねる）
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState()),
             ) {
-                if (uiState.isGenerating) {
-                    CircularProgressIndicator(
-                        modifier = Modifier
-                            .height(20.dp)
-                            .padding(end = 8.dp),
-                        strokeWidth = 2.dp,
-                    )
-                    Text("生成中…")
-                } else {
-                    Icon(Icons.Default.Refresh, contentDescription = null)
-                    Text("  今すぐ生成", modifier = Modifier.padding(start = 4.dp))
-                }
-            }
+                val latestHistory = uiState.latestHistoryItem
+                val events = latestHistory?.usedCalendarEvents.orEmpty()
+                val news = latestHistory?.usedNewsTopics.orEmpty()
 
-            // 直近の実行結果カード
-            uiState.latestHistoryItem?.let { item ->
+                if (imagePath != null && (events.isNotEmpty() || news.isNotEmpty())) {
+                    // 画像を見せるための空白（画面の2/3）
+                    Spacer(modifier = Modifier.height(wallpaperPeekHeight))
+                }
+
+                if (events.isNotEmpty()) {
+                    // グラデーションによる自然な境界線
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(24.dp)
+                            .background(
+                                brush = Brush.verticalGradient(
+                                    colors = listOf(Color.Transparent, usedInfoBackground),
+                                )
+                            )
+                    )
+                    // 使用した予定セクション
+                    UsedEventsSection(
+                        events = events,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(usedInfoBackground)
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+                }
+
+                if (news.isNotEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(24.dp)
+                            .background(
+                                brush = Brush.verticalGradient(
+                                    colors = listOf(Color.Transparent, usedInfoBackground),
+                                )
+                            )
+                    )
+                    // 使用したニュースセクション
+                    UsedNewsSection(
+                        news = news,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(usedInfoBackground)
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+                }
+
+                // FAB 分の余白
+                Spacer(Modifier.height(80.dp))
+            }
+        }
+    }
+
+    // 壁紙生成確認シート
+    if (uiState.showGenerationSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { viewModel.dismissGenerationSheet() },
+            sheetState = sheetState,
+            dragHandle = { BottomSheetDefaults.DragHandle() },
+        ) {
+            GenerationConfirmSheet(uiState = uiState, viewModel = viewModel)
+        }
+    }
+}
+
+// 壁紙生成確認シート本体
+@Composable
+private fun GenerationConfirmSheet(
+    uiState: HomeUiState,
+    viewModel: HomeViewModel,
+) {
+    val uriHandler = LocalUriHandler.current
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .windowInsetsPadding(WindowInsets.navigationBars),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Text(
+            "壁紙を生成する",
+            style = MaterialTheme.typography.titleLarge,
+        )
+
+        if (uiState.isLoadingSheetData) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(120.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator()
+            }
+        } else {
+            // カレンダー予定セクション
+            if (uiState.sheetEvents.isNotEmpty()) {
                 ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(16.dp)) {
+                    Column(modifier = Modifier.padding(12.dp)) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            Icon(
-                                imageVector = if (item.isSuccess) Icons.Default.Check else Icons.Default.Error,
-                                contentDescription = null,
-                                tint = if (item.isSuccess) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.error,
-                            )
-                            Text(
-                                text = if (item.isSuccess) "生成成功" else "生成失敗",
-                                style = MaterialTheme.typography.titleSmall,
-                            )
-                            Spacer(Modifier.weight(1f))
-                            Text(
-                                text = formatInstant(item.executedAt.toEpochMilliseconds()),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                            Icon(Icons.Default.CalendarMonth, contentDescription = null)
+                            Text("カレンダー予定", style = MaterialTheme.typography.titleSmall)
                         }
-
-                        if (!item.isSuccess && item.errorSummary != null) {
-                            Spacer(Modifier.height(4.dp))
-                            Text(
-                                text = item.errorSummary,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error,
-                            )
+                        Spacer(Modifier.height(8.dp))
+                        uiState.sheetEvents.forEachIndexed { index, event ->
+                            if (index > 0) HorizontalDivider(modifier = Modifier.padding(start = 12.dp))
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 6.dp),
+                            ) {
+                                Text(event.title, style = MaterialTheme.typography.bodyMedium)
+                                Text(
+                                    formatCalendarEventDateTime(event),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                         }
+                    }
+                }
+            }
 
-                        // 画像操作ボタン
-                        if (item.appliedImagePath != null) {
-                            Spacer(Modifier.height(8.dp))
+            // ニュースセクション
+            if (uiState.sheetNews.isNotEmpty()) {
+                ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Icon(Icons.Default.Newspaper, contentDescription = null)
+                            Text("ニュース", style = MaterialTheme.typography.titleSmall)
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        uiState.sheetNews.forEachIndexed { index, item ->
+                            if (index > 0) HorizontalDivider(modifier = Modifier.padding(start = 12.dp))
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
-                                FilledTonalButton(
-                                    onClick = { viewModel.applyWallpaper(item.appliedImagePath) },
+                                FaviconIcon(url = item.url)
+                                Column(
                                     modifier = Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(2.dp),
                                 ) {
-                                    Icon(
-                                        Icons.Default.Wallpaper,
-                                        contentDescription = null,
+                                    Text(
+                                        text = item.title,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        maxLines = 2,
                                     )
-                                    Text("  適用", modifier = Modifier.padding(start = 4.dp))
-                                }
-                                IconButton(
-                                    onClick = {
-                                        viewModel.saveToGallery(item.appliedImagePath) { success ->
-                                            // 結果は Snackbar で通知する（ViewModel 経由）
-                                        }
-                                    },
-                                ) {
-                                    Icon(Icons.Default.PhotoLibrary, contentDescription = "ギャラリーに保存")
-                                }
-                                IconButton(
-                                    onClick = {
-                                        // WallpaperService から share Intent を取得して起動する
-                                        viewModel.buildShareIntent(item.appliedImagePath)?.let { intent ->
-                                            context.startActivity(Intent.createChooser(intent, null))
-                                        }
-                                    },
-                                ) {
-                                    Icon(Icons.Default.Share, contentDescription = "共有")
+                                    Text(
+                                        text = formatNewsPublishedAt(item.publishedAt),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
                                 }
                             }
                         }
@@ -230,35 +328,135 @@ fun HomeScreen(viewModel: HomeViewModel) {
                 }
             }
 
-            // ロック画面更新設定の表示
-            if (uiState.config.updateLockScreen) {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = "ロック画面も更新します",
-                        modifier = Modifier.padding(12.dp),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+            // データなし
+            if (uiState.sheetEvents.isEmpty() && uiState.sheetNews.isEmpty()) {
+                Text(
+                    "利用できるカレンダー予定・ニュースがありません",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 8.dp),
+                )
             }
+        }
 
-            // 自動生成の状態表示
-            if (uiState.config.autoGenerationEnabled) {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = "自動生成: ${uiState.config.schedule.displayName()}",
-                        modifier = Modifier.padding(12.dp),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+        // 生成ボタン
+        Button(
+            onClick = { viewModel.generateFromSheet() },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            enabled = !uiState.isGenerating && !uiState.isLoadingSheetData,
+        ) {
+            if (uiState.isLoadingSheetData) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    strokeWidth = 2.dp,
+                    color = Color.White,
+                )
+                Spacer(Modifier.size(8.dp))
+            } else {
+                Icon(Icons.Default.AutoAwesome, contentDescription = null)
+                Spacer(Modifier.size(8.dp))
+            }
+            Text("生成！")
+        }
+    }
+}
+
+// 使用した予定セクション
+@Composable
+private fun UsedEventsSection(
+    events: List<CalendarEventItem>,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Icon(Icons.Default.CalendarMonth, contentDescription = null)
+            Text("使用した予定", style = MaterialTheme.typography.titleSmall)
+        }
+        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+            Column {
+                events.forEachIndexed { index, event ->
+                    if (index > 0) HorizontalDivider(modifier = Modifier.padding(start = 12.dp))
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                    ) {
+                        Text(event.title, style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            formatCalendarEventDateTime(event),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
         }
     }
 }
 
-// エポックミリ秒を読みやすい文字列に変換する
-private fun formatInstant(epochMs: Long): String {
-    val sdf = SimpleDateFormat("MM/dd HH:mm", Locale.JAPAN)
-    return sdf.format(Date(epochMs))
+// 使用したニュースセクション
+@Composable
+private fun UsedNewsSection(
+    news: List<NewsTopicItem>,
+    modifier: Modifier = Modifier,
+) {
+    val uriHandler = LocalUriHandler.current
+
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Icon(Icons.Default.Newspaper, contentDescription = null)
+            Text("使用したニュース", style = MaterialTheme.typography.titleSmall)
+        }
+        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+            Column {
+                news.forEachIndexed { index, item ->
+                    if (index > 0) HorizontalDivider(modifier = Modifier.padding(start = 12.dp))
+                    val content: @Composable () -> Unit = {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            FaviconIcon(url = item.url)
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(2.dp),
+                            ) {
+                                Text(
+                                    text = item.title,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    maxLines = 2,
+                                )
+                                Text(
+                                    text = formatNewsPublishedAt(item.publishedAt),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                    if (!item.url.isNullOrEmpty()) {
+                        // URLがある場合はタップでリンクを開く
+                        androidx.compose.material3.TextButton(
+                            onClick = { uriHandler.openUri(item.url) },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(0.dp),
+                        ) { content() }
+                    } else {
+                        content()
+                    }
+                }
+            }
+        }
+    }
 }

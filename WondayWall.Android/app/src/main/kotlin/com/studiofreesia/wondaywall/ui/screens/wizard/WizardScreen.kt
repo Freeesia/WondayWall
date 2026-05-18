@@ -10,12 +10,15 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -31,8 +34,10 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Wallpaper
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
@@ -53,6 +58,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -64,6 +70,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
@@ -71,6 +78,8 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import com.studiofreesia.wondaywall.models.UpdateSchedule
+import com.studiofreesia.wondaywall.ui.components.FaviconIcon
+import com.studiofreesia.wondaywall.ui.components.SquareAppIcon
 import java.io.File
 
 // ウィザード画面（セットアップ）
@@ -82,6 +91,7 @@ fun WizardScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val canGoNext = uiState.currentStep != 1 || uiState.apiKey.isNotBlank()
 
     LaunchedEffect(uiState.errorMessage) {
         uiState.errorMessage?.let {
@@ -96,7 +106,8 @@ fun WizardScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
+                .padding(padding)
+                .imePadding(),
         ) {
             // プログレスバー
             LinearProgressIndicator(
@@ -152,14 +163,25 @@ fun WizardScreen(
                 )
 
                 if (uiState.currentStep < WIZARD_TOTAL_STEPS - 1) {
-                    Button(onClick = { viewModel.nextStep() }) {
+                    Button(
+                        onClick = { viewModel.nextStep() },
+                        enabled = canGoNext,
+                    ) {
                         Text("次へ  ")
                         Icon(Icons.Default.ArrowForward, contentDescription = null)
                     }
                 } else {
-                    Button(onClick = { viewModel.completeWizard(onComplete) }) {
-                        Icon(Icons.Default.Check, contentDescription = null)
-                        Text("  完了")
+                    Button(
+                        onClick = { viewModel.completeWizard(onComplete) },
+                        enabled = !uiState.isCompleting && !uiState.isTestGenerating,
+                    ) {
+                        if (uiState.isCompleting || uiState.isTestGenerating) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                            Text("  完了中…")
+                        } else {
+                            Icon(Icons.Default.Check, contentDescription = null)
+                            Text("  完了")
+                        }
                     }
                 }
             }
@@ -177,12 +199,7 @@ private fun StepWelcome() {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Icon(
-            Icons.Default.Wallpaper,
-            contentDescription = null,
-            modifier = Modifier.size(80.dp),
-            tint = MaterialTheme.colorScheme.primary,
-        )
+        SquareAppIcon()
         Spacer(Modifier.height(24.dp))
         Text(
             text = "WondayWall へようこそ",
@@ -202,6 +219,7 @@ private fun StepWelcome() {
 // ステップ 2: API キー入力
 @Composable
 private fun StepApiKey(uiState: WizardUiState, viewModel: WizardViewModel) {
+    val uriHandler = LocalUriHandler.current
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -216,6 +234,19 @@ private fun StepApiKey(uiState: WizardUiState, viewModel: WizardViewModel) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
+        // API キー取得リンク
+        TextButton(
+            onClick = { uriHandler.openUri("https://aistudio.google.com/apikey") },
+        ) {
+            Icon(
+                Icons.Default.OpenInNew,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+            )
+            Spacer(Modifier.width(4.dp))
+            Text("API キーを取得する")
+        }
+
         OutlinedTextField(
             value = uiState.apiKey,
             onValueChange = { viewModel.updateApiKey(it) },
@@ -225,6 +256,12 @@ private fun StepApiKey(uiState: WizardUiState, viewModel: WizardViewModel) {
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             singleLine = true,
+            isError = uiState.apiKey.isBlank(),
+            supportingText = {
+                if (uiState.apiKey.isBlank()) {
+                    Text("API キーは必須です")
+                }
+            },
         )
 
         FilledTonalButton(
@@ -334,9 +371,19 @@ private fun StepCalendar(uiState: WizardUiState, viewModel: WizardViewModel) {
 }
 
 // ステップ 4: プロンプトと RSS
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun StepPromptAndRss(uiState: WizardUiState, viewModel: WizardViewModel) {
     var newRssUrl by remember { mutableStateOf("") }
+
+    // プロンプトテンプレート一覧
+    val promptTemplates = listOf(
+        "水彩画風で生成してください",
+        "写実的な風景で生成してください",
+        "ミニマルなデザインで生成してください",
+        "イラスト・アニメ調で生成してください",
+        "油絵風で生成してください",
+    )
 
     Column(
         modifier = Modifier
@@ -354,6 +401,26 @@ private fun StepPromptAndRss(uiState: WizardUiState, viewModel: WizardViewModel)
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+
+        // テンプレートチップ
+        Text("テンプレート", style = MaterialTheme.typography.labelMedium)
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            promptTemplates.forEach { template ->
+                FilterChip(
+                    selected = uiState.userPrompt == template,
+                    onClick = {
+                        viewModel.updateUserPrompt(
+                            if (uiState.userPrompt == template) "" else template
+                        )
+                    },
+                    label = { Text(template, style = MaterialTheme.typography.labelSmall) },
+                )
+            }
+        }
+
         OutlinedTextField(
             value = uiState.userPrompt,
             onValueChange = { viewModel.updateUserPrompt(it) },
@@ -394,7 +461,9 @@ private fun StepPromptAndRss(uiState: WizardUiState, viewModel: WizardViewModel)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                FaviconIcon(url = url, size = 24.dp)
                 Text(
                     text = url,
                     modifier = Modifier.weight(1f),
