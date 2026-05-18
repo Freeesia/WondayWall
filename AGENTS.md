@@ -1,4 +1,4 @@
-# WondayWall — App-specific Instructions
+# WondayWall — アプリ固有の実装方針
 
 このファイルは **アプリ固有の実装方針（常時読み込み）** の正本です。
 

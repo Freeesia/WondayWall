@@ -1,5 +1,5 @@
 ---
-applyTo: "WondayWall/**"
+applyTo: "WondayWall/**/*"
 ---
 
 # .NET版（Win版）実装ルール
