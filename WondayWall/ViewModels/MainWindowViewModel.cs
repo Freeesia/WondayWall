@@ -20,6 +20,7 @@ namespace WondayWall.ViewModels;
 public partial class MainWindowViewModel : ObservableObject
 {
     private const int MaxSiteHtmlChars = 512_000;
+    private static readonly HtmlParser HtmlParser = new();
 
     private readonly AppConfigService _configService;
     private readonly HistoryService _historyService;
@@ -573,26 +574,32 @@ public partial class MainWindowViewModel : ObservableObject
             return null;
         }
 
-        var parser = new HtmlParser();
-        var document = await parser.ParseDocumentAsync(content, ct);
-        foreach (var linkTag in document.QuerySelectorAll("link[rel][type][href]"))
+        try
         {
-            var relValue = linkTag.GetAttribute("rel");
-            if (!ContainsToken(relValue, "alternate"))
-                continue;
+            var document = await HtmlParser.ParseDocumentAsync(content, ct);
+            foreach (var linkTag in document.QuerySelectorAll("link[rel][type][href]"))
+            {
+                var relValue = linkTag.GetAttribute("rel");
+                if (!ContainsToken(relValue, "alternate"))
+                    continue;
 
-            var typeValue = linkTag.GetAttribute("type");
-            if (typeValue is null || !IsFeedContentType(typeValue))
-                continue;
+                var typeValue = linkTag.GetAttribute("type");
+                if (typeValue is null || !IsFeedContentType(typeValue))
+                    continue;
 
-            var hrefValue = linkTag.GetAttribute("href");
-            if (string.IsNullOrWhiteSpace(hrefValue))
-                continue;
+                var hrefValue = linkTag.GetAttribute("href");
+                if (string.IsNullOrWhiteSpace(hrefValue))
+                    continue;
 
-            if (!Uri.TryCreate(siteUri, hrefValue, out var rssUri))
-                continue;
+                if (!Uri.TryCreate(siteUri, hrefValue, out var rssUri))
+                    continue;
 
-            return rssUri.ToString();
+                return rssUri.ToString();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "サイトURLのHTMLパースに失敗しました [{SiteUrl}]", siteUri);
         }
 
         return null;

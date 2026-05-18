@@ -341,8 +341,7 @@ class ContextService(
         Jsoup.parse(html).text()
 
     private fun containsToken(source: String, token: String): Boolean =
-        source.split(' ')
-            .map { it.trim() }
+        source.split(Regex("\\s+"))
             .any { it.equals(token, ignoreCase = true) }
 
     private fun isFeedContentType(contentType: String): Boolean =

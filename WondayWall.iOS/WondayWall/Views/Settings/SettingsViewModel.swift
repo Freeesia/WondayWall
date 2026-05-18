@@ -100,7 +100,7 @@ final class SettingsViewModel {
 
         var request = URLRequest(url: sourceURLObject, timeoutInterval: 10)
         request.setValue(
-            "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)",
+            "WondayWall/1.0",
             forHTTPHeaderField: "User-Agent"
         )
 
@@ -133,7 +133,8 @@ final class SettingsViewModel {
     }
 
     private func containsToken(_ source: String, token: String) -> Bool {
-        source.split(separator: " ").contains { String($0).caseInsensitiveCompare(token) == .orderedSame }
+        source.components(separatedBy: .whitespacesAndNewlines)
+            .contains { $0.caseInsensitiveCompare(token) == .orderedSame }
     }
 
     private func isFeedContentType(_ type: String) -> Bool {

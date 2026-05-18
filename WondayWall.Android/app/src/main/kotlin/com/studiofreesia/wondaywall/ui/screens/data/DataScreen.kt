@@ -204,7 +204,7 @@ fun DataScreen(viewModel: DataViewModel) {
                         )
                         IconButton(
                             onClick = {
-                                viewModel.addRssSource(newRssUrl.trim()) {
+                                viewModel.addRssSource(newRssUrl) {
                                     newRssUrl = ""
                                 }
                             },

@@ -450,7 +450,7 @@ private fun StepPromptAndRss(uiState: WizardUiState, viewModel: WizardViewModel)
                 singleLine = true,
             )
             IconButton(onClick = {
-                viewModel.addRssSource(newRssUrl.trim()) {
+                viewModel.addRssSource(newRssUrl) {
                     newRssUrl = ""
                 }
             }) {
