@@ -289,10 +289,13 @@
     <value>画像パスを取得できませんでした。</value>
   </data>
   <data name="SetupNewsDescription" xml:space="preserve">
-    <value>RSSフィードを1件だけ登録します。空欄ならスキップします。</value>
+    <value>ニュースサイトURLを1件だけ登録します。RSS URLが分かる場合は直接入力もできます。空欄ならスキップします。</value>
+  </data>
+  <data name="SetupNewsSiteRssNotFound" xml:space="preserve">
+    <value>指定のサイトからニュース情報を得られませんでした。</value>
   </data>
   <data name="SetupRssUrlInvalid" xml:space="preserve">
-    <value>有効なRSSフィードURLを入力してください。</value>
+    <value>有効なサイトURLまたはRSS URLを入力してください。</value>
   </data>
   <data name="SetupSavedGenerating" xml:space="preserve">
     <value>初回設定を保存しました。壁紙を生成しています...</value>

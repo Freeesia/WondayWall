@@ -1,8 +1,10 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
+using System.Net.Http;
 using System.Reflection;
 using System.Security;
+using System.Text.RegularExpressions;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -23,6 +25,7 @@ public partial class MainWindowViewModel : ObservableObject
     private readonly TaskSchedulerService _taskSchedulerService;
     private readonly UpdateChecker _updateChecker;
     private readonly ILogger<MainWindowViewModel> _logger;
+    private readonly IHttpClientFactory _httpClientFactory;
 
     [ObservableProperty]
     public partial AppConfig AppConfig { get; set; } = new();
@@ -114,6 +117,7 @@ public partial class MainWindowViewModel : ObservableObject
         GenerationCoordinator coordinator,
         TaskSchedulerService taskSchedulerService,
         UpdateChecker updateChecker,
+        IHttpClientFactory httpClientFactory,
         ILogger<MainWindowViewModel> logger)
     {
         _configService = configService;
@@ -122,6 +126,7 @@ public partial class MainWindowViewModel : ObservableObject
         _coordinator = coordinator;
         _taskSchedulerService = taskSchedulerService;
         _updateChecker = updateChecker;
+        _httpClientFactory = httpClientFactory;
         _logger = logger;
 
         ShowUpdateControls = _updateChecker.IsInstalled;
@@ -330,17 +335,24 @@ public partial class MainWindowViewModel : ObservableObject
 
         AppConfig.GoogleAiApiKey = apiKey;
 
-        var rssUrl = NewRssSourceUrl.Trim();
-        if (!string.IsNullOrEmpty(rssUrl))
+        var sourceUrl = NewRssSourceUrl.Trim();
+        if (!string.IsNullOrEmpty(sourceUrl))
         {
-            if (!Uri.TryCreate(rssUrl, UriKind.Absolute, out _))
+            if (!Uri.TryCreate(sourceUrl, UriKind.Absolute, out _))
             {
                 LastResultMessage = AppResources.SetupRssUrlInvalid;
                 return;
             }
 
-            if (!RssSources.Contains(rssUrl))
-                RssSources.Add(rssUrl);
+            var resolvedRssUrl = await ResolveRssSourceUrlAsync(sourceUrl, ct);
+            if (resolvedRssUrl is null)
+            {
+                LastResultMessage = AppResources.SetupNewsSiteRssNotFound;
+                return;
+            }
+
+            if (!RssSources.Contains(resolvedRssUrl))
+                RssSources.Add(resolvedRssUrl);
         }
 
         if (IsCalendarConnected)
@@ -485,16 +497,31 @@ public partial class MainWindowViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void AddRssSource()
+    private async Task AddRssSource(CancellationToken ct = default)
     {
-        var url = NewRssSourceUrl.Trim();
-        if (!string.IsNullOrEmpty(url)
-            && Uri.TryCreate(url, UriKind.Absolute, out _)
-            && !RssSources.Contains(url))
+        var sourceUrl = NewRssSourceUrl.Trim();
+        if (string.IsNullOrEmpty(sourceUrl))
+            return;
+
+        if (!Uri.TryCreate(sourceUrl, UriKind.Absolute, out _))
         {
-            RssSources.Add(url);
-            NewRssSourceUrl = string.Empty;
+            LastResultMessage = AppResources.SetupRssUrlInvalid;
+            return;
         }
+
+        var resolvedRssUrl = await ResolveRssSourceUrlAsync(sourceUrl, ct);
+        if (resolvedRssUrl is null)
+        {
+            LastResultMessage = AppResources.SetupNewsSiteRssNotFound;
+            return;
+        }
+
+        if (RssSources.Contains(resolvedRssUrl))
+            return;
+
+        RssSources.Add(resolvedRssUrl);
+        NewRssSourceUrl = string.Empty;
+        LastResultMessage = string.Empty;
     }
 
     [RelayCommand]
@@ -502,6 +529,101 @@ public partial class MainWindowViewModel : ObservableObject
     {
         if (!string.IsNullOrEmpty(url))
             RssSources.Remove(url);
+    }
+
+    private async Task<string?> ResolveRssSourceUrlAsync(string sourceUrl, CancellationToken ct)
+    {
+        var sourceUri = new Uri(sourceUrl, UriKind.Absolute);
+
+        if (IsLikelyRssUrl(sourceUri))
+            return sourceUrl;
+
+        var detectedRssUrl = await TryDetectRssUrlFromSiteAsync(sourceUri, ct);
+        if (detectedRssUrl is not null)
+            return detectedRssUrl;
+
+        return null;
+    }
+
+    private async Task<string?> TryDetectRssUrlFromSiteAsync(Uri siteUri, CancellationToken ct)
+    {
+        var httpClient = _httpClientFactory.CreateClient("WondayWall");
+        string content;
+        try
+        {
+            content = await httpClient.GetStringAsync(siteUri, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "サイトURLからのHTML取得に失敗しました [{SiteUrl}]", siteUri);
+            return null;
+        }
+
+        foreach (Match linkTag in Regex.Matches(content, "<link\\b[^>]*>", RegexOptions.IgnoreCase))
+        {
+            var relValue = GetHtmlAttributeValue(linkTag.Value, "rel");
+            if (!ContainsToken(relValue, "alternate"))
+                continue;
+
+            var typeValue = GetHtmlAttributeValue(linkTag.Value, "type");
+            if (typeValue is null || !IsFeedContentType(typeValue))
+                continue;
+
+            var hrefValue = GetHtmlAttributeValue(linkTag.Value, "href");
+            if (string.IsNullOrWhiteSpace(hrefValue))
+                continue;
+
+            if (!Uri.TryCreate(siteUri, hrefValue, out var rssUri))
+                continue;
+
+            return rssUri.ToString();
+        }
+
+        return null;
+    }
+
+    private static string? GetHtmlAttributeValue(string htmlTag, string attributeName)
+    {
+        var pattern = $"{attributeName}\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s>]+))";
+        var match = Regex.Match(htmlTag, pattern, RegexOptions.IgnoreCase);
+        if (!match.Success)
+            return null;
+
+        return match.Groups.Cast<Group>().Skip(1).Select(g => g.Value).FirstOrDefault(static v => !string.IsNullOrEmpty(v));
+    }
+
+    private static bool ContainsToken(string? source, string token)
+    {
+        if (string.IsNullOrWhiteSpace(source))
+            return false;
+
+        return source
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Any(v => string.Equals(v, token, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsFeedContentType(string contentType)
+    {
+        return contentType.Contains("application/rss+xml", StringComparison.OrdinalIgnoreCase)
+               || contentType.Contains("application/atom+xml", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsLikelyRssUrl(Uri uri)
+    {
+        var path = uri.AbsolutePath;
+        if (path.EndsWith(".xml", StringComparison.OrdinalIgnoreCase)
+            || path.EndsWith(".rss", StringComparison.OrdinalIgnoreCase)
+            || path.EndsWith(".atom", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return path.Contains("feed", StringComparison.OrdinalIgnoreCase)
+               || path.Contains("rss", StringComparison.OrdinalIgnoreCase)
+               || path.Contains("atom", StringComparison.OrdinalIgnoreCase)
+               || uri.Query.Contains("feed", StringComparison.OrdinalIgnoreCase)
+               || uri.Query.Contains("rss", StringComparison.OrdinalIgnoreCase)
+               || uri.Query.Contains("atom", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>選択されているテンプレートの内容をユーザープロンプトに適用する</summary>
