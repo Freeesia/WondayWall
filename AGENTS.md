@@ -5,7 +5,8 @@
 ## プロダクト方針（共通）
 
 - WondayWall は、ユーザーの予定や興味に基づいて壁紙を自動生成するアプリ。
-- 実装対象は複数プラットフォーム（.NET/Windows、iOS、Android）。
+- 実装対象は複数プラットフォーム（.NET、iOS、Android）。
+- .NET 実装は現状 Windows 向けだが、将来的なマルチプラットフォーム対応を前提に設計する。
 - 生成処理の中心は `GenerationCoordinator` に集約し、ビジネスロジックの重複を避ける。
 - 設計は「完成の速さ」「修正のしやすさ」「構成の分かりやすさ」を優先する。
 
@@ -21,7 +22,7 @@
 - **常時読み込み**: この `AGENTS.md`（全プラットフォーム共通）
 - **条件付き読み込み**: プラットフォーム別 instruction files
 
-### .NET版（Win版）
+### .NET版
 
 - `.github/instructions/dotnet-win.instructions.md`
 - 詳細仕様: `/dev.md`
