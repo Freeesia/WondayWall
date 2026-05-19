@@ -196,6 +196,7 @@ private fun DebugInfoContent(
     onClose: () -> Unit,
 ) {
     val isGenerating by generationCoordinator.isGenerating.collectAsState()
+    val generationProgress by generationCoordinator.progress.collectAsState()
     val scope = rememberCoroutineScope()
     var config by remember { mutableStateOf<AppConfig?>(null) }
     var loadedAt by remember { mutableLongStateOf(0L) }
@@ -243,6 +244,10 @@ private fun DebugInfoContent(
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 DebugInfoRow("ビルド種別", if (BuildConfig.DEBUG) "Debug" else "Release")
                 DebugInfoRow("生成中", if (isGenerating) "YES" else "NO")
+                DebugInfoRow("進捗", generationProgress?.let { "${it.percent}% ${it.message}" } ?: "-")
+                DebugInfoRow("フェーズ", generationProgress?.phase?.name ?: "-")
+                DebugInfoRow("トリガー", generationProgress?.trigger?.name ?: "-")
+                DebugInfoRow("履歴ID", generationProgress?.historyId ?: "-")
                 DebugInfoRow("自動生成", if (config?.autoGenerationEnabled == true) "ON" else "OFF")
                 DebugInfoRow("API キー", if (config?.googleAiApiKey?.isNotBlank() == true) "設定済み" else "未設定")
                 DebugInfoRow("スケジュール", config?.schedule?.displayName() ?: "-")

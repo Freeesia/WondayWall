@@ -1,6 +1,5 @@
 package com.studiofreesia.wondaywall.ui.screens.wizard
 
-import android.Manifest
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -9,8 +8,6 @@ import com.studiofreesia.wondaywall.models.CalendarSourceItem
 import com.studiofreesia.wondaywall.models.UpdateSchedule
 import com.studiofreesia.wondaywall.services.AppConfigService
 import com.studiofreesia.wondaywall.services.ContextService
-import com.studiofreesia.wondaywall.services.GenerationCoordinator
-import com.studiofreesia.wondaywall.services.GoogleAiService
 import com.studiofreesia.wondaywall.services.TaskSchedulerService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -53,7 +50,6 @@ sealed class ApiTestResult {
 class WizardViewModel(
     private val appConfigService: AppConfigService,
     private val contextService: ContextService,
-    private val generationCoordinator: GenerationCoordinator,
     private val taskSchedulerService: TaskSchedulerService,
 ) : ViewModel() {
 
@@ -191,9 +187,11 @@ class WizardViewModel(
             // ウィザード設定を一時的に保存してから生成する
             saveCurrentConfig(enableAutoGeneration = false)
             try {
-                generationCoordinator.runAsync()
-                // 生成後に最新画像パスを取得する
-                _uiState.value = _uiState.value.copy(isTestGenerating = false)
+                val enqueued = taskSchedulerService.enqueueManualGeneration()
+                _uiState.value = _uiState.value.copy(
+                    isTestGenerating = false,
+                    errorMessage = if (enqueued) null else "すでに生成中です",
+                )
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isTestGenerating = false,
@@ -222,7 +220,7 @@ class WizardViewModel(
                 if (_uiState.value.testGenerationImagePath == null) {
                     _uiState.value = _uiState.value.copy(isTestGenerating = true)
                     try {
-                        generationCoordinator.runAsync()
+                        taskSchedulerService.enqueueManualGeneration()
                     } catch (e: Exception) {
                         // 生成エラーは無視してウィザードを完了する
                     } finally {
@@ -264,7 +262,6 @@ class WizardViewModel(
         fun factory(
             appConfigService: AppConfigService,
             contextService: ContextService,
-            generationCoordinator: GenerationCoordinator,
             taskSchedulerService: TaskSchedulerService,
         ): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
@@ -272,7 +269,6 @@ class WizardViewModel(
                 WizardViewModel(
                     appConfigService,
                     contextService,
-                    generationCoordinator,
                     taskSchedulerService,
                 ) as T
         }

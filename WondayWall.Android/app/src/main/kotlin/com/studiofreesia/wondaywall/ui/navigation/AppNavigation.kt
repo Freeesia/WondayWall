@@ -107,7 +107,6 @@ fun AppNavigation(
                 factory = WizardViewModel.factory(
                     appConfigService = appConfigService,
                     contextService = contextService,
-                    generationCoordinator = generationCoordinator,
                     taskSchedulerService = taskSchedulerService,
                 )
             )

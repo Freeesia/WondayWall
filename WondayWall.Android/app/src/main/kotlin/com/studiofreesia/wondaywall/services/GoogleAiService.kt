@@ -2,7 +2,6 @@ package com.studiofreesia.wondaywall.services
 
 import com.google.genai.Client
 import com.google.genai.types.Blob
-import com.google.genai.types.Candidate
 import com.google.genai.types.Content
 import com.google.genai.types.GenerateContentConfig
 import com.google.genai.types.GoogleSearch
@@ -10,9 +9,11 @@ import com.google.genai.types.Part
 import com.google.genai.types.Schema
 import com.google.genai.types.Tool
 import com.studiofreesia.wondaywall.models.GeneratedImageInfo
+import com.studiofreesia.wondaywall.models.GeneratedImageResult
 import com.studiofreesia.wondaywall.models.GoogleAiServiceTier
 import com.studiofreesia.wondaywall.models.PromptCalendarEvent
 import com.studiofreesia.wondaywall.models.PromptContext
+import com.studiofreesia.wondaywall.models.PromptGenerationResult
 import com.studiofreesia.wondaywall.models.PromptNewsTopic
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -49,36 +50,109 @@ class GoogleAiService(
         context: PromptContext,
         serviceTier: GoogleAiServiceTier = GoogleAiServiceTier.Standard,
     ): GeneratedImageInfo {
+        val promptResult = generatePrompt(context, serviceTier)
+        val contextWithOgp = fetchOgpImages(
+            context = context,
+            selectedNewsIds = promptResult.selectedNewsIds,
+        )
+        val imageResult = generateImageFromPrompt(
+            imagePrompt = promptResult.imagePrompt,
+            context = contextWithOgp,
+            serviceTier = serviceTier,
+        )
+
+        return GeneratedImageInfo(
+            filePath = imageResult.filePath,
+            imagePrompt = promptResult.imagePrompt,
+            selectedNewsIds = promptResult.selectedNewsIds,
+        )
+    }
+
+    // テキストモデルで詳細な画像生成プロンプトを生成する
+    suspend fun generatePrompt(
+        context: PromptContext,
+        serviceTier: GoogleAiServiceTier = GoogleAiServiceTier.Standard,
+        onProgress: ((Double, String) -> Unit)? = null,
+    ): PromptGenerationResult {
+        val apiKey = requireApiKey()
+        val client = Client.builder().apiKey(apiKey).build()
+        onProgress?.invoke(0.0, "画像生成プロンプトの生成中")
+        val promptSelection = generatePromptSelectionWithFallback(client, context, serviceTier)
+        onProgress?.invoke(1.0, "画像生成プロンプトを生成しました")
+        return PromptGenerationResult(
+            imagePrompt = promptSelection.imagePrompt,
+            selectedNewsIds = promptSelection.selectedNewsIds,
+        )
+    }
+
+    // 採用ニュースの OGP 画像を取得して PromptContext に付加する
+    suspend fun fetchOgpImages(
+        context: PromptContext,
+        selectedNewsIds: List<String>,
+    ): PromptContext = withContext(Dispatchers.IO) {
+        val selectedIdSet = selectedNewsIds.toSet()
+        val newsTopics = context.newsTopics.toMutableList()
+        val targets = newsTopics
+            .withIndex()
+            .filter { selectedIdSet.contains(it.value.id) }
+            .take(3)
+
+        for ((index, topic) in targets) {
+            val ogpUrl = topic.ogpImageUrl ?: continue
+            try {
+                val imgRequest = Request.Builder()
+                    .url(ogpUrl)
+                    .header("User-Agent", "Mozilla/5.0 (Linux; Android 14)")
+                    .build()
+                ogpHttpClient.newCall(imgRequest).execute().use { response ->
+                    if (!response.isSuccessful) return@use
+                    val bytes = response.body.bytes()
+                    val mimeType = (response.header("Content-Type") ?: "image/jpeg")
+                        .substringBefore(";").trim()
+                    newsTopics[index] = topic.copy(
+                        ogpImageData = bytes,
+                        ogpImageMimeType = mimeType.ifEmpty { "image/jpeg" },
+                    )
+                }
+            } catch (_: Exception) {
+                // OGP 画像のダウンロード失敗は無視する
+            }
+        }
+
+        context.copy(newsTopics = newsTopics)
+    }
+
+    // 生成済みプロンプトから画像を生成して保存する
+    suspend fun generateImageFromPrompt(
+        imagePrompt: String,
+        context: PromptContext,
+        serviceTier: GoogleAiServiceTier = GoogleAiServiceTier.Standard,
+        onProgress: ((Double, String) -> Unit)? = null,
+    ): GeneratedImageResult {
+        val apiKey = requireApiKey()
+        val client = Client.builder().apiKey(apiKey).build()
+        onProgress?.invoke(0.0, "壁紙画像の生成中")
+        val imageData = generateImageWithFallback(
+            client = client,
+            prompt = imagePrompt,
+            context = context,
+            serviceTier = serviceTier,
+        )
+        onProgress?.invoke(0.95, "生成画像を保存中")
+        val filePath = saveGeneratedImage(imageData)
+        onProgress?.invoke(1.0, "生成画像を保存しました")
+        return GeneratedImageResult(
+            filePath = filePath,
+            imagePrompt = imagePrompt,
+        )
+    }
+
+    private suspend fun requireApiKey(): String {
         val apiKey = appConfigService.getConfig().googleAiApiKey
         if (apiKey.isEmpty()) {
             throw IllegalStateException("Google AI API キーが設定されていません。")
         }
-
-        val client = Client.builder().apiKey(apiKey).build()
-
-        // ステップ1: テキストモデルで詳細な画像プロンプトを生成（Flex→Standard フォールバック付き）
-        val promptSelection = generatePromptSelectionWithFallback(client, context, serviceTier)
-
-        // ステップ2: 画像モデルで壁紙を生成（Flex→Standard フォールバック付き）
-        val imageData = generateImageWithFallback(
-            client = client,
-            prompt = promptSelection.imagePrompt,
-            context = context,
-            selectedNewsIds = promptSelection.selectedNewsIds.toSet(),
-            serviceTier = serviceTier,
-        )
-
-        // 画像をローカルに保存する
-        val wallpapersDir = File(filesDir, "wallpapers").also { it.mkdirs() }
-        val fileName = "wallpaper_${System.currentTimeMillis()}.${imageData.extension}"
-        val file = File(wallpapersDir, fileName)
-        file.writeBytes(imageData.bytes)
-
-        return GeneratedImageInfo(
-            filePath = file.absolutePath,
-            imagePrompt = promptSelection.imagePrompt,
-            selectedNewsIds = promptSelection.selectedNewsIds,
-        )
+        return apiKey
     }
 
     // Flex → Standard フォールバック付きでプロンプトを生成する
@@ -154,17 +228,16 @@ class GoogleAiService(
         client: Client,
         prompt: String,
         context: PromptContext,
-        selectedNewsIds: Set<String>,
         serviceTier: GoogleAiServiceTier,
     ): ImageData {
         if (serviceTier != GoogleAiServiceTier.Flex) {
-            return generateImage(client, prompt, context, selectedNewsIds, GoogleAiServiceTier.Standard)
+            return generateImage(client, prompt, context, GoogleAiServiceTier.Standard)
         }
         return try {
-            generateImage(client, prompt, context, selectedNewsIds, GoogleAiServiceTier.Flex)
+            generateImage(client, prompt, context, GoogleAiServiceTier.Flex)
         } catch (e: IOException) {
             if (isFlexUnavailableError(e)) {
-                generateImage(client, prompt, context, selectedNewsIds, GoogleAiServiceTier.Standard)
+                generateImage(client, prompt, context, GoogleAiServiceTier.Standard)
             } else throw e
         }
     }
@@ -174,16 +247,14 @@ class GoogleAiService(
         client: Client,
         prompt: String,
         context: PromptContext,
-        selectedNewsIds: Set<String>,
         serviceTier: GoogleAiServiceTier,
     ): ImageData = withContext(Dispatchers.IO) {
-        // 選択済みニュースの OGP 画像 URL を収集する（最大3件）
-        val ogpUrls = context.newsTopics
-            .filter { selectedNewsIds.contains(it.id) }
-            .mapNotNull { it.ogpImageUrl }
+        // 取得済み OGP 画像を収集する（最大3件）
+        val ogpTopics = context.newsTopics
+            .filter { it.ogpImageData != null }
             .take(3)
 
-        val imagePromptText = if (ogpUrls.isEmpty()) prompt else """
+        val imagePromptText = if (ogpTopics.isEmpty()) prompt else """
             $prompt
 
             Reference images from the selected news topics are attached. Incorporate their visual themes, color palette, and subject matter into the wallpaper design.
@@ -192,25 +263,12 @@ class GoogleAiService(
         val parts = mutableListOf<Part>()
         parts += Part.builder().text(imagePromptText).build()
 
-        // 選択済みニュースの OGP 画像をダウンロードしてインラインデータとして添付する
-        for (ogpUrl in ogpUrls) {
-            try {
-                val imgRequest = Request.Builder()
-                    .url(ogpUrl)
-                    .header("User-Agent", "Mozilla/5.0 (Linux; Android 14)")
-                    .build()
-                ogpHttpClient.newCall(imgRequest).execute().use { response ->
-                    if (response.isSuccessful) {
-                        val bytes = response.body?.bytes() ?: return@use
-                        val mimeType = (response.header("Content-Type") ?: "image/jpeg")
-                            .substringBefore(";").trim()
-                        val blob = Blob.builder().mimeType(mimeType).data(bytes).build()
-                        parts += Part.builder().inlineData(blob).build()
-                    }
-                }
-            } catch (_: Exception) {
-                // OGP 画像のダウンロード失敗は無視する
-            }
+        // 取得済み OGP 画像をインラインデータとして添付する
+        for (topic in ogpTopics) {
+            val bytes = topic.ogpImageData ?: continue
+            val mimeType = topic.ogpImageMimeType ?: "image/jpeg"
+            val blob = Blob.builder().mimeType(mimeType).data(bytes).build()
+            parts += Part.builder().inlineData(blob).build()
         }
 
         val configBuilder = GenerateContentConfig.builder()
@@ -239,6 +297,14 @@ class GoogleAiService(
             }
         }
         throw IOException("Google AI から画像データを取得できませんでした。")
+    }
+
+    private suspend fun saveGeneratedImage(imageData: ImageData): String = withContext(Dispatchers.IO) {
+        val wallpapersDir = File(filesDir, "wallpapers").also { it.mkdirs() }
+        val fileName = "wallpaper_${System.currentTimeMillis()}.${imageData.extension}"
+        val file = File(wallpapersDir, fileName)
+        file.writeBytes(imageData.bytes)
+        file.absolutePath
     }
 
     // テキストモデルに送るプロンプトを構築する

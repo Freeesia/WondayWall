@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.studiofreesia.wondaywall.models.AppConfig
 import com.studiofreesia.wondaywall.models.CalendarEventItem
+import com.studiofreesia.wondaywall.models.GenerationProgress
 import com.studiofreesia.wondaywall.models.HistoryItem
 import com.studiofreesia.wondaywall.models.NewsTopicItem
 import com.studiofreesia.wondaywall.services.AppConfigService
@@ -22,6 +23,7 @@ import kotlinx.coroutines.launch
 data class HomeUiState(
     val latestHistoryItem: HistoryItem? = null,
     val isGenerating: Boolean = false,
+    val generationProgress: GenerationProgress? = null,
     val errorMessage: String? = null,
     val nextScheduledTime: String? = null,
     val config: AppConfig = AppConfig(),
@@ -60,6 +62,14 @@ class HomeViewModel(
                 _uiState.value = _uiState.value.copy(isGenerating = isGenerating)
             }
         }
+        viewModelScope.launch {
+            generationCoordinator.progress.collect { progress ->
+                _uiState.value = _uiState.value.copy(
+                    generationProgress = progress,
+                    isGenerating = progress != null || _uiState.value.isGenerating,
+                )
+            }
+        }
     }
 
     // 画面データを読み込む
@@ -73,7 +83,7 @@ class HomeViewModel(
         val history = historyService.loadHistory()
         val config = appConfigService.getConfig()
         _uiState.value = _uiState.value.copy(
-            latestHistoryItem = history.firstOrNull { !it.isSkipped },
+            latestHistoryItem = history.firstOrNull { it.isSuccess },
             config = config,
             errorMessage = null,
         )
@@ -112,8 +122,12 @@ class HomeViewModel(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(errorMessage = null)
             try {
-                generationCoordinator.runAsync()
-                loadData()
+                val enqueued = taskSchedulerService.enqueueManualGeneration()
+                if (!enqueued) {
+                    _uiState.value = _uiState.value.copy(
+                        errorMessage = "すでに生成中です"
+                    )
+                }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     errorMessage = e.message ?: "生成に失敗しました"
@@ -127,8 +141,12 @@ class HomeViewModel(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(errorMessage = null)
             try {
-                generationCoordinator.runAsync()
-                loadData()
+                val enqueued = taskSchedulerService.enqueueManualGeneration()
+                if (!enqueued) {
+                    _uiState.value = _uiState.value.copy(
+                        errorMessage = "すでに生成中です"
+                    )
+                }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     errorMessage = e.message ?: "生成に失敗しました"

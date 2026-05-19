@@ -2,12 +2,19 @@ package com.studiofreesia.wondaywall.services
 
 import android.content.Context
 import androidx.work.Constraints
+import androidx.work.Data
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkInfo
 import androidx.work.WorkManager
+import com.studiofreesia.wondaywall.models.GenerationPhase
+import com.studiofreesia.wondaywall.models.GenerationProgress
+import com.studiofreesia.wondaywall.models.GenerationTrigger
 import com.studiofreesia.wondaywall.models.UpdateSchedule
 import com.studiofreesia.wondaywall.workers.GenerationWorker
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.util.Calendar
 import java.util.concurrent.TimeUnit
 
@@ -21,6 +28,11 @@ class TaskSchedulerService(
     companion object {
         // WorkManager のユニークワーク名
         const val WORK_NAME = "WondayWall.BackgroundGeneration"
+        const val KEY_TRIGGER = "trigger"
+        const val KEY_PROGRESS_PERCENT = "progress_percent"
+        const val KEY_PROGRESS_MESSAGE = "progress_message"
+        const val KEY_PROGRESS_PHASE = "progress_phase"
+        const val KEY_PROGRESS_HISTORY_ID = "progress_history_id"
 
         // すべてのスケジュールで1日の最初の更新は4:00に揃える（Windows版 ScheduleHelper.FirstDailySlot と同じ）
         private const val FIRST_DAILY_SLOT_HOUR = 4
@@ -37,35 +49,79 @@ class TaskSchedulerService(
             12 * 60,                       // 12:00（昼）
             18 * 60,                       // 18:00（晩）
         )
+
+        fun inputDataFor(trigger: GenerationTrigger): Data =
+            Data.Builder()
+                .putString(KEY_TRIGGER, trigger.name)
+                .build()
+
+        fun progressToData(progress: GenerationProgress): Data =
+            Data.Builder()
+                .putInt(KEY_PROGRESS_PERCENT, progress.percent)
+                .putString(KEY_PROGRESS_MESSAGE, progress.message)
+                .putString(KEY_PROGRESS_PHASE, progress.phase.name)
+                .putString(KEY_PROGRESS_HISTORY_ID, progress.historyId)
+                .putString(KEY_TRIGGER, progress.trigger.name)
+                .build()
+
+        fun progressFromData(data: Data): GenerationProgress? {
+            val triggerName = data.getString(KEY_TRIGGER) ?: return null
+            val phaseName = data.getString(KEY_PROGRESS_PHASE) ?: return null
+            val trigger = runCatching { GenerationTrigger.valueOf(triggerName) }.getOrNull() ?: return null
+            val phase = runCatching { GenerationPhase.valueOf(phaseName) }.getOrNull() ?: return null
+            return GenerationProgress(
+                percent = data.getInt(KEY_PROGRESS_PERCENT, 0),
+                message = data.getString(KEY_PROGRESS_MESSAGE).orEmpty(),
+                phase = phase,
+                historyId = data.getString(KEY_PROGRESS_HISTORY_ID),
+                trigger = trigger,
+            )
+        }
     }
 
-    // 次回スケジュールスロットを計算して WorkManager に登録する
-    suspend fun scheduleNext() {
-        val config = appConfigService.getConfig()
-        if (!config.autoGenerationEnabled) return
+    // 手動生成を WorkManager Foreground Worker 経由で即時登録する
+    suspend fun enqueueManualGeneration(): Boolean =
+        enqueueImmediateGeneration(GenerationTrigger.Manual)
 
-        val now = System.currentTimeMillis()
-        val nextSlotMs = getNextScheduledSlotAfter(now, config.schedule)
-        val delayMs = (nextSlotMs - now).coerceAtLeast(0L)
+    // 起動時補完生成を WorkManager Foreground Worker 経由で即時登録する
+    suspend fun enqueueStartupRecoveryGeneration(): Boolean =
+        enqueueImmediateGeneration(GenerationTrigger.StartupRecovery)
 
-        val constraints = Constraints.Builder()
-            .apply {
-                if (config.generateOnlyOnWifi) {
-                    setRequiredNetworkType(NetworkType.UNMETERED)
-                } else {
-                    setRequiredNetworkType(NetworkType.CONNECTED)
-                }
-            }
-            .build()
-
+    private suspend fun enqueueImmediateGeneration(trigger: GenerationTrigger): Boolean {
+        if (isGenerationWorkRunning()) return false
         val workRequest = OneTimeWorkRequestBuilder<GenerationWorker>()
-            .setInitialDelay(delayMs, TimeUnit.MILLISECONDS)
-            .setConstraints(constraints)
+            .setInputData(inputDataFor(trigger))
+            .setConstraints(buildConstraints())
             .build()
 
         WorkManager.getInstance(context).enqueueUniqueWork(
             WORK_NAME,
             ExistingWorkPolicy.REPLACE,
+            workRequest,
+        )
+        return true
+    }
+
+    // 次回スケジュールスロットを計算して WorkManager に登録する
+    suspend fun scheduleNext(allowWhileRunning: Boolean = false) {
+        val config = appConfigService.getConfig()
+        if (!config.autoGenerationEnabled) return
+        val isRunning = isGenerationWorkRunning()
+        if (isRunning && !allowWhileRunning) return
+
+        val now = System.currentTimeMillis()
+        val nextSlotMs = getNextScheduledSlotAfter(now, config.schedule)
+        val delayMs = (nextSlotMs - now).coerceAtLeast(0L)
+
+        val workRequest = OneTimeWorkRequestBuilder<GenerationWorker>()
+            .setInitialDelay(delayMs, TimeUnit.MILLISECONDS)
+            .setInputData(inputDataFor(GenerationTrigger.Scheduled))
+            .setConstraints(buildConstraints())
+            .build()
+
+        WorkManager.getInstance(context).enqueueUniqueWork(
+            WORK_NAME,
+            if (isRunning) ExistingWorkPolicy.APPEND_OR_REPLACE else ExistingWorkPolicy.REPLACE,
             workRequest,
         )
     }
@@ -75,13 +131,58 @@ class TaskSchedulerService(
         WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
     }
 
+    // WorkManager のユニークワークが実行中か確認する
+    suspend fun isGenerationWorkRunning(): Boolean =
+        getWorkInfos().any { it.state == WorkInfo.State.RUNNING }
+
+    // WorkManager のユニークワークが次回予約として存在するか確認する
+    suspend fun hasScheduledWork(): Boolean =
+        getWorkInfos().any { it.state == WorkInfo.State.ENQUEUED }
+
+    // 実行中 Work の最新 progress を取得する
+    suspend fun getCurrentProgress(): GenerationProgress? =
+        getWorkInfos()
+            .firstOrNull { it.state == WorkInfo.State.RUNNING }
+            ?.progress
+            ?.let(::progressFromData)
+
+    // 起動時・復帰時に現在スケジュール枠が未実行か確認する
+    suspend fun isScheduledGenerationNeeded(): Boolean {
+        val config = appConfigService.getConfig()
+        if (!config.autoGenerationEnabled) return false
+        if (config.generateOnlyOnWifi && !isWifiConnected()) return false
+        if (config.skipOnBatterySaver && isBatterySaverActive()) return false
+        return !isCurrentSlotProcessed()
+    }
+
     // 現在のスケジュールスロットがすでに処理済みかを確認する
     suspend fun isCurrentSlotProcessed(): Boolean {
         val config = appConfigService.getConfig()
         val now = System.currentTimeMillis()
         val latestSlotMs = getLatestScheduledSlotAtOrBefore(now, config.schedule)
-        val lastSuccessMs = historyService.getLastSuccessTimeMillis() ?: return false
-        return lastSuccessMs >= latestSlotMs
+        val lastCompletedMs = historyService.getLastCompletedRunTimeMillis() ?: return false
+        return lastCompletedMs >= latestSlotMs
+    }
+
+    private suspend fun getWorkInfos(): List<WorkInfo> = withContext(Dispatchers.IO) {
+        try {
+            WorkManager.getInstance(context).getWorkInfosForUniqueWork(WORK_NAME).get()
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    private suspend fun buildConstraints(): Constraints {
+        val config = appConfigService.getConfig()
+        return Constraints.Builder()
+            .apply {
+                if (config.generateOnlyOnWifi) {
+                    setRequiredNetworkType(NetworkType.UNMETERED)
+                } else {
+                    setRequiredNetworkType(NetworkType.CONNECTED)
+                }
+            }
+            .build()
     }
 
     // 現在時刻以前の最新スケジュールスロットを返す（エポックミリ秒）
@@ -184,4 +285,20 @@ class TaskSchedulerService(
 
     // 指定エポックミリ秒の当日0時（ローカルタイム）をエポックミリ秒で返す
     private fun getMidnightMillis(epochMs: Long): Long = calendarAtStartOfDay(epochMs).timeInMillis
+
+    // Wi-Fi 接続中か確認する
+    private fun isWifiConnected(): Boolean {
+        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE)
+            as android.net.ConnectivityManager
+        val network = connectivityManager.activeNetwork ?: return false
+        val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+        return capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI)
+    }
+
+    // 省電力モードが有効か確認する
+    private fun isBatterySaverActive(): Boolean {
+        val powerManager = context.getSystemService(Context.POWER_SERVICE)
+            as android.os.PowerManager
+        return powerManager.isPowerSaveMode
+    }
 }

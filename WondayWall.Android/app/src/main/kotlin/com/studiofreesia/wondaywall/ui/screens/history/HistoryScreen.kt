@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Error
@@ -49,6 +50,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
+import com.studiofreesia.wondaywall.models.GenerationStatus
 import com.studiofreesia.wondaywall.models.HistoryItem
 import java.io.File
 import java.text.SimpleDateFormat
@@ -200,6 +202,12 @@ private fun HistoryItemCard(
                 ) {
                     // ステータスアイコン
                     when {
+                        item.isGenerating -> Icon(
+                            Icons.Default.AutoAwesome,
+                            contentDescription = "生成中",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(16.dp),
+                        )
                         item.isSkipped -> Icon(
                             Icons.Default.SkipNext,
                             contentDescription = "スキップ",
@@ -228,7 +236,7 @@ private fun HistoryItemCard(
                 }
 
                 // エラーサマリー
-                if (!item.isSuccess && item.errorSummary != null) {
+                if (!item.isSuccess && !item.isGenerating && item.errorSummary != null) {
                     Spacer(Modifier.height(4.dp))
                     Text(
                         text = item.errorSummary,
@@ -252,6 +260,14 @@ private fun HistoryItemCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                if (item.isGenerating) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = generationStatusLabel(item.status),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
             }
 
             // 削除ボタン
@@ -264,4 +280,13 @@ private fun HistoryItemCard(
             }
         }
     }
+}
+
+private fun generationStatusLabel(status: GenerationStatus): String = when (status) {
+    GenerationStatus.Generating -> "生成中"
+    GenerationStatus.GeneratingPromptReady -> "プロンプト生成済み"
+    GenerationStatus.GeneratingImageRequested -> "画像生成リクエスト済み"
+    GenerationStatus.Success -> "成功"
+    GenerationStatus.Skipped -> "スキップ"
+    GenerationStatus.Failure -> "失敗"
 }

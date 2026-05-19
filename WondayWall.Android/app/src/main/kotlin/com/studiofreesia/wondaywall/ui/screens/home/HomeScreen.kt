@@ -97,7 +97,7 @@ fun HomeScreen(viewModel: HomeViewModel) {
                         color = Color.White,
                     )
                     Spacer(Modifier.size(8.dp))
-                    Text("生成中...")
+                    Text(uiState.generationProgress?.let { "生成中 ${it.percent}%" } ?: "生成中...")
                 } else {
                     Icon(Icons.Default.AutoAwesome, contentDescription = null)
                     Spacer(Modifier.size(8.dp))

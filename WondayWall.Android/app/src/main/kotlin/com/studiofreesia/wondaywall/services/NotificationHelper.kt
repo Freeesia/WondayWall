@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.core.app.NotificationCompat
 import com.studiofreesia.wondaywall.MainActivity
+import com.studiofreesia.wondaywall.models.GenerationProgress
 
 // 通知送信ヘルパー（GenerationCoordinator から使用する）
 class NotificationHelper(private val context: Context) {
@@ -62,10 +63,15 @@ class NotificationHelper(private val context: Context) {
     }
 
     // 生成進行中通知（ForegroundInfo 用）
-    fun buildProgressNotification(): android.app.Notification {
+    fun buildProgressNotification(progress: GenerationProgress? = null): android.app.Notification {
+        val percent = progress?.percent?.coerceIn(0, 100) ?: 0
+        val message = progress?.message
+            ?: context.getString(com.studiofreesia.wondaywall.R.string.notification_generating_text)
         return NotificationCompat.Builder(context, CHANNEL_PROGRESS)
             .setSmallIcon(android.R.drawable.stat_sys_download)
             .setContentTitle(context.getString(com.studiofreesia.wondaywall.R.string.notification_generating_title))
+            .setContentText(message)
+            .setProgress(100, percent, progress == null)
             .setOngoing(true)
             .build()
     }
