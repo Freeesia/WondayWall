@@ -289,10 +289,13 @@
     <value>Could not get the image path.</value>
   </data>
   <data name="SetupNewsDescription" xml:space="preserve">
-    <value>Register one RSS feed. Leave it blank to skip.</value>
+    <value>Register one news site URL. If you already know the RSS URL, you can enter it directly. Leave it blank to skip.</value>
+  </data>
+  <data name="SetupNewsSiteRssNotFound" xml:space="preserve">
+    <value>Could not get news information from the specified site.</value>
   </data>
   <data name="SetupRssUrlInvalid" xml:space="preserve">
-    <value>Enter a valid RSS feed URL.</value>
+    <value>Enter a valid site URL or RSS URL.</value>
   </data>
   <data name="SetupSavedGenerating" xml:space="preserve">
     <value>Initial settings saved. Generating wallpaper...</value>

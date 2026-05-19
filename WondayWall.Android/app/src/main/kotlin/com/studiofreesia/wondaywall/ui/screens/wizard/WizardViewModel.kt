@@ -131,11 +131,23 @@ class WizardViewModel(
     }
 
     // RSS ソースを追加する
-    fun addRssSource(url: String) {
+    fun addRssSource(url: String, onAdded: () -> Unit = {}) {
         if (url.isBlank()) return
-        val sources = _uiState.value.rssSources
-        if (!sources.contains(url)) {
-            _uiState.value = _uiState.value.copy(rssSources = sources + url)
+        viewModelScope.launch {
+            val sourceUrl = url.trim()
+            val resolvedRssUrl = contextService.resolveRssSourceUrl(sourceUrl)
+            if (resolvedRssUrl == null) {
+                _uiState.value = _uiState.value.copy(
+                    errorMessage = "指定のサイトからニュース情報を得られませんでした。"
+                )
+                return@launch
+            }
+
+            val sources = _uiState.value.rssSources
+            if (!sources.contains(resolvedRssUrl)) {
+                _uiState.value = _uiState.value.copy(rssSources = sources + resolvedRssUrl)
+                onAdded()
+            }
         }
     }
 
