@@ -33,6 +33,7 @@ jobs:
         working-directory: WondayWall.Android
     outputs:
       artifact-name: ${{ steps.prepare-artifacts.outputs.artifact-name }}
+      artifact-path: ${{ steps.prepare-artifacts.outputs.artifact-path }}
       release-artifact-name: ${{ steps.prepare-artifacts.outputs.release-artifact-name }}
       debug-artifact-name: ${{ steps.prepare-artifacts.outputs.debug-artifact-name }}
     steps:
@@ -66,12 +67,21 @@ jobs:
             fi
           done
 
-          if [ "$minor" -gt 99 ] || [ "$patch" -gt 99 ] || [ "$revision" -gt 99 ]; then
-            echo "GitVersion assemblySemFileVer is too large for Android versionCode packing: $file_version" >&2
+          run_number="${GITHUB_RUN_NUMBER:-0}"
+          run_attempt="${GITHUB_RUN_ATTEMPT:-1}"
+          for part in "$run_number" "$run_attempt"; do
+            if ! [[ "$part" =~ ^[0-9]+$ ]]; then
+              echo "Invalid GitHub Actions build number: run_number=$run_number run_attempt=$run_attempt" >&2
+              exit 1
+            fi
+          done
+
+          if [ "$minor" -gt 99 ] || [ "$patch" -gt 99 ] || [ "$run_attempt" -gt 99 ]; then
+            echo "Android versionCode packing input is too large: version=$file_version run_attempt=$run_attempt" >&2
             exit 1
           fi
 
-          version_code=$((major * 1000000 + minor * 10000 + patch * 100 + revision))
+          version_code=$((major * 100000000 + minor * 1000000 + patch * 10000 + run_number * 100 + run_attempt))
           if [ "$version_code" -lt 1 ] || [ "$version_code" -gt 2100000000 ]; then
             echo "Android versionCode is out of range: $version_code" >&2
             exit 1
@@ -101,13 +111,6 @@ jobs:
         with:
           gradle-version: ${{ steps.gradle-version.outputs.version }}
 
-      - name: Build debug APK
-        run: |
-          gradle --no-daemon \
-            -PwondaywallVersionCode=${{ steps.android-version.outputs.version-code }} \
-            "-PwondaywallVersionName=${{ steps.android-version.outputs.version-name }}" \
-            :app:assembleDebug
-
       - name: Restore release signing key
         id: release-signing
         env:
@@ -132,7 +135,20 @@ jobs:
           echo "ANDROID_KEYSTORE_FILE=$keystore_file" >> "$GITHUB_ENV"
           echo "signed=true" >> "$GITHUB_OUTPUT"
 
+      - name: Build debug APK
+        if: ${{ github.event_name == 'pull_request' }}
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          gradle --no-daemon \
+            -PwondaywallVersionCode=${{ steps.android-version.outputs.version-code }} \
+            "-PwondaywallVersionName=${{ steps.android-version.outputs.version-name }}" \
+            :app:assemblePreview
+
       - name: Build release APK
+        if: ${{ github.event_name != 'pull_request' }}
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
@@ -145,9 +161,14 @@ jobs:
 
       - name: Verify signed APK
         run: |
-          apk_path="app/build/outputs/apk/release/app-release.apk"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            apk_path="app/build/outputs/apk/preview/app-preview.apk"
+          else
+            apk_path="app/build/outputs/apk/release/app-release.apk"
+          fi
+
           if [ ! -f "$apk_path" ]; then
-            echo "::error::Signed release APK was not found: $apk_path"
+            echo "::error::Signed APK was not found: $apk_path"
             exit 1
           fi
 
@@ -168,41 +189,40 @@ jobs:
           release_artifact_dir="$artifact_root/release"
           debug_artifact_dir="$artifact_root/debug"
           rm -rf "$artifact_root"
-          mkdir -p "$release_artifact_dir" "$debug_artifact_dir"
 
-          release_apk_path="app/build/outputs/apk/release/app-release.apk"
-          debug_apk_path="app/build/outputs/apk/debug/app-debug.apk"
-          for apk_path in "$release_apk_path" "$debug_apk_path"; do
-            if [ ! -f "$apk_path" ]; then
-              echo "::error::Android APK was not found: $apk_path"
-              exit 1
-            fi
-          done
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            artifact_dir="$debug_artifact_dir"
+            apk_path="app/build/outputs/apk/preview/app-preview.apk"
+            apk_name="WondayWall-Android-debug-$version_label.apk"
+            artifact_name="WondayWall-Android-debug-$version_label"
+            debug_artifact_name="$artifact_name"
+            release_artifact_name=""
+          else
+            artifact_dir="$release_artifact_dir"
+            apk_path="app/build/outputs/apk/release/app-release.apk"
+            apk_name="WondayWall-Android-release-$version_label.apk"
+            artifact_name="WondayWall-Android-release-$version_label"
+            release_artifact_name="$artifact_name"
+            debug_artifact_name=""
+          fi
 
-          cp "$release_apk_path" \
-            "$release_artifact_dir/WondayWall-Android-release-$version_label.apk"
-          cp "$debug_apk_path" \
-            "$debug_artifact_dir/WondayWall-Android-debug-$version_label.apk"
+          if [ ! -f "$apk_path" ]; then
+            echo "::error::Android APK was not found: $apk_path"
+            exit 1
+          fi
 
-          (cd "$release_artifact_dir" && sha256sum * > SHA256SUMS.txt)
-          (cd "$debug_artifact_dir" && sha256sum * > SHA256SUMS.txt)
+          mkdir -p "$artifact_dir"
+          cp "$apk_path" "$artifact_dir/$apk_name"
+          (cd "$artifact_dir" && sha256sum * > SHA256SUMS.txt)
 
-          release_artifact_name="WondayWall-Android-release-$version_label"
-          debug_artifact_name="WondayWall-Android-debug-$version_label"
-          echo "artifact-name=$release_artifact_name" >> "$GITHUB_OUTPUT"
+          echo "artifact-name=$artifact_name" >> "$GITHUB_OUTPUT"
+          echo "artifact-path=WondayWall.Android/$artifact_dir/" >> "$GITHUB_OUTPUT"
           echo "release-artifact-name=$release_artifact_name" >> "$GITHUB_OUTPUT"
           echo "debug-artifact-name=$debug_artifact_name" >> "$GITHUB_OUTPUT"
 
-      - name: Upload Android release artifact
+      - name: Upload Android artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.prepare-artifacts.outputs.release-artifact-name }}
-          path: WondayWall.Android/build/github-artifacts/release/
-          if-no-files-found: error
-
-      - name: Upload Android debug artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ steps.prepare-artifacts.outputs.debug-artifact-name }}
-          path: WondayWall.Android/build/github-artifacts/debug/
+          name: ${{ steps.prepare-artifacts.outputs.artifact-name }}
+          path: ${{ steps.prepare-artifacts.outputs.artifact-path }}
           if-no-files-found: error
