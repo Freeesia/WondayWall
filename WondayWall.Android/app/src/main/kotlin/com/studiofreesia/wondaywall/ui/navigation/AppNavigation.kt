@@ -36,6 +36,7 @@ import androidx.navigation.compose.rememberNavController
 import com.studiofreesia.wondaywall.services.AppConfigService
 import com.studiofreesia.wondaywall.services.ContextService
 import com.studiofreesia.wondaywall.services.GenerationCoordinator
+import com.studiofreesia.wondaywall.services.GoogleAiServiceProtocol
 import com.studiofreesia.wondaywall.services.HistoryService
 import com.studiofreesia.wondaywall.services.TaskSchedulerService
 import com.studiofreesia.wondaywall.services.WallpaperService
@@ -80,6 +81,7 @@ fun AppNavigation(
     wallpaperService: WallpaperService,
     contextService: ContextService,
     taskSchedulerService: TaskSchedulerService,
+    googleAiService: GoogleAiServiceProtocol,
 ) {
     val rootNavController = rememberNavController()
 
@@ -129,6 +131,7 @@ fun AppNavigation(
                 wallpaperService = wallpaperService,
                 contextService = contextService,
                 taskSchedulerService = taskSchedulerService,
+                googleAiService = googleAiService,
             )
         }
     }
@@ -144,6 +147,7 @@ private fun MainScreen(
     wallpaperService: WallpaperService,
     contextService: ContextService,
     taskSchedulerService: TaskSchedulerService,
+    googleAiService: GoogleAiServiceProtocol,
 ) {
     val navController = rememberNavController()
     var showAboutSheet by remember { mutableStateOf(false) }
@@ -265,6 +269,8 @@ private fun MainScreen(
             AboutScreen(
                 appConfigService = appConfigService,
                 generationCoordinator = generationCoordinator,
+                googleAiService = googleAiService,
+                taskSchedulerService = taskSchedulerService,
                 onClose = { showAboutSheet = false },
             )
         }

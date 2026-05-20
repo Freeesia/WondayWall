@@ -8,7 +8,8 @@ import com.google.crypto.tink.aead.AeadConfig
 import com.studiofreesia.wondaywall.services.AppConfigService
 import com.studiofreesia.wondaywall.services.ContextService
 import com.studiofreesia.wondaywall.services.GenerationCoordinator
-import com.studiofreesia.wondaywall.services.GoogleAiService
+import com.studiofreesia.wondaywall.services.GoogleAiServiceProvider
+import com.studiofreesia.wondaywall.services.GoogleAiServiceProtocol
 import com.studiofreesia.wondaywall.services.HistoryService
 import com.studiofreesia.wondaywall.services.NotificationHelper
 import com.studiofreesia.wondaywall.services.TaskSchedulerService
@@ -21,7 +22,7 @@ class App : Application() {
         private set
     lateinit var contextService: ContextService
         private set
-    lateinit var googleAiService: GoogleAiService
+    lateinit var googleAiService: GoogleAiServiceProtocol
         private set
     lateinit var wallpaperService: WallpaperService
         private set
@@ -47,7 +48,7 @@ class App : Application() {
         appConfigService = AppConfigService(this)
         historyService = HistoryService(this)
         contextService = ContextService(this, appConfigService)
-        googleAiService = GoogleAiService(appConfigService, filesDir)
+        googleAiService = GoogleAiServiceProvider.create(this, appConfigService, filesDir)
         wallpaperService = WallpaperService(this)
         notificationHelper = NotificationHelper(this)
         taskSchedulerService = TaskSchedulerService(this, appConfigService, historyService)

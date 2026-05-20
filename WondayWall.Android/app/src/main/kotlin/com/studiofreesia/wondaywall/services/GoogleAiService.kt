@@ -30,7 +30,7 @@ import java.util.concurrent.TimeUnit
 class GoogleAiService(
     private val appConfigService: AppConfigService,
     private val filesDir: File,
-) {
+) : GoogleAiServiceProtocol {
     companion object {
         private const val TEXT_MODEL_NAME = "gemini-3-flash-preview"
         private const val IMAGE_MODEL_NAME = "gemini-3.1-flash-image-preview"
@@ -46,11 +46,11 @@ class GoogleAiService(
 
     // 壁紙画像を生成してローカルに保存し、GeneratedImageInfo を返す
     // serviceTier: バックグラウンド生成時は Flex を指定（失敗時は Standard にフォールバック）
-    suspend fun generateWallpaper(
+    override suspend fun generateWallpaper(
         context: PromptContext,
-        serviceTier: GoogleAiServiceTier = GoogleAiServiceTier.Standard,
+        serviceTier: GoogleAiServiceTier,
     ): GeneratedImageInfo {
-        val promptResult = generatePrompt(context, serviceTier)
+        val promptResult = generatePrompt(context, serviceTier, null)
         val contextWithOgp = fetchOgpImages(
             context = context,
             selectedNewsIds = promptResult.selectedNewsIds,
@@ -59,6 +59,7 @@ class GoogleAiService(
             imagePrompt = promptResult.imagePrompt,
             context = contextWithOgp,
             serviceTier = serviceTier,
+            onProgress = null,
         )
 
         return GeneratedImageInfo(
@@ -69,10 +70,10 @@ class GoogleAiService(
     }
 
     // テキストモデルで詳細な画像生成プロンプトを生成する
-    suspend fun generatePrompt(
+    override suspend fun generatePrompt(
         context: PromptContext,
-        serviceTier: GoogleAiServiceTier = GoogleAiServiceTier.Standard,
-        onProgress: ((Double, String) -> Unit)? = null,
+        serviceTier: GoogleAiServiceTier,
+        onProgress: ((Double, String) -> Unit)?,
     ): PromptGenerationResult {
         val apiKey = requireApiKey()
         val client = Client.builder().apiKey(apiKey).build()
@@ -86,7 +87,7 @@ class GoogleAiService(
     }
 
     // 採用ニュースの OGP 画像を取得して PromptContext に付加する
-    suspend fun fetchOgpImages(
+    override suspend fun fetchOgpImages(
         context: PromptContext,
         selectedNewsIds: List<String>,
     ): PromptContext = withContext(Dispatchers.IO) {
@@ -123,11 +124,11 @@ class GoogleAiService(
     }
 
     // 生成済みプロンプトから画像を生成して保存する
-    suspend fun generateImageFromPrompt(
+    override suspend fun generateImageFromPrompt(
         imagePrompt: String,
         context: PromptContext,
-        serviceTier: GoogleAiServiceTier = GoogleAiServiceTier.Standard,
-        onProgress: ((Double, String) -> Unit)? = null,
+        serviceTier: GoogleAiServiceTier,
+        onProgress: ((Double, String) -> Unit)?,
     ): GeneratedImageResult {
         val apiKey = requireApiKey()
         val client = Client.builder().apiKey(apiKey).build()

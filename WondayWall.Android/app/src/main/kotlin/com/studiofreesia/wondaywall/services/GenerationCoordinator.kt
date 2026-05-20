@@ -26,7 +26,7 @@ class GenerationCoordinator(
     private val context: Context,
     private val appConfigService: AppConfigService,
     private val contextService: ContextService,
-    private val googleAiService: GoogleAiService,
+    private val googleAiService: GoogleAiServiceProtocol,
     private val wallpaperService: WallpaperService,
     private val historyService: HistoryService,
     private val taskSchedulerService: TaskSchedulerService,
