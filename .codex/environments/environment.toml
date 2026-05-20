@@ -5,7 +5,7 @@ name = "WondayWall"
 [setup]
 script = ""
 
-[setup.darwin]
+[setup.macos]
 script = "./scripts/setup-cloud-build.sh"
 
 [[actions]]
