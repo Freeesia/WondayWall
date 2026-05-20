@@ -3,4 +3,12 @@ version = 1
 name = "WondayWall"
 
 [setup]
+script = ""
+
+[setup.macos]
 script = "./scripts/setup-cloud-build.sh"
+
+[[actions]]
+name = "Build Android Debug"
+icon = "run"
+command = "./scripts/build-android-debug.sh"
