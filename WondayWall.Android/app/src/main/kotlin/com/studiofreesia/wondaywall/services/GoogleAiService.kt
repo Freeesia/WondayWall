@@ -8,7 +8,6 @@ import com.google.genai.types.GoogleSearch
 import com.google.genai.types.Part
 import com.google.genai.types.Schema
 import com.google.genai.types.Tool
-import com.studiofreesia.wondaywall.models.GeneratedImageInfo
 import com.studiofreesia.wondaywall.models.GeneratedImageResult
 import com.studiofreesia.wondaywall.models.GoogleAiServiceTier
 import com.studiofreesia.wondaywall.models.PromptCalendarEvent
@@ -30,7 +29,7 @@ import java.util.concurrent.TimeUnit
 class GoogleAiService(
     private val appConfigService: AppConfigService,
     private val filesDir: File,
-) : GoogleAiServiceProtocol {
+) : AiService {
     companion object {
         private const val TEXT_MODEL_NAME = "gemini-3-flash-preview"
         private const val IMAGE_MODEL_NAME = "gemini-3.1-flash-image-preview"
@@ -43,31 +42,6 @@ class GoogleAiService(
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(10, TimeUnit.SECONDS)
         .build()
-
-    // 壁紙画像を生成してローカルに保存し、GeneratedImageInfo を返す
-    // serviceTier: バックグラウンド生成時は Flex を指定（失敗時は Standard にフォールバック）
-    override suspend fun generateWallpaper(
-        context: PromptContext,
-        serviceTier: GoogleAiServiceTier,
-    ): GeneratedImageInfo {
-        val promptResult = generatePrompt(context, serviceTier, null)
-        val contextWithOgp = fetchOgpImages(
-            context = context,
-            selectedNewsIds = promptResult.selectedNewsIds,
-        )
-        val imageResult = generateImageFromPrompt(
-            imagePrompt = promptResult.imagePrompt,
-            context = contextWithOgp,
-            serviceTier = serviceTier,
-            onProgress = null,
-        )
-
-        return GeneratedImageInfo(
-            filePath = imageResult.filePath,
-            imagePrompt = promptResult.imagePrompt,
-            selectedNewsIds = promptResult.selectedNewsIds,
-        )
-    }
 
     // テキストモデルで詳細な画像生成プロンプトを生成する
     override suspend fun generatePrompt(

@@ -2,7 +2,7 @@ import CryptoKit
 import Foundation
 
 // 壁紙生成サービスの抽象インターフェイス
-protocol GoogleAiServiceProtocol: AnyObject {
+protocol AiService: AnyObject {
     // テキストモデルで画像生成プロンプトを生成する（ステップ 1）
     func generatePrompt(
         context: PromptContext,
@@ -28,7 +28,7 @@ protocol GoogleAiServiceProtocol: AnyObject {
 }
 
 // Google AI Gemini API を使った画像生成サービス
-final class GoogleAiService: GoogleAiServiceProtocol {
+final class GoogleAiService: AiService {
     private static let textModelName = "gemini-3-flash-preview"
     private static let imageModelName = "gemini-3.1-flash-image-preview"
     private static let apiBaseURL =

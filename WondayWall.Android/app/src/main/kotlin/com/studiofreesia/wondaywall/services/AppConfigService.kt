@@ -54,7 +54,7 @@ class AppConfigService(private val context: Context) {
         .map { prefs ->
             val jsonStr = prefs[configJsonKey] ?: return@map AppConfig()
             try {
-                json.decodeFromString<AppConfig>(jsonStr)
+                json.decodeFromString<AppConfig>(jsonStr).normalized()
             } catch (e: Exception) {
                 AppConfig()
             }
@@ -64,7 +64,7 @@ class AppConfigService(private val context: Context) {
     suspend fun getConfig(): AppConfig {
         val config = configFlow.first()
         val apiKey = getGoogleAiApiKey()
-        return config.copy(googleAiApiKey = apiKey)
+        return config.copy(googleAiApiKey = apiKey).normalized()
     }
 
     // 設定全体を保存する（API キーは Tink で暗号化、それ以外は DataStore に保存）
@@ -74,7 +74,7 @@ class AppConfigService(private val context: Context) {
             saveGoogleAiApiKey(config.googleAiApiKey)
         }
         // DataStore には API キーを除いた設定を保存する（平文保存しない）
-        val configWithoutKey = config.copy(googleAiApiKey = "")
+        val configWithoutKey = config.normalized().copy(googleAiApiKey = "")
         val jsonStr = json.encodeToString(configWithoutKey)
         context.appConfigDataStore.edit { prefs ->
             prefs[configJsonKey] = jsonStr
@@ -128,3 +128,6 @@ class AppConfigService(private val context: Context) {
         private const val ENCRYPTED_API_KEY_PREF = "encrypted_api_key"
     }
 }
+
+private fun AppConfig.normalized(): AppConfig =
+    copy(debugConfig = debugConfig.normalized())

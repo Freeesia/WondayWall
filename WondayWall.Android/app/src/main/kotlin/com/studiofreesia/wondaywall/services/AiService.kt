@@ -1,18 +1,12 @@
 package com.studiofreesia.wondaywall.services
 
-import com.studiofreesia.wondaywall.models.GeneratedImageInfo
 import com.studiofreesia.wondaywall.models.GeneratedImageResult
 import com.studiofreesia.wondaywall.models.GoogleAiServiceTier
 import com.studiofreesia.wondaywall.models.PromptContext
 import com.studiofreesia.wondaywall.models.PromptGenerationResult
 
-// 壁紙生成で使う Google AI 実装の共通インターフェース
-interface GoogleAiServiceProtocol {
-    suspend fun generateWallpaper(
-        context: PromptContext,
-        serviceTier: GoogleAiServiceTier = GoogleAiServiceTier.Standard,
-    ): GeneratedImageInfo
-
+// 壁紙生成で使う AI サービスの共通インターフェース
+interface AiService {
     suspend fun generatePrompt(
         context: PromptContext,
         serviceTier: GoogleAiServiceTier = GoogleAiServiceTier.Standard,

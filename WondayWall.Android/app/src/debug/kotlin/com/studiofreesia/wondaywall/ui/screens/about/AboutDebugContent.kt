@@ -44,10 +44,9 @@ import androidx.compose.ui.unit.dp
 import com.studiofreesia.wondaywall.models.AppConfig
 import com.studiofreesia.wondaywall.models.DebugConfig
 import com.studiofreesia.wondaywall.services.AppConfigService
-import com.studiofreesia.wondaywall.services.DebugConfigService
+import com.studiofreesia.wondaywall.services.DummyAiService
 import com.studiofreesia.wondaywall.services.GenerationCoordinator
-import com.studiofreesia.wondaywall.services.GoogleAiServiceProvider
-import com.studiofreesia.wondaywall.services.GoogleAiServiceProtocol
+import com.studiofreesia.wondaywall.services.AiService
 import com.studiofreesia.wondaywall.services.TaskSchedulerService
 import com.studiofreesia.wondaywall.services.WorkManagerDebugReader
 import com.studiofreesia.wondaywall.services.WorkManagerDebugSnapshot
@@ -97,33 +96,38 @@ internal fun AboutDebugEntry(onShowDebugInfo: () -> Unit) {
 internal fun AboutDebugScreen(
     appConfigService: AppConfigService,
     generationCoordinator: GenerationCoordinator,
-    googleAiService: GoogleAiServiceProtocol,
+    aiService: AiService,
     taskSchedulerService: TaskSchedulerService,
     onBack: () -> Unit,
     onClose: () -> Unit,
 ) {
     val appContext = LocalContext.current.applicationContext
-    val debugConfigService = remember(appContext) { DebugConfigService(appContext) }
     val workManagerDebugReader = remember(appContext) { WorkManagerDebugReader(appContext) }
     val isGenerating by generationCoordinator.isGenerating.collectAsState()
     val generationProgress by generationCoordinator.progress.collectAsState()
     val scope = rememberCoroutineScope()
     var config by remember { mutableStateOf<AppConfig?>(null) }
-    var debugConfig by remember { mutableStateOf(debugConfigService.getConfig()) }
+    var debugConfig by remember { mutableStateOf(DebugConfig()) }
     var workSnapshot by remember { mutableStateOf<WorkManagerDebugSnapshot?>(null) }
     var loadedAt by remember { mutableLongStateOf(0L) }
 
     fun reload() {
         scope.launch {
-            config = appConfigService.getConfig()
-            debugConfig = debugConfigService.getConfig()
+            val loadedConfig = appConfigService.getConfig()
+            config = loadedConfig
+            debugConfig = loadedConfig.debugConfig
             workSnapshot = workManagerDebugReader.loadSnapshot()
             loadedAt = System.currentTimeMillis()
         }
     }
 
     fun updateDebugConfig(update: (DebugConfig) -> DebugConfig) {
-        debugConfig = debugConfigService.updateConfig(update)
+        scope.launch {
+            val updated = update(debugConfig).normalized()
+            appConfigService.updateConfig { it.copy(debugConfig = updated) }
+            debugConfig = updated
+            config = appConfigService.getConfig()
+        }
     }
 
     LaunchedEffect(Unit) {
@@ -162,11 +166,11 @@ internal fun AboutDebugScreen(
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("デバッグ設定", style = MaterialTheme.typography.titleMedium)
                 DebugSwitchRow(
-                    label = "Google AI をダミー実装に切り替える",
-                    checked = debugConfig.useDummyGoogleAiService,
+                    label = "ダミーAIサービスを使う",
+                    checked = debugConfig.useDummyAiService,
                     onCheckedChange = {
                         updateDebugConfig { config ->
-                            config.copy(useDummyGoogleAiService = it)
+                            config.copy(useDummyAiService = it)
                         }
                     },
                 )
@@ -205,8 +209,8 @@ internal fun AboutDebugScreen(
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("アプリ状態", style = MaterialTheme.typography.titleMedium)
                 DebugInfoRow("ビルド種別", "Debug")
-                DebugInfoRow("Google AI 実装", GoogleAiServiceProvider.currentServiceName(googleAiService))
-                DebugInfoRow("次回起動時の実装", GoogleAiServiceProvider.nextLaunchServiceName(debugConfigService))
+                DebugInfoRow("AI サービス", if (aiService is DummyAiService) "Dummy" else "Live")
+                DebugInfoRow("次回起動時のAIサービス", if (debugConfig.useDummyAiService) "Dummy" else "Live")
                 DebugInfoRow("生成中", if (isGenerating) "YES" else "NO")
                 DebugInfoRow("進捗", generationProgress?.let { "${it.percent}% ${it.message}" } ?: "-")
                 DebugInfoRow("フェーズ", generationProgress?.phase?.name ?: "-")

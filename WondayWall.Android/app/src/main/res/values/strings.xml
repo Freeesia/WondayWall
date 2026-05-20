@@ -12,7 +12,7 @@
 
     <!-- 通知メッセージ -->
     <string name="notification_generating_title">壁紙を生成中…</string>
-    <string name="notification_generating_text">壁紙候補画像を作成しています</string>
+    <string name="notification_generating_text">壁紙画像を作成しています</string>
     <string name="notification_success_title">壁紙を生成しました</string>
     <string name="notification_success_text">新しい壁紙が適用されました</string>
     <string name="notification_failure_title">壁紙の生成に失敗しました</string>

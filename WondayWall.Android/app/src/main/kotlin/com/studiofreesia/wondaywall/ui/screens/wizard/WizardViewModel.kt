@@ -199,10 +199,12 @@ class WizardViewModel(
             // ウィザード設定を一時的に保存してから生成する
             saveCurrentConfig(enableAutoGeneration = false)
             try {
-                val enqueued = taskSchedulerService.enqueueManualGeneration()
+                val result = taskSchedulerService.enqueueManualGenerationAndWait()
+                val errorMessage = generationErrorMessage(result)
                 _uiState.value = _uiState.value.copy(
                     isTestGenerating = false,
-                    errorMessage = if (enqueued) null else "すでに生成中です",
+                    testGenerationImagePath = result?.appliedImagePath,
+                    errorMessage = errorMessage,
                 )
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
@@ -231,19 +233,40 @@ class WizardViewModel(
                 // テスト生成がまだ実行されていない場合は自動で生成する
                 if (_uiState.value.testGenerationImagePath == null) {
                     _uiState.value = _uiState.value.copy(isTestGenerating = true)
-                    try {
-                        taskSchedulerService.enqueueManualGeneration()
-                    } catch (e: Exception) {
-                        // 生成エラーは無視してウィザードを完了する
-                    } finally {
+                    val result = taskSchedulerService.enqueueManualGenerationAndWait()
+                    val errorMessage = generationErrorMessage(result)
+                    if (errorMessage != null) {
+                        _uiState.value = _uiState.value.copy(
+                            isTestGenerating = false,
+                            errorMessage = errorMessage,
+                        )
+                        return@launch
+                    }
+                    _uiState.value = _uiState.value.copy(
+                        testGenerationImagePath = result?.appliedImagePath,
+                    )
+                    if (_uiState.value.testGenerationImagePath == null) {
                         _uiState.value = _uiState.value.copy(isTestGenerating = false)
+                        return@launch
                     }
                 }
+                _uiState.value = _uiState.value.copy(isTestGenerating = false)
                 onComplete()
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isTestGenerating = false,
+                    errorMessage = e.message ?: "生成に失敗しました",
+                )
             } finally {
                 _uiState.value = _uiState.value.copy(isCompleting = false)
             }
         }
+    }
+
+    private fun generationErrorMessage(result: com.studiofreesia.wondaywall.models.HistoryItem?): String? {
+        if (result == null) return "すでに生成中です"
+        if (result.isSuccess) return null
+        return result.errorSummary ?: if (result.isSkipped) "生成がスキップされました" else "生成に失敗しました"
     }
 
     // 現在の ViewModel 状態を AppConfig として保存する

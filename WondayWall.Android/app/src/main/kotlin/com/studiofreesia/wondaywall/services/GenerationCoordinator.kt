@@ -1,7 +1,6 @@
 package com.studiofreesia.wondaywall.services
 
 import android.content.Context
-import android.os.PowerManager
 import android.util.Log
 import com.studiofreesia.wondaywall.models.CalendarEventItem
 import com.studiofreesia.wondaywall.models.ContextBuildResult
@@ -26,7 +25,7 @@ class GenerationCoordinator(
     private val context: Context,
     private val appConfigService: AppConfigService,
     private val contextService: ContextService,
-    private val googleAiService: GoogleAiServiceProtocol,
+    private val aiService: AiService,
     private val wallpaperService: WallpaperService,
     private val historyService: HistoryService,
     private val taskSchedulerService: TaskSchedulerService,
@@ -40,12 +39,6 @@ class GenerationCoordinator(
 
     private val _progress = MutableStateFlow<GenerationProgress?>(null)
     val progress: StateFlow<GenerationProgress?> = _progress.asStateFlow()
-
-    // 手動生成（後方互換用）。新規 UI からは WorkManager 経由で呼ぶ。
-    suspend fun runAsync(): HistoryItem = runForWorker(GenerationTrigger.Manual)
-
-    // スケジュール生成（後方互換用）。Worker からは runForWorker を呼ぶ。
-    suspend fun runScheduledAsync(): HistoryItem = runForWorker(GenerationTrigger.Scheduled)
 
     // WorkManager Worker から呼ばれる生成入口
     suspend fun runForWorker(trigger: GenerationTrigger): HistoryItem {
@@ -96,14 +89,12 @@ class GenerationCoordinator(
 
         _isGenerating.value = true
         try {
-            return withGenerationWakeLock {
-                runCore(
-                    trigger = trigger,
-                    serviceTier = serviceTier,
-                    skipIfNoChanges = skipIfNoChanges,
-                    checkScheduledSkips = checkScheduledSkips,
-                )
-            }
+            return runCore(
+                trigger = trigger,
+                serviceTier = serviceTier,
+                skipIfNoChanges = skipIfNoChanges,
+                checkScheduledSkips = checkScheduledSkips,
+            )
         } finally {
             _isGenerating.value = false
             _progress.value = null
@@ -183,7 +174,7 @@ class GenerationCoordinator(
                     selectedNewsIds = resumable.usedNewsTopics?.map { it.id }.orEmpty(),
                 )
             } else {
-                promptResult = googleAiService.generatePrompt(
+                promptResult = aiService.generatePrompt(
                     context = contextResult.promptContext,
                     serviceTier = serviceTier,
                     onProgress = { progress, message ->
@@ -218,7 +209,7 @@ class GenerationCoordinator(
             } else {
                 contextResult.promptContext
             }
-            val contextWithOgp = googleAiService.fetchOgpImages(
+            val contextWithOgp = aiService.fetchOgpImages(
                 context = contextForImage,
                 selectedNewsIds = promptResult.selectedNewsIds,
             )
@@ -233,7 +224,7 @@ class GenerationCoordinator(
                 )
             )
 
-            val imageResult = googleAiService.generateImageFromPrompt(
+            val imageResult = aiService.generateImageFromPrompt(
                 imagePrompt = promptResult.imagePrompt,
                 context = contextWithOgp,
                 serviceTier = serviceTier,
@@ -346,22 +337,6 @@ class GenerationCoordinator(
         )
     }
 
-    private suspend fun <T> withGenerationWakeLock(block: suspend () -> T): T {
-        val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-        val wakeLock = powerManager.newWakeLock(
-            PowerManager.PARTIAL_WAKE_LOCK,
-            "$TAG:Generation",
-        )
-        return try {
-            wakeLock.acquire(GENERATION_WAKE_LOCK_TIMEOUT_MS)
-            block()
-        } finally {
-            if (wakeLock.isHeld) {
-                wakeLock.release()
-            }
-        }
-    }
-
     // スキップ理由を確認する（スキップ不要なら null を返す）
     private suspend fun checkPreContextSkipReason(): String? {
         val appConfig = appConfigService.getConfig()
@@ -421,6 +396,5 @@ class GenerationCoordinator(
 
     companion object {
         private const val TAG = "GenerationCoordinator"
-        private const val GENERATION_WAKE_LOCK_TIMEOUT_MS = 30 * 60 * 1000L
     }
 }

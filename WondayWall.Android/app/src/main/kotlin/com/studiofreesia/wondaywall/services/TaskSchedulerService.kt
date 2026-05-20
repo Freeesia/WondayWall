@@ -11,11 +11,14 @@ import androidx.work.WorkManager
 import com.studiofreesia.wondaywall.models.GenerationPhase
 import com.studiofreesia.wondaywall.models.GenerationProgress
 import com.studiofreesia.wondaywall.models.GenerationTrigger
+import com.studiofreesia.wondaywall.models.HistoryItem
 import com.studiofreesia.wondaywall.models.UpdateSchedule
 import com.studiofreesia.wondaywall.workers.GenerationWorker
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.util.Calendar
+import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 // バックグラウンド定期生成の登録・解除・スロット判定を担当するサービス
@@ -33,6 +36,8 @@ class TaskSchedulerService(
         const val KEY_PROGRESS_MESSAGE = "progress_message"
         const val KEY_PROGRESS_PHASE = "progress_phase"
         const val KEY_PROGRESS_HISTORY_ID = "progress_history_id"
+        const val KEY_RESULT_HISTORY_ID = "result_history_id"
+        const val KEY_RESULT_STATUS = "result_status"
 
         // すべてのスケジュールで1日の最初の更新は4:00に揃える（Windows版 ScheduleHelper.FirstDailySlot と同じ）
         private const val FIRST_DAILY_SLOT_HOUR = 4
@@ -77,11 +82,31 @@ class TaskSchedulerService(
                 trigger = trigger,
             )
         }
+
+        fun resultToData(item: HistoryItem): Data =
+            Data.Builder()
+                .putString(KEY_RESULT_HISTORY_ID, item.id)
+                .putString(KEY_RESULT_STATUS, item.status.name)
+                .build()
     }
 
     // 手動生成を WorkManager Foreground Worker 経由で即時登録する
     suspend fun enqueueManualGeneration(): Boolean =
         enqueueImmediateGeneration(GenerationTrigger.Manual)
+
+    // 手動生成を登録し、WorkManager の完了まで待って履歴を返す
+    suspend fun enqueueManualGenerationAndWait(): HistoryItem? {
+        if (isGenerationWorkRunning()) return null
+        val workRequest = buildImmediateGenerationRequest(GenerationTrigger.Manual)
+        WorkManager.getInstance(context).enqueueUniqueWork(
+            WORK_NAME,
+            ExistingWorkPolicy.REPLACE,
+            workRequest,
+        )
+        val workInfo = waitForWorkCompletion(workRequest.id) ?: return null
+        val historyId = workInfo.outputData.getString(KEY_RESULT_HISTORY_ID) ?: return null
+        return historyService.getHistoryItem(historyId)
+    }
 
     // 起動時補完生成を WorkManager Foreground Worker 経由で即時登録する
     suspend fun enqueueStartupRecoveryGeneration(): Boolean =
@@ -89,10 +114,7 @@ class TaskSchedulerService(
 
     private suspend fun enqueueImmediateGeneration(trigger: GenerationTrigger): Boolean {
         if (isGenerationWorkRunning()) return false
-        val workRequest = OneTimeWorkRequestBuilder<GenerationWorker>()
-            .setInputData(inputDataFor(trigger))
-            .setConstraints(buildConstraints())
-            .build()
+        val workRequest = buildImmediateGenerationRequest(trigger)
 
         WorkManager.getInstance(context).enqueueUniqueWork(
             WORK_NAME,
@@ -101,6 +123,12 @@ class TaskSchedulerService(
         )
         return true
     }
+
+    private suspend fun buildImmediateGenerationRequest(trigger: GenerationTrigger) =
+        OneTimeWorkRequestBuilder<GenerationWorker>()
+            .setInputData(inputDataFor(trigger))
+            .setConstraints(buildConstraints())
+            .build()
 
     // 次回スケジュールスロットを計算して WorkManager に登録する
     suspend fun scheduleNext(allowWhileRunning: Boolean = false) {
@@ -172,17 +200,32 @@ class TaskSchedulerService(
         }
     }
 
-    private suspend fun buildConstraints(): Constraints {
-        val config = appConfigService.getConfig()
+    private fun buildConstraints(): Constraints {
+        // Wi-Fi のみ・省電力中スキップは GenerationCoordinator で判定し、スキップ時も次回枠を予約する。
         return Constraints.Builder()
-            .apply {
-                if (config.generateOnlyOnWifi) {
-                    setRequiredNetworkType(NetworkType.UNMETERED)
-                } else {
-                    setRequiredNetworkType(NetworkType.CONNECTED)
-                }
-            }
+            .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
+    }
+
+    private suspend fun waitForWorkCompletion(id: UUID): WorkInfo? {
+        while (true) {
+            val workInfo = getWorkInfo(id) ?: return null
+            if (workInfo.state == WorkInfo.State.SUCCEEDED ||
+                workInfo.state == WorkInfo.State.FAILED ||
+                workInfo.state == WorkInfo.State.CANCELLED
+            ) {
+                return workInfo
+            }
+            delay(1_000)
+        }
+    }
+
+    private suspend fun getWorkInfo(id: UUID): WorkInfo? = withContext(Dispatchers.IO) {
+        try {
+            WorkManager.getInstance(context).getWorkInfoById(id).get()
+        } catch (_: Exception) {
+            null
+        }
     }
 
     // 現在時刻以前の最新スケジュールスロットを返す（エポックミリ秒）

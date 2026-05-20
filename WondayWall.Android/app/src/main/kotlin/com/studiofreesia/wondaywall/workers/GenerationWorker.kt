@@ -37,7 +37,7 @@ class GenerationWorker(
             setProgress(TaskSchedulerService.progressToData(initialProgress))
             setForeground(createForegroundInfo(initialProgress))
 
-            coroutineScope {
+            val historyItem = coroutineScope {
                 val progressJob = launch {
                     app.generationCoordinator.progress.collect { progress ->
                         if (progress == null) return@collect
@@ -54,7 +54,7 @@ class GenerationWorker(
                     app.taskSchedulerService.scheduleNext(allowWhileRunning = true)
                 }
             }
-            Result.success()
+            Result.success(TaskSchedulerService.resultToData(historyItem))
         } catch (e: Exception) {
             // 失敗時はリトライしない（次回スロットで再試行する）
             app.taskSchedulerService.scheduleNext(allowWhileRunning = true)

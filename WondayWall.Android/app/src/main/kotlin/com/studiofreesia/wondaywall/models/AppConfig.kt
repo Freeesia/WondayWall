@@ -33,4 +33,6 @@ data class AppConfig(
     val skipOnBatterySaver: Boolean = true,
     // 手動生成でも Flex ティアを強制使用する
     val forceFlexTier: Boolean = false,
+    // Debug ビルド用の追加設定
+    val debugConfig: DebugConfig = DebugConfig(),
 )

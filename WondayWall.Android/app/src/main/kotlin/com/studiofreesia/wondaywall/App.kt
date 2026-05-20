@@ -8,12 +8,12 @@ import com.google.crypto.tink.aead.AeadConfig
 import com.studiofreesia.wondaywall.services.AppConfigService
 import com.studiofreesia.wondaywall.services.ContextService
 import com.studiofreesia.wondaywall.services.GenerationCoordinator
-import com.studiofreesia.wondaywall.services.GoogleAiServiceProvider
-import com.studiofreesia.wondaywall.services.GoogleAiServiceProtocol
+import com.studiofreesia.wondaywall.services.AiService
 import com.studiofreesia.wondaywall.services.HistoryService
 import com.studiofreesia.wondaywall.services.NotificationHelper
 import com.studiofreesia.wondaywall.services.TaskSchedulerService
 import com.studiofreesia.wondaywall.services.WallpaperService
+import com.studiofreesia.wondaywall.services.bindAiService
 
 // アプリケーションクラス：手動 DI でサービスを初期化する
 class App : Application() {
@@ -22,7 +22,7 @@ class App : Application() {
         private set
     lateinit var contextService: ContextService
         private set
-    lateinit var googleAiService: GoogleAiServiceProtocol
+    lateinit var aiService: AiService
         private set
     lateinit var wallpaperService: WallpaperService
         private set
@@ -48,7 +48,7 @@ class App : Application() {
         appConfigService = AppConfigService(this)
         historyService = HistoryService(this)
         contextService = ContextService(this, appConfigService)
-        googleAiService = GoogleAiServiceProvider.create(this, appConfigService, filesDir)
+        aiService = bindAiService(appConfigService, filesDir)
         wallpaperService = WallpaperService(this)
         notificationHelper = NotificationHelper(this)
         taskSchedulerService = TaskSchedulerService(this, appConfigService, historyService)
@@ -56,7 +56,7 @@ class App : Application() {
             context = this,
             appConfigService = appConfigService,
             contextService = contextService,
-            googleAiService = googleAiService,
+            aiService = aiService,
             wallpaperService = wallpaperService,
             historyService = historyService,
             taskSchedulerService = taskSchedulerService,

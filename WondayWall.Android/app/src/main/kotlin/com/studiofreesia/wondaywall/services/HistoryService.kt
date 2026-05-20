@@ -94,6 +94,10 @@ class HistoryService(context: Context) {
     suspend fun getLatestSuccessItem(): HistoryItem? =
         loadHistory().firstOrNull { it.isSuccess && !it.isSkipped }
 
+    // 指定IDの履歴を取得する
+    suspend fun getHistoryItem(id: String): HistoryItem? =
+        loadHistory().firstOrNull { it.id == id }
+
     // 最後に完了した生成試行を取得する（成功・失敗・スキップをスロット消費済みとして扱う）
     suspend fun getLastCompletedRun(): HistoryItem? =
         loadHistory().firstOrNull { !it.isGenerating }

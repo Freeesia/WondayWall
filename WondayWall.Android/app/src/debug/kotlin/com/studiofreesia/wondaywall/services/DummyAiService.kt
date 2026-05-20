@@ -6,7 +6,6 @@ import android.graphics.Color
 import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Shader
-import com.studiofreesia.wondaywall.models.GeneratedImageInfo
 import com.studiofreesia.wondaywall.models.GeneratedImageResult
 import com.studiofreesia.wondaywall.models.GoogleAiServiceTier
 import com.studiofreesia.wondaywall.models.PromptContext
@@ -20,30 +19,17 @@ import kotlin.math.roundToInt
 import kotlin.random.Random
 
 // 実 API を使わずに遅延付きで動作を再現するダミー実装（Debug ビルド専用）
-class DummyGoogleAiService(
-    private val debugConfigService: DebugConfigService,
+class DummyAiService(
+    private val appConfigService: AppConfigService,
     private val filesDir: File,
-) : GoogleAiServiceProtocol {
-
-    override suspend fun generateWallpaper(
-        context: PromptContext,
-        serviceTier: GoogleAiServiceTier,
-    ): GeneratedImageInfo {
-        val promptResult = generatePrompt(context, serviceTier, null)
-        val imageResult = generateImageFromPrompt(promptResult.imagePrompt, context, serviceTier, null)
-        return GeneratedImageInfo(
-            filePath = imageResult.filePath,
-            imagePrompt = promptResult.imagePrompt,
-            selectedNewsIds = promptResult.selectedNewsIds,
-        )
-    }
+) : AiService {
 
     override suspend fun generatePrompt(
         context: PromptContext,
         serviceTier: GoogleAiServiceTier,
         onProgress: ((Double, String) -> Unit)?,
     ): PromptGenerationResult {
-        val delaySeconds = debugConfigService.getConfig().dummyPromptDelaySeconds
+        val delaySeconds = appConfigService.getConfig().debugConfig.dummyPromptDelaySeconds
         simulateProgress(
             totalSeconds = delaySeconds,
             message = "[Dummy] 画像生成プロンプトの生成中",
@@ -66,7 +52,7 @@ class DummyGoogleAiService(
         serviceTier: GoogleAiServiceTier,
         onProgress: ((Double, String) -> Unit)?,
     ): GeneratedImageResult {
-        val delaySeconds = debugConfigService.getConfig().dummyImageDelaySeconds
+        val delaySeconds = appConfigService.getConfig().debugConfig.dummyImageDelaySeconds
         simulateProgress(
             totalSeconds = delaySeconds,
             message = "[Dummy] 壁紙画像の生成中",

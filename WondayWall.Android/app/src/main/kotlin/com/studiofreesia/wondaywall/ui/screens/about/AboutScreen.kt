@@ -40,9 +40,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
+import com.studiofreesia.wondaywall.BuildConfig
 import com.studiofreesia.wondaywall.services.AppConfigService
 import com.studiofreesia.wondaywall.services.GenerationCoordinator
-import com.studiofreesia.wondaywall.services.GoogleAiServiceProtocol
+import com.studiofreesia.wondaywall.services.AiService
 import com.studiofreesia.wondaywall.services.TaskSchedulerService
 import com.studiofreesia.wondaywall.ui.components.SquareAppIcon
 
@@ -51,17 +52,17 @@ import com.studiofreesia.wondaywall.ui.components.SquareAppIcon
 fun AboutScreen(
     appConfigService: AppConfigService,
     generationCoordinator: GenerationCoordinator,
-    googleAiService: GoogleAiServiceProtocol,
+    aiService: AiService,
     taskSchedulerService: TaskSchedulerService,
     onClose: () -> Unit,
 ) {
     var showDebugInfo by remember { mutableStateOf(false) }
 
-    if (showDebugInfo) {
+    if (showDebugInfo && BuildConfig.DEBUG) {
         AboutDebugScreen(
             appConfigService = appConfigService,
             generationCoordinator = generationCoordinator,
-            googleAiService = googleAiService,
+            aiService = aiService,
             taskSchedulerService = taskSchedulerService,
             onBack = { showDebugInfo = false },
             onClose = onClose,
@@ -69,7 +70,7 @@ fun AboutScreen(
     } else {
         AboutContent(
             onClose = onClose,
-            onShowDebugInfo = { showDebugInfo = true },
+            onShowDebugInfo = { showDebugInfo = BuildConfig.DEBUG },
         )
     }
 }
@@ -164,7 +165,9 @@ private fun AboutContent(
             }
         }
 
-        AboutDebugEntry(onShowDebugInfo = onShowDebugInfo)
+        if (BuildConfig.DEBUG) {
+            AboutDebugEntry(onShowDebugInfo = onShowDebugInfo)
+        }
 
         Spacer(Modifier.height(16.dp))
     }

@@ -4,8 +4,8 @@ import Defaults
 
 // デバッグ専用設定モデル
 struct DebugConfig: Codable {
-    // Google AI をダミー実装に切り替える（切り替えは次回起動時に反映）
-    var useDummyGoogleAiService: Bool = false
+    // ダミーAIサービスに切り替える（切り替えは次回起動時に反映）
+    var useDummyAiService: Bool = false
     // ダミー実装でのプロンプト生成遅延秒数
     var dummyPromptDelaySeconds: Int = 180
     // ダミー実装での画像生成遅延秒数

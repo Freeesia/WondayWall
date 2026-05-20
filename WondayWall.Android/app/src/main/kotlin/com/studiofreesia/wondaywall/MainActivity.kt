@@ -46,7 +46,7 @@ class MainActivity : ComponentActivity() {
                     wallpaperService = app.wallpaperService,
                     contextService = app.contextService,
                     taskSchedulerService = app.taskSchedulerService,
-                    googleAiService = app.googleAiService,
+                    aiService = app.aiService,
                 )
                 startupAlert?.let { alert ->
                     StartupGenerationAlert(

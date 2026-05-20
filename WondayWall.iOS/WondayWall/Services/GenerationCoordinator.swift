@@ -5,7 +5,7 @@ import Foundation
 actor GenerationCoordinator {
     private let configService: AppConfigService
     private let contextService: ContextService
-    private let googleAiService: any GoogleAiServiceProtocol
+    private let aiService: any AiService
     private let wallpaperService: WallpaperService
     private let historyService: HistoryService
     private let notificationService: NotificationService
@@ -23,7 +23,7 @@ actor GenerationCoordinator {
     init(
         configService: AppConfigService,
         contextService: ContextService,
-        googleAiService: any GoogleAiServiceProtocol,
+        aiService: any AiService,
         wallpaperService: WallpaperService,
         historyService: HistoryService,
         notificationService: NotificationService,
@@ -32,7 +32,7 @@ actor GenerationCoordinator {
     ) {
         self.configService = configService
         self.contextService = contextService
-        self.googleAiService = googleAiService
+        self.aiService = aiService
         self.wallpaperService = wallpaperService
         self.historyService = historyService
         self.notificationService = notificationService
@@ -169,7 +169,7 @@ actor GenerationCoordinator {
                     generatedPrompt = savedPrompt
                 } else {
                     // 通常フロー: テキストモデルで画像プロンプトを生成
-                    let result = try await googleAiService.generatePrompt(
+                    let result = try await aiService.generatePrompt(
                         context: context,
                         serviceTier: serviceTier,
                         onProgress: { [weak self] progress, message in
@@ -201,7 +201,7 @@ actor GenerationCoordinator {
                     ?? contextResult.newsTopics.filter { promptResult.selectedNewsIds.contains($0.id) }
 
                 // ステップ 1.5: 採用ニュースの OGP 画像をダウンロードする
-                let contextWithOgp = await googleAiService.fetchOgpImages(
+                let contextWithOgp = await aiService.fetchOgpImages(
                     context: context,
                     selectedNewsIds: promptResult.selectedNewsIds
                 )
@@ -219,7 +219,7 @@ actor GenerationCoordinator {
                 ))
 
                 // ステップ 2: 画像モデルで壁紙を生成
-                let imageResult = try await googleAiService.generateImageFromPrompt(
+                let imageResult = try await aiService.generateImageFromPrompt(
                     imagePrompt: promptResult.imagePrompt,
                     context: contextWithOgp,
                     serviceTier: serviceTier,
