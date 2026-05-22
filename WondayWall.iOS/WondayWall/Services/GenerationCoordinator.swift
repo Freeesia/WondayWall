@@ -1,8 +1,10 @@
 import Foundation
+import OSLog
 
 // 壁紙生成処理全体を統括するサービス
 // actor によって多重実行を防止する
 actor GenerationCoordinator {
+    private let logger = Logger(subsystem: "com.studiofreesia.wondaywall", category: "GenerationCoordinator")
     private let configService: AppConfigService
     private let contextService: ContextService
     private let googleAiService: any GoogleAiServiceProtocol
@@ -71,24 +73,45 @@ actor GenerationCoordinator {
 
     // 現在時刻で定期生成が必要かどうかを返す（起動時・復帰時の事前確認用）
     func isScheduledGenerationNeeded(now: Date = Date()) -> Bool {
-        guard !isGenerating else { return false }
+        guard !isGenerating else {
+            logger.notice("isScheduledGenerationNeeded: isGenerating=true → スキップ")
+            return false
+        }
 
         // 前回の生成が中断されている場合は、設定に関わらずなるはやで再実行する
         if historyService.getPendingGeneratingItem() != nil || historyService.getGeneratingWithPrompt() != nil {
+            logger.notice("isScheduledGenerationNeeded: 中断中の生成あり → 再実行")
             return true
         }
 
         let config = configService.config
-        guard config.autoGenerationEnabled else { return false }
-        if config.wifiOnlyGeneration && !isOnWiFi() { return false }
-        if ProcessInfo.processInfo.isLowPowerModeEnabled { return false }
+        guard config.autoGenerationEnabled else {
+            logger.notice("isScheduledGenerationNeeded: autoGenerationEnabled=false → スキップ")
+            return false
+        }
+        if config.wifiOnlyGeneration && !isOnWiFi() {
+            logger.warning("isScheduledGenerationNeeded: wifiOnlyGeneration=true かつ WiFi 未接続 → スキップ")
+            return false
+        }
+        if ProcessInfo.processInfo.isLowPowerModeEnabled {
+            logger.warning("isScheduledGenerationNeeded: 低電力モード有効 → スキップ")
+            return false
+        }
 
         let lastRunAt = historyService.getLastCompletedRun()?.executedAt
-        return ScheduleHelper.isPendingGeneration(
+        let needed = ScheduleHelper.isPendingGeneration(
             now: now,
             lastRunAt: lastRunAt,
             schedule: config.schedule
         )
+        if needed {
+            let lastStr = lastRunAt.map { $0.formatted(.iso8601) } ?? "nil"
+            logger.notice("isScheduledGenerationNeeded: 生成必要 lastRunAt=\(lastStr, privacy: .public) now=\(now.formatted(.iso8601), privacy: .public)")
+        } else {
+            let lastStr = lastRunAt.map { $0.formatted(.iso8601) } ?? "nil"
+            logger.notice("isScheduledGenerationNeeded: スケジュール上不要 lastRunAt=\(lastStr, privacy: .public) now=\(now.formatted(.iso8601), privacy: .public)")
+        }
+        return needed
     }
 
     // 定期生成が必要か判定し、必要なら1回だけ生成する
@@ -113,6 +136,10 @@ actor GenerationCoordinator {
 
     // 生成コアロジック（手動・定期両用）
     private func runCore(skipIfNoChanges: Bool, serviceTier: GoogleAiServiceTier) async -> HistoryItem {
+        let coreStartTime = Date()
+        let tierStr = serviceTier == .flex ? "flex" : "standard"
+        logger.notice("runCore 開始 tier=\(tierStr, privacy: .public) skipIfNoChanges=\(skipIfNoChanges, privacy: .public)")
+
         var status: GenerationStatus = .failure
         var photoAssetId: String? = nil
         var usedEvents: [CalendarEventItem]? = nil
@@ -169,6 +196,8 @@ actor GenerationCoordinator {
                     generatedPrompt = savedPrompt
                 } else {
                     // 通常フロー: テキストモデルで画像プロンプトを生成
+                    logger.notice("runCore ステップ1: プロンプト生成 開始")
+                    let step1Start = Date()
                     let result = try await googleAiService.generatePrompt(
                         context: context,
                         serviceTier: serviceTier,
@@ -178,6 +207,7 @@ actor GenerationCoordinator {
                             Task { await self.postProgress(scaled, message: message) }
                         }
                     )
+                    logger.notice("runCore ステップ1: プロンプト生成 完了 elapsed=\(String(format: "%.1f", Date().timeIntervalSince(step1Start)), privacy: .public)s")
                     generatedPrompt = result.imagePrompt
                     promptResult = result
 
@@ -219,6 +249,8 @@ actor GenerationCoordinator {
                 ))
 
                 // ステップ 2: 画像モデルで壁紙を生成
+                logger.notice("runCore ステップ2: 画像生成 開始")
+                let step2Start = Date()
                 let imageResult = try await googleAiService.generateImageFromPrompt(
                     imagePrompt: promptResult.imagePrompt,
                     context: contextWithOgp,
@@ -229,6 +261,7 @@ actor GenerationCoordinator {
                         Task { await self.postProgress(scaled, message: message) }
                     }
                 )
+                logger.notice("runCore ステップ2: 画像生成 完了 elapsed=\(String(format: "%.1f", Date().timeIntervalSince(step2Start)), privacy: .public)s")
                 usedEvents = resumable?.usedCalendarEvents ?? contextResult.calendarEvents
                 usedNews = adoptedNews
                 status = .success
@@ -256,6 +289,8 @@ actor GenerationCoordinator {
                 await postProgress(1.0, message: "処理完了")
             }
         } catch {
+            let elapsed = Date().timeIntervalSince(coreStartTime)
+            logger.error("runCore エラー elapsed=\(String(format: "%.1f", elapsed), privacy: .public)s error=\(error.localizedDescription, privacy: .public)")
             errorSummary = error.localizedDescription
             status = .failure
         }
@@ -274,6 +309,9 @@ actor GenerationCoordinator {
 
         // 生成中履歴を最終ステータスで更新する
         historyService.update(historyItem)
+
+        let totalElapsed = Date().timeIntervalSince(coreStartTime)
+        logger.notice("runCore 完了 status=\(status.rawValue, privacy: .public) elapsed=\(String(format: "%.1f", totalElapsed), privacy: .public)s")
 
         // 通知（失敗時のみここで送信。成功時は上で処理済み）
         if configService.config.notificationsEnabled {

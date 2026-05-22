@@ -33,7 +33,7 @@ final class BackgroundTaskService {
         }
 
         let nextSlot = ScheduleHelper.getNextScheduledSlotAfter(Date(), schedule: config.schedule)
-        logger.notice("scheduleNextBackgroundTask: 次回スロット=\(nextSlot.formatted(.iso8601))")
+        logger.notice("scheduleNextBackgroundTask: 次回スロット=\(nextSlot.formatted(.iso8601), privacy: .public)")
 
         let request = BGProcessingTaskRequest(identifier: Self.taskIdentifier)
         request.requiresNetworkConnectivity = true
@@ -43,10 +43,10 @@ final class BackgroundTaskService {
 
         do {
             try BGTaskScheduler.shared.submit(request)
-            logger.notice("scheduleNextBackgroundTask: submit 成功 (identifier=\(Self.taskIdentifier))")
+            logger.notice("scheduleNextBackgroundTask: submit 成功 (identifier=\(Self.taskIdentifier, privacy: .public))")
         } catch {
             // スケジュール失敗は致命的ではない（次回起動時に再試行する）
-            logger.error("scheduleNextBackgroundTask: submit 失敗 error=\(error.localizedDescription)")
+            logger.error("scheduleNextBackgroundTask: submit 失敗 error=\(error.localizedDescription, privacy: .public)")
         }
     }
 
@@ -61,13 +61,13 @@ final class BackgroundTaskService {
             try BGTaskScheduler.shared.submit(request)
             logger.notice("scheduleFallbackBackgroundTask: 30分後フォールバック登録成功")
         } catch {
-            logger.error("scheduleFallbackBackgroundTask: submit 失敗 error=\(error.localizedDescription)")
+            logger.error("scheduleFallbackBackgroundTask: submit 失敗 error=\(error.localizedDescription, privacy: .public)")
         }
     }
 
     // BGProcessingTask が起動されたときの処理（AppDelegate から呼ばれる）
     func handle(_ task: BGProcessingTask) {
-        logger.notice("handle: BGProcessingTask 受信 identifier=\(task.identifier)")
+        logger.notice("handle: BGProcessingTask 受信 identifier=\(task.identifier, privacy: .public)")
 
         // 強制kill・expiration に備えて30分後フォールバックを先に登録する（安全弁）
         // 正常完了時は scheduleNextBackgroundTask() で次スロットへ上書きされる
@@ -94,14 +94,23 @@ final class BackgroundTaskService {
             do {
                 let result = try await coordinator.runScheduledIfNeeded()
                 if let result {
-                    logger.notice("handle: runScheduledIfNeeded 完了 status=\(String(describing: result.status))")
+                    let statusStr = result.status.rawValue
+                    logger.notice("handle: runScheduledIfNeeded 完了 status=\(statusStr, privacy: .public)")
+
+                    if result.status == .failure {
+                        // 失敗時は30分後フォールバックを維持して再試行させる
+                        // scheduleNextBackgroundTask() を呼ばずにフォールバックを残す
+                        logger.warning("handle: 生成失敗 — 30分後フォールバックで再試行")
+                        task.setTaskCompleted(success: false)
+                        return
+                    }
                 } else {
                     logger.notice("handle: runScheduledIfNeeded スキップ（生成不要）")
                 }
             } catch {
                 // エラーは coordinator 内で履歴保存済み
                 // 30分後フォールバックが残り、自動再試行される
-                logger.error("handle: runScheduledIfNeeded エラー error=\(error.localizedDescription)")
+                logger.error("handle: runScheduledIfNeeded エラー error=\(error.localizedDescription, privacy: .public)")
                 logger.notice("handle: setTaskCompleted(success: false)")
                 task.setTaskCompleted(success: false)
                 return
