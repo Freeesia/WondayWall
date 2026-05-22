@@ -131,7 +131,8 @@ final class ContextService {
                 summary: item.summary,
                 url: item.url,
                 publishedAt: item.publishedAt,
-                ogpImageUrl: ogp
+                ogpImageUrl: ogp,
+                sourceRssUrl: item.sourceRssUrl
             )
         }
         // 結果をファイルにキャッシュする（RSSソース一覧も一緒に保存して変更検出に使う）
@@ -242,27 +243,24 @@ final class ContextService {
 
         // ニューストピックを取得して選別する
         onProgress?(0.18, "ニュースの取得中")
-        let weekAgo = Date().addingTimeInterval(-7 * 24 * 3600)
-        let rawRssItems = await withTaskGroup(of: [RssItem].self) { group in
-            for sourceUrl in configService.config.rssSources {
-                group.addTask { await self.fetchRssItems(from: sourceUrl, since: weekAgo) }
-            }
-            var all: [RssItem] = []
-            for await items in group { all.append(contentsOf: items) }
-            return all.sorted { $0.publishedAt > $1.publishedAt }
-        }
+        let cachedNews = await fetchNews()
         onProgress?(0.24, "ニュースの取得完了")
         let lastGenerated = historyService.getLastSuccessfulGenerated()
-        let selectedRssItems = selectPromptNewsItems(
-            recentNews: rawRssItems,
+        let selectedNewsItems = selectPromptNewsItems(
+            recentNews: cachedNews,
             lastGeneratedAt: lastGenerated?.executedAt
         )
         // 選別したアイテムの OGP 画像を並列取得する（最大10件）
+        // すでに OGP 画像があれば再取得はスキップする
         onProgress?(0.30, "OGP画像の取得中")
         let ogpURLs = await withTaskGroup(of: (String, String?).self) { group in
-            for item in selectedRssItems.prefix(10) {
+            for item in selectedNewsItems.prefix(10) {
                 if let url = item.url {
-                    group.addTask { (url, await self.fetchOGPImageURL(from: url)) }
+                    if let existingOgp = item.ogpImageUrl {
+                        group.addTask { (url, existingOgp) }
+                    } else {
+                        group.addTask { (url, await self.fetchOGPImageURL(from: url)) }
+                    }
                 }
             }
             var map: [String: String] = [:]
@@ -272,7 +270,7 @@ final class ContextService {
             return map
         }
         onProgress?(0.35, "コンテキスト生成完了")
-        let news: [NewsTopicItem] = selectedRssItems.map { item in
+        let news: [NewsTopicItem] = selectedNewsItems.map { item in
             let ogp = item.url.flatMap { ogpURLs[$0] }
             return NewsTopicItem(
                 id: item.url ?? item.title,
@@ -280,7 +278,8 @@ final class ContextService {
                 summary: item.summary,
                 url: item.url,
                 publishedAt: item.publishedAt,
-                ogpImageUrl: ogp
+                ogpImageUrl: ogp,
+                sourceRssUrl: item.sourceRssUrl
             )
         }
 
@@ -327,16 +326,16 @@ final class ContextService {
 
     // プロンプト用ニュースを選別する（最大10件）
     private func selectPromptNewsItems(
-        recentNews: [RssItem],
+        recentNews: [NewsTopicItem],
         lastGeneratedAt: Date?
-    ) -> [RssItem] {
+    ) -> [NewsTopicItem] {
         let maxCount = 10
         let maxRecentSinceLastGeneration = 3
-        var selected: [RssItem] = []
+        var selected: [NewsTopicItem] = []
         var selectedKeys = Set<String>()
 
         @discardableResult
-        func tryAdd(_ item: RssItem) -> Bool {
+        func tryAdd(_ item: NewsTopicItem) -> Bool {
             let key = item.url ?? item.title
             guard selected.count < maxCount, selectedKeys.insert(key).inserted else {
                 return false
@@ -361,8 +360,10 @@ final class ContextService {
 
         // 各 RSS ソースから先頭1件を追加（ソース間の多様性確保）
         var seenSources = Set<String>()
-        for item in recentNews where seenSources.insert(item.sourceRssUrl).inserted {
-            tryAdd(item)
+        for item in recentNews {
+            if let sourceUrl = item.sourceRssUrl, seenSources.insert(sourceUrl).inserted {
+                tryAdd(item)
+            }
         }
 
         // 残り全件を追加
