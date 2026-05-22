@@ -115,7 +115,7 @@ internal fun AboutDebugScreen(
         scope.launch {
             val loadedConfig = appConfigService.getConfig()
             config = loadedConfig
-            debugConfig = loadedConfig.debugConfig
+            debugConfig = appConfigService.getDebugConfig()
             workSnapshot = workManagerDebugReader.loadSnapshot()
             loadedAt = System.currentTimeMillis()
         }
@@ -124,7 +124,7 @@ internal fun AboutDebugScreen(
     fun updateDebugConfig(update: (DebugConfig) -> DebugConfig) {
         scope.launch {
             val updated = update(debugConfig).normalized()
-            appConfigService.updateConfig { it.copy(debugConfig = updated) }
+            appConfigService.saveDebugConfig(updated)
             debugConfig = updated
             config = appConfigService.getConfig()
         }

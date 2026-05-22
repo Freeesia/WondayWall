@@ -200,10 +200,16 @@ class TaskSchedulerService(
         }
     }
 
-    private fun buildConstraints(): Constraints {
-        // Wi-Fi のみ・省電力中スキップは GenerationCoordinator で判定し、スキップ時も次回枠を予約する。
+    private suspend fun buildConstraints(): Constraints {
+        val config = appConfigService.getConfig()
         return Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .apply {
+                if (config.generateOnlyOnWifi) {
+                    setRequiredNetworkType(NetworkType.UNMETERED)
+                } else {
+                    setRequiredNetworkType(NetworkType.CONNECTED)
+                }
+            }
             .build()
     }
 

@@ -7,13 +7,15 @@ import android.os.Build
 import com.google.crypto.tink.aead.AeadConfig
 import com.studiofreesia.wondaywall.services.AppConfigService
 import com.studiofreesia.wondaywall.services.ContextService
-import com.studiofreesia.wondaywall.services.GenerationCoordinator
 import com.studiofreesia.wondaywall.services.AiService
+import com.studiofreesia.wondaywall.services.DummyAiService
+import com.studiofreesia.wondaywall.services.GenerationCoordinator
+import com.studiofreesia.wondaywall.services.GoogleAiService
 import com.studiofreesia.wondaywall.services.HistoryService
 import com.studiofreesia.wondaywall.services.NotificationHelper
 import com.studiofreesia.wondaywall.services.TaskSchedulerService
 import com.studiofreesia.wondaywall.services.WallpaperService
-import com.studiofreesia.wondaywall.services.bindAiService
+import kotlinx.coroutines.runBlocking
 
 // アプリケーションクラス：手動 DI でサービスを初期化する
 class App : Application() {
@@ -48,7 +50,7 @@ class App : Application() {
         appConfigService = AppConfigService(this)
         historyService = HistoryService(this)
         contextService = ContextService(this, appConfigService)
-        aiService = bindAiService(appConfigService, filesDir)
+        aiService = createAiService()
         wallpaperService = WallpaperService(this)
         notificationHelper = NotificationHelper(this)
         taskSchedulerService = TaskSchedulerService(this, appConfigService, historyService)
@@ -62,6 +64,18 @@ class App : Application() {
             taskSchedulerService = taskSchedulerService,
             notificationHelper = notificationHelper,
         )
+    }
+
+    // Debug / Preview ビルドでは起動時設定に応じて実サービスとダミーAIサービスを切り替える
+    private fun createAiService(): AiService {
+        val useDummy = BuildConfig.DEBUG && runBlocking {
+            appConfigService.getDebugConfig().useDummyAiService
+        }
+        return if (useDummy) {
+            DummyAiService(appConfigService, filesDir)
+        } else {
+            GoogleAiService(appConfigService, filesDir)
+        }
     }
 
     // 通知チャンネルを登録する（Android 8.0以上）

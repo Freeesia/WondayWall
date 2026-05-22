@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -22,6 +23,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Newspaper
 import androidx.compose.material3.BottomSheetDefaults
@@ -31,6 +34,7 @@ import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
@@ -42,7 +46,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -69,12 +75,19 @@ fun HomeScreen(viewModel: HomeViewModel) {
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var isGenerationSheetFullScreen by remember { mutableStateOf(false) }
 
     // エラー表示
     LaunchedEffect(uiState.errorMessage) {
         uiState.errorMessage?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.clearError()
+        }
+    }
+
+    LaunchedEffect(uiState.showGenerationSheet) {
+        if (uiState.showGenerationSheet) {
+            isGenerationSheetFullScreen = false
         }
     }
 
@@ -220,7 +233,14 @@ fun HomeScreen(viewModel: HomeViewModel) {
             sheetState = sheetState,
             dragHandle = { BottomSheetDefaults.DragHandle() },
         ) {
-            GenerationConfirmSheet(uiState = uiState, viewModel = viewModel)
+            GenerationConfirmSheet(
+                uiState = uiState,
+                viewModel = viewModel,
+                isFullScreen = isGenerationSheetFullScreen,
+                onToggleFullScreen = {
+                    isGenerationSheetFullScreen = !isGenerationSheetFullScreen
+                },
+            )
         }
     }
 }
@@ -230,11 +250,19 @@ fun HomeScreen(viewModel: HomeViewModel) {
 private fun GenerationConfirmSheet(
     uiState: HomeUiState,
     viewModel: HomeViewModel,
+    isFullScreen: Boolean,
+    onToggleFullScreen: () -> Unit,
 ) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(max = 560.dp)
+            .then(
+                if (isFullScreen) {
+                    Modifier.fillMaxHeight()
+                } else {
+                    Modifier.heightIn(max = 560.dp)
+                }
+            )
             .windowInsetsPadding(WindowInsets.navigationBars),
     ) {
         Column(
@@ -245,10 +273,30 @@ private fun GenerationConfirmSheet(
                 .padding(bottom = 88.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Text(
-                "壁紙を生成する",
-                style = MaterialTheme.typography.titleLarge,
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "壁紙を生成する",
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.weight(1f),
+                )
+                IconButton(onClick = onToggleFullScreen) {
+                    Icon(
+                        imageVector = if (isFullScreen) {
+                            Icons.Default.FullscreenExit
+                        } else {
+                            Icons.Default.Fullscreen
+                        },
+                        contentDescription = if (isFullScreen) {
+                            "通常表示に戻す"
+                        } else {
+                            "全画面表示にする"
+                        },
+                    )
+                }
+            }
 
             GenerationSheetData(uiState = uiState)
         }

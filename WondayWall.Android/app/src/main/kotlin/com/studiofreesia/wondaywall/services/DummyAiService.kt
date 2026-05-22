@@ -29,7 +29,7 @@ class DummyAiService(
         serviceTier: GoogleAiServiceTier,
         onProgress: ((Double, String) -> Unit)?,
     ): PromptGenerationResult {
-        val delaySeconds = appConfigService.getConfig().debugConfig.dummyPromptDelaySeconds
+        val delaySeconds = appConfigService.getDebugConfig().dummyPromptDelaySeconds
         simulateProgress(
             totalSeconds = delaySeconds,
             message = "[Dummy] 画像生成プロンプトの生成中",
@@ -52,7 +52,7 @@ class DummyAiService(
         serviceTier: GoogleAiServiceTier,
         onProgress: ((Double, String) -> Unit)?,
     ): GeneratedImageResult {
-        val delaySeconds = appConfigService.getConfig().debugConfig.dummyImageDelaySeconds
+        val delaySeconds = appConfigService.getDebugConfig().dummyImageDelaySeconds
         simulateProgress(
             totalSeconds = delaySeconds,
             message = "[Dummy] 壁紙画像の生成中",

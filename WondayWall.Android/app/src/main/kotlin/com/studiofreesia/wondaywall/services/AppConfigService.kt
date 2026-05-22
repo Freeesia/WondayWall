@@ -13,6 +13,7 @@ import com.google.crypto.tink.Aead
 import com.google.crypto.tink.KeyTemplates
 import com.google.crypto.tink.integration.android.AndroidKeysetManager
 import com.studiofreesia.wondaywall.models.AppConfig
+import com.studiofreesia.wondaywall.models.DebugConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -31,6 +32,7 @@ private val Context.appConfigDataStore: DataStore<Preferences> by preferencesDat
 class AppConfigService(private val context: Context) {
 
     private val configJsonKey = stringPreferencesKey("config_json")
+    private val debugConfigJsonKey = stringPreferencesKey("debug_config_json")
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -54,9 +56,21 @@ class AppConfigService(private val context: Context) {
         .map { prefs ->
             val jsonStr = prefs[configJsonKey] ?: return@map AppConfig()
             try {
-                json.decodeFromString<AppConfig>(jsonStr).normalized()
+                json.decodeFromString<AppConfig>(jsonStr)
             } catch (e: Exception) {
                 AppConfig()
+            }
+        }
+
+    // Debug ビルド用の追加設定を監視する Flow
+    private val debugConfigFlow: Flow<DebugConfig> = context.appConfigDataStore.data
+        .catch { emit(emptyPreferences()) }
+        .map { prefs ->
+            val jsonStr = prefs[debugConfigJsonKey] ?: return@map DebugConfig()
+            try {
+                json.decodeFromString<DebugConfig>(jsonStr).normalized()
+            } catch (e: Exception) {
+                DebugConfig()
             }
         }
 
@@ -64,7 +78,7 @@ class AppConfigService(private val context: Context) {
     suspend fun getConfig(): AppConfig {
         val config = configFlow.first()
         val apiKey = getGoogleAiApiKey()
-        return config.copy(googleAiApiKey = apiKey).normalized()
+        return config.copy(googleAiApiKey = apiKey)
     }
 
     // 設定全体を保存する（API キーは Tink で暗号化、それ以外は DataStore に保存）
@@ -74,7 +88,7 @@ class AppConfigService(private val context: Context) {
             saveGoogleAiApiKey(config.googleAiApiKey)
         }
         // DataStore には API キーを除いた設定を保存する（平文保存しない）
-        val configWithoutKey = config.normalized().copy(googleAiApiKey = "")
+        val configWithoutKey = config.copy(googleAiApiKey = "")
         val jsonStr = json.encodeToString(configWithoutKey)
         context.appConfigDataStore.edit { prefs ->
             prefs[configJsonKey] = jsonStr
@@ -85,6 +99,18 @@ class AppConfigService(private val context: Context) {
     suspend fun updateConfig(transform: (AppConfig) -> AppConfig) {
         val current = getConfig()
         saveConfig(transform(current))
+    }
+
+    // Debug ビルド用の追加設定を取得する
+    suspend fun getDebugConfig(): DebugConfig =
+        debugConfigFlow.first()
+
+    // Debug ビルド用の追加設定を保存する
+    suspend fun saveDebugConfig(config: DebugConfig) {
+        val jsonStr = json.encodeToString(config.normalized())
+        context.appConfigDataStore.edit { prefs ->
+            prefs[debugConfigJsonKey] = jsonStr
+        }
     }
 
     // Google AI API キーを Tink で暗号化して SharedPreferences に保存する
@@ -128,6 +154,3 @@ class AppConfigService(private val context: Context) {
         private const val ENCRYPTED_API_KEY_PREF = "encrypted_api_key"
     }
 }
-
-private fun AppConfig.normalized(): AppConfig =
-    copy(debugConfig = debugConfig.normalized())
