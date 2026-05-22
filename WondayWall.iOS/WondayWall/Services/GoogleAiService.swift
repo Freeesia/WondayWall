@@ -1,5 +1,6 @@
 import CryptoKit
 import Foundation
+import OSLog
 
 // 壁紙生成サービスの抽象インターフェイス
 protocol AiService: AnyObject {
@@ -34,11 +35,10 @@ final class GoogleAiService: AiService {
     private static let apiBaseURL =
         "https://generativelanguage.googleapis.com/v1beta/models"
 
-    // 通常タイムアウト秒数
-    private static let imageGenerationTimeout: TimeInterval = 300
-    // Flex モード時のタイムアウト秒数（Flex はキューに積まれることがあるため 600 秒以上推奨）
-    private static let flexTimeout: TimeInterval = 660
+    // タイムアウト秒数（Flex はキューに積まれることがあるため 660 秒以上推奨）
+    private static let googleApiTimeout: TimeInterval = 660
 
+    private let logger = Logger(subsystem: "com.studiofreesia.wondaywall", category: "GoogleAiService")
     private let configService: AppConfigService
 
     init(configService: AppConfigService) {
@@ -254,7 +254,7 @@ final class GoogleAiService: AiService {
             serviceTier: serviceTier == .flex ? "flex" : nil
         )
 
-        let responseData = try await postJSON(url: url, body: requestBody, serviceTier: serviceTier)
+        let responseData = try await postJSON(url: url, body: requestBody)
         let response = try JSONDecoder().decode(GeminiResponse.self, from: responseData)
 
         guard let text = response.candidates.first?.content.parts.first?.text,
@@ -382,7 +382,7 @@ final class GoogleAiService: AiService {
             serviceTier: serviceTier == .flex ? "flex" : nil
         )
 
-        let responseData = try await postJSON(url: url, body: requestBody, serviceTier: serviceTier)
+        let responseData = try await postJSON(url: url, body: requestBody)
         let response = try JSONDecoder().decode(GeminiResponse.self, from: responseData)
 
         for candidate in response.candidates {
@@ -498,29 +498,41 @@ final class GoogleAiService: AiService {
     // JSON エンコードして POST し、レスポンスデータを返す
     private func postJSON<T: Encodable>(
         url: URL,
-        body: T,
-        serviceTier: GoogleAiServiceTier = .standard
+        body: T
     ) async throws -> Data {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(body)
-        // Flex はキューに積まれることがあるため 660 秒、通常は 300 秒
-        request.timeoutInterval =
-            serviceTier == .flex ? Self.flexTimeout : Self.imageGenerationTimeout
-        let (data, response) = try await URLSession.shared.data(for: request)
-        if let httpResponse = response as? HTTPURLResponse,
-            !(200..<300).contains(httpResponse.statusCode)
-        {
-            let body = String(data: data, encoding: .utf8) ?? "(empty)"
-            throw NSError(
-                domain: "WondayWall",
-                code: httpResponse.statusCode,
-                userInfo: [
-                    NSLocalizedDescriptionKey:
-                        "Google AI APIエラー (\(httpResponse.statusCode)): \(body)"
-                ]
-            )
+        request.timeoutInterval = Self.googleApiTimeout
+
+        let endpointPath = url.path
+        logger.notice("postJSON 開始: endpoint=\(endpointPath, privacy: .public) timeout=\(Int(Self.googleApiTimeout), privacy: .public)s")
+        let startTime = Date()
+
+        let (data, response): (Data, URLResponse)
+        do {
+            (data, response) = try await URLSession.shared.data(for: request)
+        } catch {
+            let elapsed = Date().timeIntervalSince(startTime)
+            logger.error("postJSON 失敗: endpoint=\(endpointPath, privacy: .public) elapsed=\(String(format: "%.1f", elapsed), privacy: .public)s error=\(error.localizedDescription, privacy: .public)")
+            throw error
+        }
+
+        let elapsed = Date().timeIntervalSince(startTime)
+        if let httpResponse = response as? HTTPURLResponse {
+            logger.notice("postJSON 完了: endpoint=\(endpointPath, privacy: .public) status=\(httpResponse.statusCode, privacy: .public) elapsed=\(String(format: "%.1f", elapsed), privacy: .public)s")
+            if !(200..<300).contains(httpResponse.statusCode) {
+                let body = String(data: data, encoding: .utf8) ?? "(empty)"
+                throw NSError(
+                    domain: "WondayWall",
+                    code: httpResponse.statusCode,
+                    userInfo: [
+                        NSLocalizedDescriptionKey:
+                            "Google AI APIエラー (\(httpResponse.statusCode)): \(body)"
+                    ]
+                )
+            }
         }
         return data
     }
