@@ -179,7 +179,6 @@ class TaskSchedulerService(
         val config = appConfigService.getConfig()
         if (!config.autoGenerationEnabled) return false
         if (config.generateOnlyOnWifi && !isWifiConnected()) return false
-        if (config.skipOnBatterySaver && isBatterySaverActive()) return false
         return !isCurrentSlotProcessed()
     }
 
@@ -209,6 +208,7 @@ class TaskSchedulerService(
                 } else {
                     setRequiredNetworkType(NetworkType.CONNECTED)
                 }
+                setRequiresBatteryNotLow(config.skipOnBatterySaver)
             }
             .build()
     }
@@ -344,10 +344,4 @@ class TaskSchedulerService(
         return capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI)
     }
 
-    // 省電力モードが有効か確認する
-    private fun isBatterySaverActive(): Boolean {
-        val powerManager = context.getSystemService(Context.POWER_SERVICE)
-            as android.os.PowerManager
-        return powerManager.isPowerSaveMode
-    }
 }

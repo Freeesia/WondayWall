@@ -12,6 +12,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.google.crypto.tink.Aead
 import com.google.crypto.tink.KeyTemplates
 import com.google.crypto.tink.integration.android.AndroidKeysetManager
+import com.studiofreesia.wondaywall.BuildConfig
 import com.studiofreesia.wondaywall.models.AppConfig
 import com.studiofreesia.wondaywall.models.DebugConfig
 import kotlinx.coroutines.Dispatchers
@@ -66,6 +67,7 @@ class AppConfigService(private val context: Context) {
     private val debugConfigFlow: Flow<DebugConfig> = context.appConfigDataStore.data
         .catch { emit(emptyPreferences()) }
         .map { prefs ->
+            if (!BuildConfig.DEBUG) return@map DebugConfig()
             val jsonStr = prefs[debugConfigJsonKey] ?: return@map DebugConfig()
             try {
                 json.decodeFromString<DebugConfig>(jsonStr).normalized()
@@ -103,10 +105,11 @@ class AppConfigService(private val context: Context) {
 
     // Debug ビルド用の追加設定を取得する
     suspend fun getDebugConfig(): DebugConfig =
-        debugConfigFlow.first()
+        if (BuildConfig.DEBUG) debugConfigFlow.first() else DebugConfig()
 
     // Debug ビルド用の追加設定を保存する
     suspend fun saveDebugConfig(config: DebugConfig) {
+        if (!BuildConfig.DEBUG) return
         val jsonStr = json.encodeToString(config.normalized())
         context.appConfigDataStore.edit { prefs ->
             prefs[debugConfigJsonKey] = jsonStr

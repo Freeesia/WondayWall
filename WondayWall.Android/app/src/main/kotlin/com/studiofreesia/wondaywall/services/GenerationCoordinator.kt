@@ -351,11 +351,6 @@ class GenerationCoordinator(
             return "Wi-Fi 接続がないためスキップしました。"
         }
 
-        // 省電力モード設定
-        if (appConfig.skipOnBatterySaver && isBatterySaverActive()) {
-            return "省電力モードが有効なためスキップしました。"
-        }
-
         return null
     }
 
@@ -375,13 +370,6 @@ class GenerationCoordinator(
         val network = connectivityManager.activeNetwork ?: return false
         val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
         return capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI)
-    }
-
-    // 省電力モードが有効か確認する
-    private fun isBatterySaverActive(): Boolean {
-        val powerManager = context.getSystemService(Context.POWER_SERVICE)
-            as android.os.PowerManager
-        return powerManager.isPowerSaveMode
     }
 
     private fun NewsTopicItem.toPromptNewsTopic(): PromptNewsTopic =
