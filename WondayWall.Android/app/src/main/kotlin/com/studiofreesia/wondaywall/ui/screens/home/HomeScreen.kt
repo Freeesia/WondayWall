@@ -264,7 +264,7 @@ private fun GenerationConfirmSheet(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(if (isSheetExpanded) 1f else 0.5f)
+                .fillMaxHeight(if (isSheetExpanded) 1f else 0.47f)
                 .align(Alignment.TopCenter),
             contentAlignment = Alignment.BottomCenter,
         ) {
