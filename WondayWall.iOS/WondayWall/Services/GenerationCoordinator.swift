@@ -191,7 +191,12 @@ actor GenerationCoordinator {
                 let promptResult: PromptGenerationResult
                 if let savedPrompt = resumable?.generatedPrompt {
                     // 再開フロー: 保存済みプロンプトと採用ニュース ID を再利用（中間保存① はスキップ）
-                    let selectedIds = resumable?.usedNewsTopics?.map { $0.id } ?? []
+                    let selectedIds = resumable?.usedNewsTopics?.compactMap { usedItem -> String? in
+                        if let index = contextResult.newsTopics.firstIndex(where: { $0.id == usedItem.id }) {
+                            return "news-\(index + 1)"
+                        }
+                        return nil
+                    } ?? []
                     promptResult = PromptGenerationResult(imagePrompt: savedPrompt, selectedNewsIds: selectedIds)
                     generatedPrompt = savedPrompt
                 } else {
@@ -212,8 +217,14 @@ actor GenerationCoordinator {
                     promptResult = result
 
                     // 中間保存①: generatingPromptReady（プロンプト生成完了・画像 API 呼び出し前）
-                    let adoptedNewsForPrompt = contextResult.newsTopics.filter {
-                        result.selectedNewsIds.contains($0.id)
+                    let adoptedNewsForPrompt = result.selectedNewsIds.compactMap { id -> NewsTopicItem? in
+                        guard id.hasPrefix("news-"),
+                              let indexStr = id.split(separator: "-").last,
+                              let index = Int(indexStr),
+                              index >= 1 && index <= contextResult.newsTopics.count else {
+                            return nil
+                        }
+                        return contextResult.newsTopics[index - 1]
                     }
                     historyService.update(HistoryItem(
                         id: generatingItem.id,
@@ -227,8 +238,20 @@ actor GenerationCoordinator {
                 }
 
                 // 採用ニュースを決定（再開: resumable.usedNewsTopics / 新規: selectedNewsIds でフィルタ）
-                let adoptedNews = resumable?.usedNewsTopics
-                    ?? contextResult.newsTopics.filter { promptResult.selectedNewsIds.contains($0.id) }
+                let adoptedNews: [NewsTopicItem]
+                if let resumableNews = resumable?.usedNewsTopics {
+                    adoptedNews = resumableNews
+                } else {
+                    adoptedNews = promptResult.selectedNewsIds.compactMap { id -> NewsTopicItem? in
+                        guard id.hasPrefix("news-"),
+                              let indexStr = id.split(separator: "-").last,
+                              let index = Int(indexStr),
+                              index >= 1 && index <= contextResult.newsTopics.count else {
+                            return nil
+                        }
+                        return contextResult.newsTopics[index - 1]
+                    }
+                }
 
                 // ステップ 1.5: 採用ニュースの OGP 画像をダウンロードする
                 let contextWithOgp = await googleAiService.fetchOgpImages(
