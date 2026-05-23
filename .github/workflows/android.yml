@@ -1,0 +1,228 @@
+name: Android
+
+on:
+  workflow_dispatch:
+  workflow_call:
+  push:
+    branches: [main]
+    paths:
+      - "WondayWall.Android/**"
+      - "GitVersion.yml"
+      - ".github/workflows/android.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "WondayWall.Android/**"
+      - "GitVersion.yml"
+      - ".github/workflows/android.yml"
+
+concurrency:
+  group: android-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release-apk:
+    name: Build Android APK artifacts
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: android-release
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: WondayWall.Android
+    outputs:
+      artifact-name: ${{ steps.prepare-artifacts.outputs.artifact-name }}
+      artifact-path: ${{ steps.prepare-artifacts.outputs.artifact-path }}
+      release-artifact-name: ${{ steps.prepare-artifacts.outputs.release-artifact-name }}
+      debug-artifact-name: ${{ steps.prepare-artifacts.outputs.debug-artifact-name }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: gittools/actions/gitversion/setup@v4.5.0
+        with:
+          versionSpec: "6.x"
+
+      - id: gitversion
+        uses: gittools/actions/gitversion/execute@v4.5.0
+
+      - name: Resolve Android version
+        id: android-version
+        run: |
+          file_version="${{ steps.gitversion.outputs.assemblySemFileVer }}"
+          IFS='.' read -r major minor patch revision <<< "$file_version"
+
+          for part in "$major" "$minor" "$patch" "$revision"; do
+            if ! [[ "$part" =~ ^[0-9]+$ ]]; then
+              echo "Invalid GitVersion assemblySemFileVer: $file_version" >&2
+              exit 1
+            fi
+          done
+
+          run_number="${GITHUB_RUN_NUMBER:-0}"
+          run_attempt="${GITHUB_RUN_ATTEMPT:-1}"
+          for part in "$run_number" "$run_attempt"; do
+            if ! [[ "$part" =~ ^[0-9]+$ ]]; then
+              echo "Invalid GitHub Actions build number: run_number=$run_number run_attempt=$run_attempt" >&2
+              exit 1
+            fi
+          done
+
+          if [ "$minor" -gt 99 ] || [ "$patch" -gt 99 ] || [ "$run_attempt" -gt 99 ]; then
+            echo "Android versionCode packing input is too large: version=$file_version run_attempt=$run_attempt" >&2
+            exit 1
+          fi
+
+          version_code=$((major * 100000000 + minor * 1000000 + patch * 10000 + run_number * 100 + run_attempt))
+          if [ "$version_code" -lt 1 ] || [ "$version_code" -gt 2100000000 ]; then
+            echo "Android versionCode is out of range: $version_code" >&2
+            exit 1
+          fi
+
+          echo "version-code=$version_code" >> "$GITHUB_OUTPUT"
+          echo "version-name=${{ steps.gitversion.outputs.fullSemVer }}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        run: sdkmanager "platforms;android-37.0"
+
+      - name: Resolve Gradle version
+        id: gradle-version
+        run: |
+          version=$(sed -n 's#.*gradle-\([^-]*\)-bin.zip#\1#p' gradle/wrapper/gradle-wrapper.properties)
+          if [ -z "$version" ]; then
+            echo "Gradle version could not be resolved from gradle-wrapper.properties." >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: ${{ steps.gradle-version.outputs.version }}
+
+      - name: Restore release signing key
+        id: release-signing
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          missing=0
+          for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "::error::$name secret is required to build a signed release APK."
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+
+          keystore_file="$RUNNER_TEMP/wondaywall-release.jks"
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$keystore_file"
+          echo "ANDROID_KEYSTORE_FILE=$keystore_file" >> "$GITHUB_ENV"
+          echo "signed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Build debug APK
+        if: ${{ github.event_name == 'pull_request' }}
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          gradle --no-daemon \
+            -PwondaywallVersionCode=${{ steps.android-version.outputs.version-code }} \
+            "-PwondaywallVersionName=${{ steps.android-version.outputs.version-name }}" \
+            :app:assemblePreview
+
+      - name: Build release APK
+        if: ${{ github.event_name != 'pull_request' }}
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          gradle --no-daemon \
+            -PwondaywallVersionCode=${{ steps.android-version.outputs.version-code }} \
+            "-PwondaywallVersionName=${{ steps.android-version.outputs.version-name }}" \
+            :app:assembleRelease
+
+      - name: Verify signed APK
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            apk_path="app/build/outputs/apk/preview/app-preview.apk"
+          else
+            apk_path="app/build/outputs/apk/release/app-release.apk"
+          fi
+
+          if [ ! -f "$apk_path" ]; then
+            echo "::error::Signed APK was not found: $apk_path"
+            exit 1
+          fi
+
+          apksigner=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)
+          if [ -z "$apksigner" ]; then
+            echo "::error::apksigner was not found in $ANDROID_HOME/build-tools."
+            exit 1
+          fi
+
+          "$apksigner" verify --print-certs "$apk_path"
+
+      - name: Prepare artifacts
+        id: prepare-artifacts
+        run: |
+          version_label="${{ steps.gitversion.outputs.fullSemVer }}"
+
+          artifact_root="build/github-artifacts"
+          release_artifact_dir="$artifact_root/release"
+          debug_artifact_dir="$artifact_root/debug"
+          rm -rf "$artifact_root"
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            artifact_dir="$debug_artifact_dir"
+            apk_path="app/build/outputs/apk/preview/app-preview.apk"
+            apk_name="WondayWall-Android-debug-$version_label.apk"
+            artifact_name="WondayWall-Android-debug-$version_label"
+            debug_artifact_name="$artifact_name"
+            release_artifact_name=""
+          else
+            artifact_dir="$release_artifact_dir"
+            apk_path="app/build/outputs/apk/release/app-release.apk"
+            apk_name="WondayWall-Android-release-$version_label.apk"
+            artifact_name="WondayWall-Android-release-$version_label"
+            release_artifact_name="$artifact_name"
+            debug_artifact_name=""
+          fi
+
+          if [ ! -f "$apk_path" ]; then
+            echo "::error::Android APK was not found: $apk_path"
+            exit 1
+          fi
+
+          mkdir -p "$artifact_dir"
+          cp "$apk_path" "$artifact_dir/$apk_name"
+          (cd "$artifact_dir" && sha256sum * > SHA256SUMS.txt)
+
+          echo "artifact-name=$artifact_name" >> "$GITHUB_OUTPUT"
+          echo "artifact-path=WondayWall.Android/$artifact_dir/" >> "$GITHUB_OUTPUT"
+          echo "release-artifact-name=$release_artifact_name" >> "$GITHUB_OUTPUT"
+          echo "debug-artifact-name=$debug_artifact_name" >> "$GITHUB_OUTPUT"
+
+      - name: Upload Android artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.prepare-artifacts.outputs.artifact-name }}
+          path: ${{ steps.prepare-artifacts.outputs.artifact-path }}
+          if-no-files-found: error

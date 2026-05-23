@@ -2,6 +2,8 @@ using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Reflection;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Threading;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Toolkit.Uwp.Notifications;
@@ -10,6 +12,7 @@ using Octokit;
 using Windows.UI.Notifications;
 using WondayWall.Models;
 using WondayWall.Utils;
+using AvaloniaApplication = Avalonia.Application;
 using AppResources = WondayWall.Properties.Resources;
 
 namespace WondayWall.Services;
@@ -186,7 +189,7 @@ public class UpdateChecker : BackgroundService
 
             if (!args.Contains(ActionArgument))
             {
-                System.Windows.Application.Current?.Dispatcher.Invoke(() => System.Windows.Application.Current.MainWindow?.Show());
+                ShowMainWindow();
                 return;
             }
 
@@ -210,6 +213,21 @@ public class UpdateChecker : BackgroundService
         {
             _logger.LogWarning(ex, "更新通知の操作処理に失敗しました");
         }
+    }
+
+    private static void ShowMainWindow()
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (AvaloniaApplication.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime desktop
+                || desktop.MainWindow is not { } mainWindow)
+            {
+                return;
+            }
+
+            mainWindow.Show();
+            mainWindow.Activate();
+        });
     }
 
     private async Task CheckCoreAsync(bool forceRefresh, CancellationToken ct)

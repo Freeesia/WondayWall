@@ -39,6 +39,7 @@
 
     <Window.Resources>
         <utils:UrlToFaviconConverter x:Key="UrlToFaviconConverter" />
+        <utils:ScheduleDisplayNameConverter x:Key="ScheduleDisplayNameConverter" />
     </Window.Resources>
 
     <Grid x:Name="RootGrid">
@@ -386,7 +387,7 @@
                                         <TextBox
                                             Grid.Column="0"
                                             Text="{Binding NewRssSourceUrl}"
-                                            PlaceholderText="https://example.com/feed.xml" />
+                                            PlaceholderText="https://example.com" />
                                         <Button
                                             Grid.Column="1"
                                             Classes="accent"
@@ -545,32 +546,6 @@
                                             </StackPanel>
                                         </DockPanel>
                                     </Border>
-
-                                    <!-- 現在の壁紙をベ�Eスとして使用 -->
-                                    <Border
-                                        Margin="0,0,0,4"
-                                        Padding="12,8"
-                                        Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
-                                        BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
-                                        BorderThickness="1"
-                                        CornerRadius="8">
-                                        <DockPanel>
-                                            <ui:FASymbolIcon
-                                                Margin="0,0,12,0"
-                                                VerticalAlignment="Center"
-                                                DockPanel.Dock="Left"
-                                                Symbol="ImageCopy" />
-                                            <TextBlock
-                                                VerticalAlignment="Center"
-                                                DockPanel.Dock="Left"
-                                                FontWeight="SemiBold"
-                                                Text="{x:Static properties:Resources.UseCurrentWallpaperAsBaseHeader}" />
-                                            <ToggleSwitch
-                                                HorizontalAlignment="Right"
-                                                VerticalAlignment="Center"
-                                                IsChecked="{Binding AppConfig.UseCurrentWallpaperAsBase}" />
-                                        </DockPanel>
-                                    </Border>
                                 </StackPanel>
                             </Border>
 
@@ -618,11 +593,17 @@
                                                     <TextBlock
                                                         Margin="0,0,0,4"
                                                         FontWeight="SemiBold"
-                                                        Text="{x:Static properties:Resources.RunsPerDay}" />
+                                                        Text="{x:Static properties:Resources.UpdateSchedule}" />
                                                     <ComboBox
-                                                        Width="120"
-                                                        ItemsSource="{Binding AvailableRunsPerDayOptions}"
-                                                        SelectedItem="{Binding SelectedRunsPerDay}" />
+                                                        Width="200"
+                                                        ItemsSource="{Binding AvailableScheduleOptions}"
+                                                        SelectedItem="{Binding SelectedSchedule}">
+                                                        <ComboBox.ItemTemplate>
+                                                            <DataTemplate x:DataType="models:UpdateSchedule">
+                                                                <TextBlock Text="{Binding Converter={StaticResource ScheduleDisplayNameConverter}}" />
+                                                            </DataTemplate>
+                                                        </ComboBox.ItemTemplate>
+                                                    </ComboBox>
                                                 </StackPanel>
                                                 <TextBlock
                                                     Width="320"
@@ -943,7 +924,7 @@
                                         Width="520"
                                         Margin="0,8,0,0"
                                         Text="{Binding NewRssSourceUrl}"
-                                        PlaceholderText="https://example.com/feed.xml" />
+                                        PlaceholderText="https://example.com" />
                                 </StackPanel>
                             </DockPanel>
                         </Border>

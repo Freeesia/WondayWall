@@ -1,9 +1,12 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
+using System.Net.Http;
 using System.Reflection;
 using System.Security;
 using Avalonia.Threading;
+using System.Text;
+using AngleSharp.Html.Parser;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
@@ -16,6 +19,9 @@ namespace WondayWall.ViewModels;
 
 public partial class MainWindowViewModel : ObservableObject
 {
+    private const int MaxSiteHtmlChars = 512_000;
+    private static readonly HtmlParser HtmlParser = new();
+
     private readonly AppConfigService _configService;
     private readonly HistoryService _historyService;
     private readonly ContextService _contextService;
@@ -23,6 +29,7 @@ public partial class MainWindowViewModel : ObservableObject
     private readonly TaskSchedulerService _taskSchedulerService;
     private readonly UpdateChecker _updateChecker;
     private readonly ILogger<MainWindowViewModel> _logger;
+    private readonly IHttpClientFactory _httpClientFactory;
 
     [ObservableProperty]
     public partial AppConfig AppConfig { get; set; } = new();
@@ -58,7 +65,7 @@ public partial class MainWindowViewModel : ObservableObject
     public partial bool ShowSetupWizard { get; set; }
 
     [ObservableProperty]
-    public partial int SelectedRunsPerDay { get; set; }
+    public partial UpdateSchedule SelectedSchedule { get; set; }
 
     [ObservableProperty]
     public partial GeneratedImageInfo? LastGeneratedImage { get; set; }
@@ -80,7 +87,7 @@ public partial class MainWindowViewModel : ObservableObject
     public ObservableCollection<HistoryItem> History { get; } = [];
     public ObservableCollection<string> RssSources { get; } = [];
     public ObservableCollection<AvailableCalendar> AvailableCalendars { get; } = [];
-    public IReadOnlyList<int> AvailableRunsPerDayOptions => ScheduleHelper.SupportedRunsPerDay;
+    public IReadOnlyList<UpdateSchedule> AvailableScheduleOptions => ScheduleHelper.SupportedSchedules;
 
     /// <summary>追加プロンプトのプリセットテンプレート一覧</summary>
     public IReadOnlyList<PromptTemplate> PromptTemplates { get; } =
@@ -98,7 +105,7 @@ public partial class MainWindowViewModel : ObservableObject
         new(AppResources.PromptTemplateFantasy,
             "Create a magical fantasy atmosphere with ethereal glows, soft bokeh, mystical lighting, and dreamlike scenery."),
     ];
-    public string TaskSchedulerScheduleDescription => ScheduleHelper.FormatScheduleDescription(SelectedRunsPerDay);
+    public string TaskSchedulerScheduleDescription => ScheduleHelper.FormatScheduleDescription(SelectedSchedule);
 
     /// <summary>アセンブリのインフォメーションバージョン</summary>
     public string AppVersion { get; } =
@@ -114,6 +121,7 @@ public partial class MainWindowViewModel : ObservableObject
         GenerationCoordinator coordinator,
         TaskSchedulerService taskSchedulerService,
         UpdateChecker updateChecker,
+        IHttpClientFactory httpClientFactory,
         ILogger<MainWindowViewModel> logger)
     {
         _configService = configService;
@@ -122,6 +130,7 @@ public partial class MainWindowViewModel : ObservableObject
         _coordinator = coordinator;
         _taskSchedulerService = taskSchedulerService;
         _updateChecker = updateChecker;
+        _httpClientFactory = httpClientFactory;
         _logger = logger;
 
         ShowUpdateControls = _updateChecker.IsInstalled;
@@ -129,7 +138,7 @@ public partial class MainWindowViewModel : ObservableObject
         SyncUpdateInfo();
         AppConfig = configService.Load();
         ShowSetupWizard = !configService.HasSavedConfig;
-        SelectedRunsPerDay = ScheduleHelper.NormalizeRunsPerDay(AppConfig.RunsPerDay);
+        SelectedSchedule = AppConfig.Schedule;
         foreach (var src in AppConfig.RssSources)
             RssSources.Add(src);
         IsTaskSchedulerEnabled = _taskSchedulerService.IsEnabled();
@@ -330,17 +339,24 @@ public partial class MainWindowViewModel : ObservableObject
 
         AppConfig.GoogleAiApiKey = apiKey;
 
-        var rssUrl = NewRssSourceUrl.Trim();
-        if (!string.IsNullOrEmpty(rssUrl))
+        var sourceUrl = NewRssSourceUrl.Trim();
+        if (!string.IsNullOrEmpty(sourceUrl))
         {
-            if (!Uri.TryCreate(rssUrl, UriKind.Absolute, out _))
+            if (!Uri.TryCreate(sourceUrl, UriKind.Absolute, out _))
             {
                 LastResultMessage = AppResources.SetupRssUrlInvalid;
                 return;
             }
 
-            if (!RssSources.Contains(rssUrl))
-                RssSources.Add(rssUrl);
+            var resolvedRssUrl = await ResolveRssSourceUrlAsync(sourceUrl, ct);
+            if (resolvedRssUrl is null)
+            {
+                LastResultMessage = AppResources.SetupNewsSiteRssNotFound;
+                return;
+            }
+
+            if (!RssSources.Contains(resolvedRssUrl))
+                RssSources.Add(resolvedRssUrl);
         }
 
         if (IsCalendarConnected)
@@ -485,16 +501,31 @@ public partial class MainWindowViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void AddRssSource()
+    private async Task AddRssSource(CancellationToken ct = default)
     {
-        var url = NewRssSourceUrl.Trim();
-        if (!string.IsNullOrEmpty(url)
-            && Uri.TryCreate(url, UriKind.Absolute, out _)
-            && !RssSources.Contains(url))
+        var sourceUrl = NewRssSourceUrl.Trim();
+        if (string.IsNullOrEmpty(sourceUrl))
+            return;
+
+        if (!Uri.TryCreate(sourceUrl, UriKind.Absolute, out _))
         {
-            RssSources.Add(url);
-            NewRssSourceUrl = string.Empty;
+            LastResultMessage = AppResources.SetupRssUrlInvalid;
+            return;
         }
+
+        var resolvedRssUrl = await ResolveRssSourceUrlAsync(sourceUrl, ct);
+        if (resolvedRssUrl is null)
+        {
+            LastResultMessage = AppResources.SetupNewsSiteRssNotFound;
+            return;
+        }
+
+        if (RssSources.Contains(resolvedRssUrl))
+            return;
+
+        RssSources.Add(resolvedRssUrl);
+        NewRssSourceUrl = string.Empty;
+        LastResultMessage = string.Empty;
     }
 
     [RelayCommand]
@@ -502,6 +533,132 @@ public partial class MainWindowViewModel : ObservableObject
     {
         if (!string.IsNullOrEmpty(url))
             RssSources.Remove(url);
+    }
+
+    private async Task<string?> ResolveRssSourceUrlAsync(string sourceUrl, CancellationToken ct)
+    {
+        var sourceUri = new Uri(sourceUrl, UriKind.Absolute);
+
+        if (IsLikelyRssUrl(sourceUri))
+            return sourceUrl;
+
+        var detectedRssUrl = await TryDetectRssUrlFromSiteAsync(sourceUri, ct);
+        if (detectedRssUrl is not null)
+            return detectedRssUrl;
+
+        return null;
+    }
+
+    private async Task<string?> TryDetectRssUrlFromSiteAsync(Uri siteUri, CancellationToken ct)
+    {
+        var httpClient = _httpClientFactory.CreateClient("WondayWall");
+        string content;
+        try
+        {
+            using var response = await httpClient.GetAsync(siteUri, HttpCompletionOption.ResponseHeadersRead, ct);
+            response.EnsureSuccessStatusCode();
+
+            if (response.Content.Headers.ContentLength is > MaxSiteHtmlChars)
+            {
+                _logger.LogDebug("サイトのHTMLサイズが上限を超えたためRSS検出を中止しました [{SiteUrl}]", siteUri);
+                return null;
+            }
+
+            await using var stream = await response.Content.ReadAsStreamAsync(ct);
+            using var reader = new StreamReader(stream);
+            content = await ReadToLimitAsync(reader, MaxSiteHtmlChars, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "サイトURLからのHTML取得に失敗しました [{SiteUrl}]", siteUri);
+            return null;
+        }
+
+        try
+        {
+            var document = await HtmlParser.ParseDocumentAsync(content, ct);
+            foreach (var linkTag in document.QuerySelectorAll("link[rel][type][href]"))
+            {
+                var relValue = linkTag.GetAttribute("rel");
+                if (!ContainsToken(relValue, "alternate"))
+                    continue;
+
+                var typeValue = linkTag.GetAttribute("type");
+                if (typeValue is null || !IsFeedContentType(typeValue))
+                    continue;
+
+                var hrefValue = linkTag.GetAttribute("href");
+                if (string.IsNullOrWhiteSpace(hrefValue))
+                    continue;
+
+                if (!Uri.TryCreate(siteUri, hrefValue, out var rssUri))
+                    continue;
+
+                return rssUri.ToString();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "サイトURLのHTMLパースに失敗しました [{SiteUrl}]", siteUri);
+        }
+
+        return null;
+    }
+
+    private static async Task<string> ReadToLimitAsync(TextReader reader, int maxChars, CancellationToken ct)
+    {
+        var buffer = new char[4_096];
+        var content = new StringBuilder(capacity: Math.Min(maxChars, 64_000));
+        while (true)
+        {
+            ct.ThrowIfCancellationRequested();
+            var readCount = await reader.ReadAsync(buffer.AsMemory(0, buffer.Length), ct);
+            if (readCount <= 0)
+                break;
+
+            var writableCount = Math.Min(readCount, maxChars - content.Length);
+            if (writableCount > 0)
+                content.Append(buffer, 0, writableCount);
+
+            if (content.Length >= maxChars)
+                break;
+        }
+
+        return content.ToString();
+    }
+
+    private static bool ContainsToken(string? source, string token)
+    {
+        if (string.IsNullOrWhiteSpace(source))
+            return false;
+
+        return source
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Any(v => string.Equals(v, token, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsFeedContentType(string contentType)
+    {
+        return contentType.Contains("application/rss+xml", StringComparison.OrdinalIgnoreCase)
+               || contentType.Contains("application/atom+xml", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsLikelyRssUrl(Uri uri)
+    {
+        var path = uri.AbsolutePath;
+        if (path.EndsWith(".xml", StringComparison.OrdinalIgnoreCase)
+            || path.EndsWith(".rss", StringComparison.OrdinalIgnoreCase)
+            || path.EndsWith(".atom", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return path.Contains("feed", StringComparison.OrdinalIgnoreCase)
+               || path.Contains("rss", StringComparison.OrdinalIgnoreCase)
+               || path.Contains("atom", StringComparison.OrdinalIgnoreCase)
+               || uri.Query.Contains("feed", StringComparison.OrdinalIgnoreCase)
+               || uri.Query.Contains("rss", StringComparison.OrdinalIgnoreCase)
+               || uri.Query.Contains("atom", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>選択されているテンプレートの内容をユーザープロンプトに適用する</summary>
@@ -612,7 +769,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     private void ApplyCurrentSelectionsToConfig()
     {
-        AppConfig.RunsPerDay = ScheduleHelper.NormalizeRunsPerDay(SelectedRunsPerDay);
+        AppConfig.Schedule = SelectedSchedule;
         AppConfig.RssSources = [.. RssSources];
         if (AvailableCalendars.Count > 0)
         {
@@ -631,16 +788,9 @@ public partial class MainWindowViewModel : ObservableObject
             _taskSchedulerService.Disable();
     }
 
-    partial void OnSelectedRunsPerDayChanged(int value)
+    partial void OnSelectedScheduleChanged(UpdateSchedule value)
     {
-        var normalizedRunsPerDay = ScheduleHelper.NormalizeRunsPerDay(value);
-        if (value != normalizedRunsPerDay)
-        {
-            SelectedRunsPerDay = normalizedRunsPerDay;
-            return;
-        }
-
-        AppConfig.RunsPerDay = normalizedRunsPerDay;
+        AppConfig.Schedule = value;
         OnPropertyChanged(nameof(TaskSchedulerScheduleDescription));
     }
 }

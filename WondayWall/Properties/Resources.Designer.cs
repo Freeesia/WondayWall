@@ -100,11 +100,17 @@ public static class Resources
     public static string Refresh => GetString(nameof(Refresh));
     public static string RemoveSelected => GetString(nameof(RemoveSelected));
     public static string RssSources => GetString(nameof(RssSources));
-    public static string RunsPerDay => GetString(nameof(RunsPerDay));
     public static string RunHistory => GetString(nameof(RunHistory));
     public static string SaveSettings => GetString(nameof(SaveSettings));
-    public static string ScheduleDescription => GetString(nameof(ScheduleDescription));
+    public static string ScheduleDescriptionDaily => GetString(nameof(ScheduleDescriptionDaily));
+    public static string ScheduleDescriptionWeekly => GetString(nameof(ScheduleDescriptionWeekly));
+    public static string ScheduleOnceAWeek => GetString(nameof(ScheduleOnceAWeek));
+    public static string ScheduleTwiceAWeek => GetString(nameof(ScheduleTwiceAWeek));
+    public static string ScheduleThreeTimesAWeek => GetString(nameof(ScheduleThreeTimesAWeek));
+    public static string ScheduleOnceADay => GetString(nameof(ScheduleOnceADay));
+    public static string ScheduleThreeTimesADay => GetString(nameof(ScheduleThreeTimesADay));
     public static string ScheduleSettings => GetString(nameof(ScheduleSettings));
+    public static string UpdateSchedule => GetString(nameof(UpdateSchedule));
     public static string SettingsSaveError => GetString(nameof(SettingsSaveError));
     public static string SettingsSaved => GetString(nameof(SettingsSaved));
     public static string SettingsTab => GetString(nameof(SettingsTab));
@@ -123,6 +129,7 @@ public static class Resources
     public static string SetupGenerationFailed => GetString(nameof(SetupGenerationFailed));
     public static string SetupImagePathUnavailable => GetString(nameof(SetupImagePathUnavailable));
     public static string SetupNewsDescription => GetString(nameof(SetupNewsDescription));
+    public static string SetupNewsSiteRssNotFound => GetString(nameof(SetupNewsSiteRssNotFound));
     public static string SetupRssUrlInvalid => GetString(nameof(SetupRssUrlInvalid));
     public static string SetupSavedGenerating => GetString(nameof(SetupSavedGenerating));
     public static string SetupStepApiKey => GetString(nameof(SetupStepApiKey));
@@ -150,8 +157,6 @@ public static class Resources
     public static string UpdateSkipVersion => GetString(nameof(UpdateSkipVersion));
     public static string UpdateLockScreen => GetString(nameof(UpdateLockScreen));
     public static string UpdateLockScreenHeader => GetString(nameof(UpdateLockScreenHeader));
-    public static string UseCurrentWallpaperAsBase => GetString(nameof(UseCurrentWallpaperAsBase));
-    public static string UseCurrentWallpaperAsBaseHeader => GetString(nameof(UseCurrentWallpaperAsBaseHeader));
     public static string UserPromptHeader => GetString(nameof(UserPromptHeader));
     public static string PromptTemplateAnime => GetString(nameof(PromptTemplateAnime));
     public static string PromptTemplateDark => GetString(nameof(PromptTemplateDark));
