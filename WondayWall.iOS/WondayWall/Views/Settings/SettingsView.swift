@@ -457,17 +457,17 @@ private struct DebugInfoSheetView: View {
     @State private var loadedAt: Date?
 
     private var currentServiceName: String {
-        environment.googleAiService is DummyGoogleAiService ? "Dummy" : "Live"
+        environment.aiService is DummyAiService ? "Dummy" : "Live"
     }
 
     private var nextLaunchServiceName: String {
-        environment.configService.debugConfig.useDummyGoogleAiService ? "Dummy" : "Live"
+        environment.configService.debugConfig.useDummyAiService ? "Dummy" : "Live"
     }
 
     private var useDummyServiceBinding: Binding<Bool> {
         Binding(
-            get: { environment.configService.debugConfig.useDummyGoogleAiService },
-            set: { environment.configService.debugConfig.useDummyGoogleAiService = $0 }
+            get: { environment.configService.debugConfig.useDummyAiService },
+            set: { environment.configService.debugConfig.useDummyAiService = $0 }
         )
     }
 
@@ -489,7 +489,7 @@ private struct DebugInfoSheetView: View {
         NavigationStack {
             List {
                 Section("デバッグ設定") {
-                    Toggle("Google AI をダミー実装に切り替える", isOn: useDummyServiceBinding)
+                    Toggle("ダミーAIサービスを使う", isOn: useDummyServiceBinding)
                     Text("ON のときは Gemini API を呼ばず、擬似処理を実行します。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -520,10 +520,10 @@ private struct DebugInfoSheetView: View {
                     LabeledContent("生成中") {
                         Text(environment.isGenerating ? "YES" : "NO")
                     }
-                    LabeledContent("Google AI 実装") {
+                    LabeledContent("AI サービス") {
                         Text(currentServiceName)
                     }
-                    LabeledContent("次回起動時の実装") {
+                    LabeledContent("次回起動時のAIサービス") {
                         Text(nextLaunchServiceName)
                     }
                     LabeledContent("起動時生成条件") {

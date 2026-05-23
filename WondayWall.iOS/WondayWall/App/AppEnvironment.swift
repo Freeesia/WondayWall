@@ -8,7 +8,7 @@ final class AppEnvironment: ObservableObject {
     let historyService: HistoryService
     let calendarService: EventKitCalendarService
     let contextService: ContextService
-    let googleAiService: any GoogleAiServiceProtocol
+    let aiService: any AiService
     let wallpaperService: WallpaperService
     let notificationService: NotificationService
     let fgBgTaskService: ForegroundBackgroundTaskService
@@ -30,15 +30,15 @@ final class AppEnvironment: ObservableObject {
             historyService: history,
             calendarService: calendar
         )
-        let googleAi: any GoogleAiServiceProtocol
+        let ai: any AiService
         #if DEBUG
-        if config.debugConfig.useDummyGoogleAiService {
-            googleAi = DummyGoogleAiService(configService: config)
+        if config.debugConfig.useDummyAiService {
+            ai = DummyAiService(configService: config)
         } else {
-            googleAi = GoogleAiService(configService: config)
+            ai = GoogleAiService(configService: config)
         }
         #else
-        googleAi = GoogleAiService(configService: config)
+        ai = GoogleAiService(configService: config)
         #endif
         let wallpaper = WallpaperService()
         let notifications = NotificationService()
@@ -46,7 +46,7 @@ final class AppEnvironment: ObservableObject {
         let coord = GenerationCoordinator(
             configService: config,
             contextService: context,
-            googleAiService: googleAi,
+            aiService: ai,
             wallpaperService: wallpaper,
             historyService: history,
             notificationService: notifications,
@@ -58,7 +58,7 @@ final class AppEnvironment: ObservableObject {
         self.historyService = history
         self.calendarService = calendar
         self.contextService = context
-        self.googleAiService = googleAi
+        self.aiService = ai
         self.wallpaperService = wallpaper
         self.notificationService = notifications
         self.fgBgTaskService = fgBg

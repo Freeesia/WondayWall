@@ -48,6 +48,21 @@ configure<ApplicationExtension> {
     }
 
     buildTypes {
+        debug {
+            applicationIdSuffix = ".local"
+            versionNameSuffix = "-local"
+        }
+
+        create("preview") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+            matchingFallbacks += listOf("debug")
+            if (hasReleaseSigningConfig) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
+
         release {
             if (hasReleaseSigningConfig) {
                 signingConfig = signingConfigs.getByName("release")
@@ -58,6 +73,13 @@ configure<ApplicationExtension> {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+        }
+    }
+
+    sourceSets {
+        getByName("preview") {
+            kotlin.srcDir("src/debug/kotlin")
+            res.srcDir("src/debug/res")
         }
     }
 
@@ -120,6 +142,7 @@ dependencies {
     implementation(libs.coil.network.okhttp)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
+    add("previewImplementation", libs.androidx.compose.ui.tooling)
 
     androidTestImplementation(libs.androidx.work.testing)
 }

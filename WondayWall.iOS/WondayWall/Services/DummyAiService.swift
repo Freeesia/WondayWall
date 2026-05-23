@@ -3,7 +3,7 @@ import UIKit
 
 #if DEBUG
 // 実 API を使わずに遅延付きで動作を再現するダミー実装（DEBUG ビルド専用）
-final class DummyGoogleAiService: GoogleAiServiceProtocol {
+final class DummyAiService: AiService {
     private let configService: AppConfigService
 
     init(configService: AppConfigService) {
