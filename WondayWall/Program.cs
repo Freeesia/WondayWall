@@ -1,5 +1,6 @@
+using Avalonia;
+using Avalonia.Controls.ApplicationLifetimes;
 using ConsoleAppFramework;
-using Kamishibai;
 using System.IO;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Http.Resilience;
@@ -38,13 +39,33 @@ await cafApp.RunAsync(args).ConfigureAwait(false);
 /// <param name="toastActivated">-ToastActivated, Windows トースト通知から起動されたことを示します。</param>
 static async Task RunGuiAsync(bool toastActivated = false)
 {
-    var builder = KamishibaiApplication<App, MainWindow>.CreateBuilder();
-    ConfigureCommonServices(builder.Services);
-    ConfigureGuiServices(builder.Services);
-    builder.Services
-        .AddPresentation<MainWindow, MainWindowViewModel>();
-    var wpfApp = builder.Build();
-    await wpfApp.RunAsync();
+    // Microsoft.Extensions.Hosting でサービスを構成し、Avalonia AppBuilder で起動する
+    var host = new HostBuilder()
+        .ConfigureServices((_, services) =>
+        {
+            ConfigureCommonServices(services);
+            ConfigureGuiServices(services);
+            // Avalonia Window と ViewModel を DI 登録 (Kamishibai の AddPresentation 相当)
+            services.AddTransient<MainWindowViewModel>();
+            services.AddTransient<MainWindow>();
+        })
+        .Build();
+
+    App.Services = host.Services;
+    await host.StartAsync();
+
+    try
+    {
+        // Avalonia アプリを起動（ウィンドウが閉じるまでブロック）
+        AppBuilder.Configure<App>()
+            .UsePlatformDetect()
+            .WithInterFont()
+            .StartWithClassicDesktopLifetime([]);
+    }
+    finally
+    {
+        await host.StopAsync();
+    }
 }
 
 static void ConfigureCommonServices(IServiceCollection services)

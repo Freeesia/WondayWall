@@ -1,0 +1,992 @@
+<Window
+    x:Class="WondayWall.Views.MainWindow"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:asyncImageLoader="clr-namespace:AsyncImageLoader;assembly=AsyncImageLoader.Avalonia"
+    xmlns:models="using:WondayWall.Models"
+    xmlns:properties="using:WondayWall.Properties"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
+    xmlns:utils="using:WondayWall.Utils"
+    xmlns:vm="using:WondayWall.ViewModels"
+    Title="WondayWall"
+    Width="820"
+    Height="760"
+    x:DataType="vm:MainWindowViewModel"
+    ExtendClientAreaToDecorationsHint="True"
+    Icon="avares://WondayWall/Assets/AppIcon.ico"
+    TransparencyLevelHint="Mica"
+    WindowStartupLocation="CenterScreen"
+    mc:Ignorable="d">
+
+    <Window.Styles>
+        <!-- ボタンのデフォルトスタイル -->
+        <Style Selector="Button">
+            <Setter Property="Margin" Value="4" />
+            <Setter Property="MinWidth" Value="80" />
+        </Style>
+        <!-- タブのフォントサイズを WPF 版と揃える -->
+        <Style Selector="TabItem TextBlock">
+            <Setter Property="FontSize" Value="13" />
+        </Style>
+        <!-- ToggleSwitch の On/Off テキストを非表示 (Content をラベルとして使用) -->
+        <Style Selector="ToggleSwitch">
+            <Setter Property="OnContent" Value="" />
+            <Setter Property="OffContent" Value="" />
+        </Style>
+    </Window.Styles>
+
+    <Window.Resources>
+        <utils:UrlToFaviconConverter x:Key="UrlToFaviconConverter" />
+        <utils:ScheduleDisplayNameConverter x:Key="ScheduleDisplayNameConverter" />
+    </Window.Resources>
+
+    <Grid x:Name="RootGrid">
+        <Grid.RowDefinitions>
+            <!-- タイトルバー領域 (コード側で Window.Padding.Top に合わせる) -->
+            <RowDefinition Height="32" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- 更新通知バー: タイトルバー領域に配置 -->
+        <StackPanel
+            Grid.Row="0"
+            HorizontalAlignment="Right"
+            Margin="0,0,160,0"
+            IsVisible="{Binding ShowUpdateControls}"
+            Orientation="Horizontal"
+            VerticalAlignment="Center">
+
+            <!-- 更新あり: DropDownButton -->
+            <DropDownButton
+                Height="30"
+                VerticalAlignment="Center"
+                Background="Goldenrod"
+                IsVisible="{Binding HasUpdate}"
+                ToolTip.Tip="{Binding LatestVersion, StringFormat={x:Static properties:Resources.NewVersionAvailable}}">
+                <ui:FASymbolIcon Symbol="Alert" />
+                <DropDownButton.Flyout>
+                    <MenuFlyout>
+                        <MenuItem
+                            Command="{Binding InstallUpdateCommand}"
+                            Header="{Binding LatestVersion, StringFormat={x:Static properties:Resources.InstallNewVersion}}">
+                            <MenuItem.Icon>
+                                <ui:FASymbolIcon Symbol="Checkmark" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem
+                            Command="{Binding OpenReleaseNotesCommand}"
+                            Header="{x:Static properties:Resources.CheckUpdateNotes}">
+                            <MenuItem.Icon>
+                                <ui:FASymbolIcon Symbol="Globe" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                    </MenuFlyout>
+                </DropDownButton.Flyout>
+            </DropDownButton>
+
+            <!-- 更新確認�Eタン (更新なし�E時�Eみ表示) -->
+            <Button
+                Height="30"
+                MinWidth="44"
+                Margin="0"
+                VerticalAlignment="Center"
+                Background="Transparent"
+                BorderThickness="0"
+                Command="{Binding CheckUpdateCommand}"
+                IsVisible="{Binding !HasUpdate}"
+                ToolTip.Tip="{x:Static properties:Resources.CheckNewVersion}">
+                <ui:FASymbolIcon Symbol="Sync" />
+            </Button>
+        </StackPanel>
+
+        <!-- メインコンチE�E�E�E�E�E�E�E��E�E�E�E�E�E�E�チE-->
+        <TabControl Grid.Row="1" Margin="0">
+
+            <!--  ホ�EムタチE -->
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <ui:FASymbolIcon Margin="0,0,8,0" Symbol="Home" />
+                        <TextBlock Text="{x:Static properties:Resources.HomeTab}" />
+                    </StackPanel>
+                </TabItem.Header>
+                <ScrollViewer Margin="0,0,0,8">
+                    <DockPanel>
+                        <!-- 現在の壁紙�Eレビュー -->
+                        <Border
+                            Margin="0,0,0,12"
+                            Padding="12,8"
+                            Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            DockPanel.Dock="Top">
+                            <DockPanel>
+                                <ui:FASymbolIcon
+                                    Margin="0,0,12,0"
+                                    VerticalAlignment="Center"
+                                    DockPanel.Dock="Left"
+                                    Symbol="Image" />
+                                <TextBlock
+                                    VerticalAlignment="Center"
+                                    DockPanel.Dock="Left"
+                                    FontWeight="SemiBold"
+                                    Text="{x:Static properties:Resources.CurrentWallpaper}" />
+                                <Image
+                                    MaxHeight="300"
+                                    HorizontalAlignment="Right"
+                                    Source="{Binding LastImagePreviewPath}"
+                                    Stretch="Uniform" />
+                            </DockPanel>
+                        </Border>
+
+                        <!-- 最後�E実行結果 -->
+                        <Border
+                            Margin="0,0,0,12"
+                            Padding="12,8"
+                            Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            DockPanel.Dock="Top">
+                            <DockPanel>
+                                <ui:FASymbolIcon
+                                    Margin="0,0,12,0"
+                                    VerticalAlignment="Center"
+                                    DockPanel.Dock="Left"
+                                    Symbol="Help" />
+                                <TextBlock
+                                    VerticalAlignment="Center"
+                                    DockPanel.Dock="Left"
+                                    FontWeight="SemiBold"
+                                    Text="{x:Static properties:Resources.LastResult}" />
+                                <TextBlock
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Center"
+                                    Text="{Binding LastResultMessage}"
+                                    TextWrapping="Wrap" />
+                            </DockPanel>
+                        </Border>
+
+                        <!-- 今すぐ生成�Eタン -->
+                        <Button
+                            Height="40"
+                            Margin="8,0"
+                            HorizontalAlignment="Right"
+                            Classes="accent"
+                            Command="{Binding GenerateCommand}"
+                            DockPanel.Dock="Top">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:FASymbolIcon Margin="0,0,8,0" Symbol="Highlight" />
+                                <TextBlock VerticalAlignment="Center" Text="{x:Static properties:Resources.GenerateNow}" />
+                                <ui:FAProgressRing
+                                    Width="24"
+                                    Height="24"
+                                    Margin="8,0,0,0"
+                                    VerticalAlignment="Center"
+                                    IsVisible="{Binding IsGenerating}" />
+                            </StackPanel>
+                        </Button>
+
+                        <!-- 実行履歴 -->
+                        <TextBlock
+                            Margin="0,8,0,4"
+                            DockPanel.Dock="Top"
+                            FontSize="16"
+                            FontWeight="SemiBold"
+                            Text="{x:Static properties:Resources.RunHistory}" />
+                        <DataGrid
+                            x:Name="HistoryListView"
+                            MinHeight="200"
+                            CanUserReorderColumns="True"
+                            IsReadOnly="True"
+                            ItemsSource="{Binding History}"
+                            DoubleTapped="HistoryListView_OnDoubleTapped">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn
+                                    Width="160"
+                                    Binding="{Binding ExecutedAt, StringFormat='{}{0:yyyy/MM/dd HH:mm}'}"
+                                    Header="{x:Static properties:Resources.HistoryExecutedAt}" />
+                                <DataGridTextColumn
+                                    Width="60"
+                                    Binding="{Binding IsSuccess}"
+                                    Header="{x:Static properties:Resources.HistorySuccess}" />
+                                <DataGridTextColumn
+                                    Width="80"
+                                    Binding="{Binding ServiceTier}"
+                                    Header="{x:Static properties:Resources.HistoryAi}" />
+                                <DataGridTextColumn
+                                    Width="60"
+                                    Binding="{Binding UsedCalendarEvents.Count, FallbackValue=0}"
+                                    Header="{x:Static properties:Resources.HistoryCalendar}" />
+                                <DataGridTextColumn
+                                    Width="60"
+                                    Binding="{Binding UsedNewsTopics.Count, FallbackValue=0}"
+                                    Header="{x:Static properties:Resources.HistoryNews}" />
+                                <DataGridTextColumn
+                                    Width="280"
+                                    Binding="{Binding ErrorSummary}"
+                                    Header="{x:Static properties:Resources.HistoryMessage}" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!--  チE�E�E�E�E�E�E�E�EタタチE -->
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <ui:FASymbolIcon Margin="0,0,8,0" Symbol="Contact2" />
+                        <TextBlock Text="{x:Static properties:Resources.DataTab}" />
+                    </StackPanel>
+                </TabItem.Header>
+                <DockPanel>
+                    <Button
+                        HorizontalAlignment="Right"
+                        Classes="accent"
+                        Command="{Binding SaveCommand}"
+                        Content="{x:Static properties:Resources.SaveSettings}"
+                        DockPanel.Dock="Bottom" />
+
+                    <ScrollViewer Margin="0,0,0,8">
+                        <StackPanel>
+                            <!-- カレンダーセクション -->
+                            <TextBlock
+                                Margin="0,0,0,4"
+                                FontSize="14"
+                                FontWeight="SemiBold"
+                                Text="{x:Static properties:Resources.GoogleCalendar}" />
+                            <Border
+                                Margin="0,0,0,8"
+                                Padding="8"
+                                Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                                BorderThickness="1"
+                                CornerRadius="8">
+                                <StackPanel Margin="4">
+                                    <!-- カレンダー接続状慁E-->
+                                    <Border
+                                        Margin="0,0,0,4"
+                                        Padding="12,8"
+                                        Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                                        BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="8">
+                                        <DockPanel>
+                                            <ui:FASymbolIcon
+                                                Margin="0,0,12,0"
+                                                VerticalAlignment="Center"
+                                                DockPanel.Dock="Left"
+                                                IsVisible="{Binding IsCalendarConnected}"
+                                                Symbol="Globe" />
+                                            <ui:FASymbolIcon
+                                                Margin="0,0,12,0"
+                                                VerticalAlignment="Center"
+                                                DockPanel.Dock="Left"
+                                                IsVisible="{Binding !IsCalendarConnected}"
+                                                Symbol="Cancel" />
+                                            <TextBlock
+                                                VerticalAlignment="Center"
+                                                DockPanel.Dock="Left"
+                                                Text="{Binding CalendarStatus}" />
+                                            <!-- 未接続時: 接続�Eタン -->
+                                            <Button
+                                                HorizontalAlignment="Right"
+                                                Command="{Binding ConnectCalendarCommand}"
+                                                Content="{x:Static properties:Resources.Connect}"
+                                                IsVisible="{Binding !IsCalendarConnected}" />
+                                            <!-- 接続済み: 更新ボタン -->
+                                            <Button
+                                                HorizontalAlignment="Right"
+                                                Command="{Binding ConnectCalendarCommand}"
+                                                Content="{x:Static properties:Resources.Refresh}"
+                                                IsVisible="{Binding IsCalendarConnected}" />
+                                        </DockPanel>
+                                    </Border>
+
+                                    <TextBlock
+                                        Margin="0,0,0,4"
+                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                        Text="{x:Static properties:Resources.ReferencedCalendars}" />
+                                    <ListBox
+                                        MaxHeight="120"
+                                        ItemsSource="{Binding AvailableCalendars}">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate x:DataType="models:AvailableCalendar">
+                                                <CheckBox Content="{Binding Summary}" IsChecked="{Binding IsSelected}" />
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+
+                                    <TextBlock
+                                        Margin="0,4,0,4"
+                                        FontWeight="SemiBold"
+                                        Text="{x:Static properties:Resources.RecentCalendarEvents}" />
+                                    <DataGrid
+                                        MaxHeight="160"
+                                        IsReadOnly="True"
+                                        ItemsSource="{Binding RecentEvents}">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn
+                                                Width="250"
+                                                Binding="{Binding Title}"
+                                                Header="{x:Static properties:Resources.EventTitle}" />
+                                            <DataGridTextColumn
+                                                Width="160"
+                                                Binding="{Binding StartTime, StringFormat='{}{0:yyyy/MM/dd HH:mm}'}"
+                                                Header="{x:Static properties:Resources.EventStartTime}" />
+                                            <DataGridTextColumn
+                                                Width="150"
+                                                Binding="{Binding Location}"
+                                                Header="{x:Static properties:Resources.EventLocation}" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- ニュースセクション -->
+                            <TextBlock
+                                Margin="0,0,0,4"
+                                FontSize="14"
+                                FontWeight="SemiBold"
+                                Text="{x:Static properties:Resources.News}" />
+                            <Border
+                                Margin="0,0,0,8"
+                                Padding="8"
+                                Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                                BorderThickness="1"
+                                CornerRadius="8">
+                                <StackPanel Margin="4">
+                                    <TextBlock
+                                        Margin="0,0,0,4"
+                                        FontWeight="SemiBold"
+                                        Text="{x:Static properties:Resources.RssSources}" />
+                                    <ListBox
+                                        MaxHeight="120"
+                                        Margin="0,0,0,8"
+                                        ItemsSource="{Binding RssSources}"
+                                        SelectedItem="{Binding SelectedRssSource}">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate x:DataType="x:String">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Image
+                                                        Width="16"
+                                                        Height="16"
+                                                        Margin="4,0,8,0"
+                                                        asyncImageLoader:ImageLoader.Source="{Binding Converter={StaticResource UrlToFaviconConverter}}" />
+                                                    <TextBlock VerticalAlignment="Center" Text="{Binding}" />
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                    <Grid Margin="0,0,0,4" ColumnDefinitions="*,Auto,Auto">
+                                        <TextBox
+                                            Grid.Column="0"
+                                            Text="{Binding NewRssSourceUrl}"
+                                            PlaceholderText="https://example.com" />
+                                        <Button
+                                            Grid.Column="1"
+                                            Classes="accent"
+                                            Command="{Binding AddRssSourceCommand}"
+                                            Content="{x:Static properties:Resources.Add}" />
+                                        <Button
+                                            Grid.Column="2"
+                                            Command="{Binding RemoveRssSourceCommand}"
+                                            CommandParameter="{Binding SelectedRssSource}"
+                                            Content="{x:Static properties:Resources.RemoveSelected}" />
+                                    </Grid>
+
+                                    <DockPanel>
+                                        <Button
+                                            MinWidth="40"
+                                            Command="{Binding FetchNewsCommand}"
+                                            DockPanel.Dock="Right"
+                                            ToolTip.Tip="{x:Static properties:Resources.FetchNewsToolTip}">
+                                            <ui:FASymbolIcon Symbol="Sync" />
+                                        </Button>
+                                        <TextBlock
+                                            Margin="0,4"
+                                            VerticalAlignment="Bottom"
+                                            FontWeight="SemiBold"
+                                            Text="{x:Static properties:Resources.LatestNewsTopics}" />
+                                    </DockPanel>
+                                    <DataGrid
+                                        MaxHeight="160"
+                                        IsReadOnly="True"
+                                        ItemsSource="{Binding RecentNews}">
+                                        <DataGrid.Columns>
+                                            <DataGridTemplateColumn Width="32">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <Image
+                                                            Width="16"
+                                                            Height="16"
+                                                            asyncImageLoader:ImageLoader.Source="{Binding Url, Converter={StaticResource UrlToFaviconConverter}}" />
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
+                                            <DataGridTextColumn Binding="{Binding Title}" Header="{x:Static properties:Resources.EventTitle}" />
+                                            <DataGridTextColumn
+                                                Width="180"
+                                                Binding="{Binding PublishedAt}"
+                                                Header="{x:Static properties:Resources.PublishedAt}" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+                </DockPanel>
+            </TabItem>
+
+            <!--  設定タチE -->
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <ui:FASymbolIcon Margin="0,0,8,0" Symbol="Settings" />
+                        <TextBlock Text="{x:Static properties:Resources.SettingsTab}" />
+                    </StackPanel>
+                </TabItem.Header>
+                <DockPanel>
+                    <Button
+                        HorizontalAlignment="Right"
+                        Classes="accent"
+                        Command="{Binding SaveCommand}"
+                        Content="{x:Static properties:Resources.SaveSettings}"
+                        DockPanel.Dock="Bottom" />
+
+                    <ScrollViewer Margin="0,0,0,8">
+                        <StackPanel>
+                            <!-- Google AI 設宁E-->
+                            <TextBlock
+                                Margin="0,0,0,4"
+                                FontSize="14"
+                                FontWeight="SemiBold"
+                                Text="{x:Static properties:Resources.GoogleAiSettings}" />
+                            <Border
+                                Margin="0,0,0,8"
+                                Padding="8"
+                                Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                                BorderThickness="1"
+                                CornerRadius="8">
+                                <StackPanel>
+                                    <!-- API キー -->
+                                    <Border
+                                        Margin="0,0,0,4"
+                                        Padding="12,8"
+                                        Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                                        BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="8">
+                                        <DockPanel>
+                                            <ui:FASymbolIcon
+                                                Margin="0,0,12,0"
+                                                VerticalAlignment="Center"
+                                                DockPanel.Dock="Left"
+                                                Symbol="Permissions" />
+                                            <TextBlock
+                                                VerticalAlignment="Center"
+                                                DockPanel.Dock="Left"
+                                                FontWeight="SemiBold"
+                                                Text="{x:Static properties:Resources.GoogleAiApiKey}" />
+                                            <StackPanel HorizontalAlignment="Right" VerticalAlignment="Center">
+                                                <TextBox
+                                                    Width="320"
+                                                    PasswordChar="•"
+                                                    Text="{Binding AppConfig.GoogleAiApiKey, Mode=TwoWay}" />
+                                                <HyperlinkButton
+                                                    Margin="0,8,0,0"
+                                                    Content="{x:Static properties:Resources.OpenApiKeyPage}"
+                                                    NavigateUri="https://aistudio.google.com/app/api-keys" />
+                                            </StackPanel>
+                                        </DockPanel>
+                                    </Border>
+
+                                    <!-- ユーザープロンプト -->
+                                    <Border
+                                        Margin="0,0,0,4"
+                                        Padding="12,8"
+                                        Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                                        BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="8">
+                                        <DockPanel>
+                                            <ui:FASymbolIcon
+                                                Margin="0,0,12,0"
+                                                VerticalAlignment="Top"
+                                                DockPanel.Dock="Left"
+                                                Symbol="Edit" />
+                                            <TextBlock
+                                                VerticalAlignment="Top"
+                                                DockPanel.Dock="Left"
+                                                FontWeight="SemiBold"
+                                                Text="{x:Static properties:Resources.UserPromptHeader}" />
+                                            <StackPanel Width="320" HorizontalAlignment="Right">
+                                                <StackPanel Margin="0,0,0,4" Orientation="Horizontal">
+                                                    <ComboBox
+                                                        Width="232"
+                                                        DisplayMemberBinding="{Binding Name}"
+                                                        ItemsSource="{Binding PromptTemplates}"
+                                                        SelectedItem="{Binding SelectedPromptTemplate}" />
+                                                    <Button
+                                                        Margin="8,0,0,0"
+                                                        Command="{Binding ApplyPromptTemplateCommand}"
+                                                        Content="{x:Static properties:Resources.ApplyTemplate}" />
+                                                </StackPanel>
+                                                <TextBox
+                                                    Height="80"
+                                                    AcceptsReturn="True"
+                                                    Text="{Binding AppConfig.UserPrompt}"
+                                                    TextWrapping="Wrap" />
+                                            </StackPanel>
+                                        </DockPanel>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- スケジュール設宁E-->
+                            <TextBlock
+                                Margin="0,0,0,4"
+                                FontSize="14"
+                                FontWeight="SemiBold"
+                                Text="{x:Static properties:Resources.ScheduleSettings}" />
+                            <Border
+                                Margin="0,0,0,8"
+                                Padding="8"
+                                Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                                BorderThickness="1"
+                                CornerRadius="8">
+                                <StackPanel>
+                                    <!-- 自動実衁E-->
+                                    <Border
+                                        Margin="0,0,0,4"
+                                        Padding="12,8"
+                                        Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                                        BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="8">
+                                        <DockPanel>
+                                            <ui:FASymbolIcon
+                                                Margin="0,0,12,0"
+                                                VerticalAlignment="Top"
+                                                DockPanel.Dock="Left"
+                                                Symbol="Clock" />
+                                            <TextBlock
+                                                VerticalAlignment="Top"
+                                                DockPanel.Dock="Left"
+                                                FontWeight="SemiBold"
+                                                Text="{x:Static properties:Resources.AutomaticExecution}" />
+                                            <StackPanel HorizontalAlignment="Right">
+                                                <ToggleSwitch
+                                                    VerticalAlignment="Center"
+                                                    Command="{Binding ToggleTaskSchedulerCommand}"
+                                                    Content="{x:Static properties:Resources.EnableFixedSchedule}"
+                                                    IsChecked="{Binding IsTaskSchedulerEnabled}"
+                                                    HorizontalAlignment="Left" />
+                                                <StackPanel Margin="24,8,0,0">
+                                                    <TextBlock
+                                                        Margin="0,0,0,4"
+                                                        FontWeight="SemiBold"
+                                                        Text="{x:Static properties:Resources.UpdateSchedule}" />
+                                                    <ComboBox
+                                                        Width="200"
+                                                        ItemsSource="{Binding AvailableScheduleOptions}"
+                                                        SelectedItem="{Binding SelectedSchedule}">
+                                                        <ComboBox.ItemTemplate>
+                                                            <DataTemplate x:DataType="models:UpdateSchedule">
+                                                                <TextBlock Text="{Binding Converter={StaticResource ScheduleDisplayNameConverter}}" />
+                                                            </DataTemplate>
+                                                        </ComboBox.ItemTemplate>
+                                                    </ComboBox>
+                                                </StackPanel>
+                                                <TextBlock
+                                                    Width="320"
+                                                    Margin="24,8,0,0"
+                                                    Text="{Binding TaskSchedulerScheduleDescription}"
+                                                    TextWrapping="Wrap" />
+                                            </StackPanel>
+                                        </DockPanel>
+                                    </Border>
+
+                                    <!-- 変化なし時スキチE�E�E�E�E�E�E�E�E -->
+                                    <Border
+                                        Margin="0,0,0,4"
+                                        Padding="12,8"
+                                        Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                                        BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="8">
+                                        <DockPanel>
+                                            <ui:FASymbolIcon
+                                                Margin="0,0,12,0"
+                                                VerticalAlignment="Center"
+                                                DockPanel.Dock="Left"
+                                                Symbol="Forward" />
+                                            <TextBlock
+                                                VerticalAlignment="Center"
+                                                DockPanel.Dock="Left"
+                                                FontWeight="SemiBold"
+                                                Text="{x:Static properties:Resources.SkipWhenNoChangesHeader}" />
+                                            <ToggleSwitch
+                                                HorizontalAlignment="Right"
+                                                VerticalAlignment="Center"
+                                                IsChecked="{Binding AppConfig.SkipGenerationWhenNoChanges}" />
+                                        </DockPanel>
+                                    </Border>
+
+                                    <!-- ロチE�E�E�E�E�E�E�E��E�E�E�E�E�E�E�画面更新 -->
+                                    <Border
+                                        Padding="12,8"
+                                        Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                                        BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="8">
+                                        <DockPanel>
+                                            <ui:FASymbolIcon
+                                                Margin="0,0,12,0"
+                                                VerticalAlignment="Center"
+                                                DockPanel.Dock="Left"
+                                                Symbol="Permissions" />
+                                            <TextBlock
+                                                VerticalAlignment="Center"
+                                                DockPanel.Dock="Left"
+                                                FontWeight="SemiBold"
+                                                Text="{x:Static properties:Resources.UpdateLockScreenHeader}" />
+                                            <ToggleSwitch
+                                                HorizontalAlignment="Right"
+                                                VerticalAlignment="Center"
+                                                IsChecked="{Binding AppConfig.UpdateLockScreen}" />
+                                        </DockPanel>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+                </DockPanel>
+            </TabItem>
+
+            <!--  About タチE -->
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <ui:FASymbolIcon Margin="0,0,8,0" Symbol="Help" />
+                        <TextBlock Text="{x:Static properties:Resources.AboutTab}" />
+                    </StackPanel>
+                </TabItem.Header>
+                <ScrollViewer Margin="0,0,0,8">
+                    <StackPanel Margin="0,24,0,0" HorizontalAlignment="Center">
+                        <Image
+                            Width="80"
+                            Height="80"
+                            HorizontalAlignment="Center"
+                            Source="avares://WondayWall/Assets/icon_512.png" />
+                        <TextBlock
+                            Margin="0,12,0,0"
+                            HorizontalAlignment="Center"
+                            FontSize="24"
+                            FontWeight="SemiBold"
+                            Text="{x:Static properties:Resources.AboutAppName}" />
+                        <TextBlock
+                            Margin="0,4,0,0"
+                            HorizontalAlignment="Center"
+                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                            Text="{Binding AppVersion, StringFormat='Version {0}'}" />
+                        <TextBlock
+                            Margin="0,2,0,24"
+                            HorizontalAlignment="Center"
+                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                            Text="{x:Static properties:Resources.AboutDeveloper}" />
+
+                        <!-- リンク一覧 -->
+                        <Border
+                            Margin="0,0,0,4"
+                            Padding="12,8"
+                            Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8">
+                            <DockPanel>
+                                <ui:FASymbolIcon Margin="0,0,12,0" VerticalAlignment="Center" DockPanel.Dock="Left" Symbol="Globe" />
+                                <TextBlock VerticalAlignment="Center" DockPanel.Dock="Left" FontWeight="SemiBold" Text="{x:Static properties:Resources.AboutOfficialDocs}" />
+                                <Button HorizontalAlignment="Right" Command="{Binding OpenLinkCommand}" CommandParameter="{x:Static utils:AppLinks.OfficialDocs}" Content="{x:Static properties:Resources.AboutOfficialDocs}" />
+                            </DockPanel>
+                        </Border>
+
+                        <Border
+                            Margin="0,0,0,4"
+                            Padding="12,8"
+                            Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8">
+                            <DockPanel>
+                                <ui:FASymbolIcon Margin="0,0,12,0" VerticalAlignment="Center" DockPanel.Dock="Left" Symbol="Permissions" />
+                                <TextBlock VerticalAlignment="Center" DockPanel.Dock="Left" FontWeight="SemiBold" Text="{x:Static properties:Resources.AboutPrivacyPolicy}" />
+                                <Button HorizontalAlignment="Right" Command="{Binding OpenLinkCommand}" CommandParameter="{x:Static utils:AppLinks.PrivacyPolicy}" Content="{x:Static properties:Resources.AboutPrivacyPolicy}" />
+                            </DockPanel>
+                        </Border>
+
+                        <Border
+                            Margin="0,0,0,4"
+                            Padding="12,8"
+                            Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8">
+                            <DockPanel>
+                                <ui:FASymbolIcon Margin="0,0,12,0" VerticalAlignment="Center" DockPanel.Dock="Left" Symbol="Document" />
+                                <TextBlock VerticalAlignment="Center" DockPanel.Dock="Left" FontWeight="SemiBold" Text="{x:Static properties:Resources.AboutTermsOfUse}" />
+                                <Button HorizontalAlignment="Right" Command="{Binding OpenLinkCommand}" CommandParameter="{x:Static utils:AppLinks.TermsOfUse}" Content="{x:Static properties:Resources.AboutTermsOfUse}" />
+                            </DockPanel>
+                        </Border>
+
+                        <Border
+                            Margin="0,0,0,4"
+                            Padding="12,8"
+                            Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8">
+                            <DockPanel>
+                                <ui:FASymbolIcon Margin="0,0,12,0" VerticalAlignment="Center" DockPanel.Dock="Left" Symbol="ImageEdit" />
+                                <TextBlock VerticalAlignment="Center" DockPanel.Dock="Left" FontWeight="SemiBold" Text="{x:Static properties:Resources.AboutGeneratedImageUsage}" />
+                                <Button HorizontalAlignment="Right" Command="{Binding OpenLinkCommand}" CommandParameter="{x:Static utils:AppLinks.GeneratedImageUsage}" Content="{x:Static properties:Resources.AboutGeneratedImageUsage}" />
+                            </DockPanel>
+                        </Border>
+
+                        <Border
+                            Margin="0,0,0,4"
+                            Padding="12,8"
+                            Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8">
+                            <DockPanel>
+                                <ui:FASymbolIcon Margin="0,0,12,0" VerticalAlignment="Center" DockPanel.Dock="Left" Symbol="ProtectedDocument" />
+                                <TextBlock VerticalAlignment="Center" DockPanel.Dock="Left" FontWeight="SemiBold" Text="{x:Static properties:Resources.AboutOpenSourceLicenses}" />
+                                <Button HorizontalAlignment="Right" Command="{Binding OpenLicensesFolderCommand}" Content="{x:Static properties:Resources.AboutOpenSourceLicenses}" />
+                            </DockPanel>
+                        </Border>
+
+                        <Border
+                            Margin="0,0,0,4"
+                            Padding="12,8"
+                            Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8">
+                            <DockPanel>
+                                <ui:FASymbolIcon Margin="0,0,12,0" VerticalAlignment="Center" DockPanel.Dock="Left" Symbol="Mail" />
+                                <TextBlock VerticalAlignment="Center" DockPanel.Dock="Left" FontWeight="SemiBold" Text="{x:Static properties:Resources.AboutReleaseNotes}" />
+                                <Button HorizontalAlignment="Right" Command="{Binding OpenLinkCommand}" CommandParameter="{x:Static utils:AppLinks.ReleaseNotes}" Content="{x:Static properties:Resources.AboutReleaseNotes}" />
+                            </DockPanel>
+                        </Border>
+
+                        <Border
+                            Margin="0,0,0,4"
+                            Padding="12,8"
+                            Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8">
+                            <DockPanel>
+                                <ui:FASymbolIcon Margin="0,0,12,0" VerticalAlignment="Center" DockPanel.Dock="Left" Symbol="Code" />
+                                <TextBlock VerticalAlignment="Center" DockPanel.Dock="Left" FontWeight="SemiBold" Text="{x:Static properties:Resources.AboutGitHub}" />
+                                <Button HorizontalAlignment="Right" Command="{Binding OpenLinkCommand}" CommandParameter="{x:Static utils:AppLinks.GitHub}" Content="{x:Static properties:Resources.AboutGitHub}" />
+                            </DockPanel>
+                        </Border>
+
+                        <Border
+                            Margin="0,0,0,24"
+                            Padding="12,8"
+                            Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8">
+                            <DockPanel>
+                                <ui:FASymbolIcon Margin="0,0,12,0" VerticalAlignment="Center" DockPanel.Dock="Left" Symbol="Contact" />
+                                <TextBlock VerticalAlignment="Center" DockPanel.Dock="Left" FontWeight="SemiBold" Text="{x:Static properties:Resources.AboutDeveloperX}" />
+                                <Button HorizontalAlignment="Right" Command="{Binding OpenLinkCommand}" CommandParameter="{x:Static utils:AppLinks.DeveloperX}" Content="{x:Static properties:Resources.AboutDeveloperX}" />
+                            </DockPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
+
+        <!-- セチE�E�E�E�E�E�E�E��E�E�E�E�E�E�E�アチE�E�E�E�E�E�E�E�Eウィザードオーバ�Eレイ -->
+        <Border
+            Grid.Row="1"
+            Background="{DynamicResource SmokeFillColorDefaultBrush}"
+            IsVisible="{Binding ShowSetupWizard}">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <Border
+                    MaxWidth="860"
+                    Margin="12"
+                    Padding="24"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="16">
+                    <StackPanel>
+                        <StackPanel Margin="0,0,0,16">
+                            <TextBlock
+                                FontSize="28"
+                                FontWeight="SemiBold"
+                                Text="{x:Static properties:Resources.SetupTitle}" />
+                            <TextBlock
+                                Margin="0,8,0,0"
+                                Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                Text="{x:Static properties:Resources.SetupDescription}"
+                                TextWrapping="Wrap" />
+                        </StackPanel>
+
+                        <!-- API キースチE�E�E�E�E�E�E�E��E�E�E�E�E�E�E�チE-->
+                        <Border
+                            Margin="0,0,0,4"
+                            Padding="12,8"
+                            Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8">
+                            <DockPanel>
+                                <ui:FASymbolIcon Margin="0,0,12,0" VerticalAlignment="Top" DockPanel.Dock="Left" Symbol="Permissions" />
+                                <TextBlock VerticalAlignment="Top" DockPanel.Dock="Left" FontWeight="SemiBold" Text="{x:Static properties:Resources.SetupStepApiKey}" />
+                                <StackPanel HorizontalAlignment="Right">
+                                    <TextBlock
+                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                        Text="{x:Static properties:Resources.SetupApiKeyDescription}"
+                                        TextWrapping="Wrap" />
+                                    <TextBox
+                                        Width="420"
+                                        Margin="0,8,0,0"
+                                        PasswordChar="•"
+                                        Text="{Binding AppConfig.GoogleAiApiKey, Mode=TwoWay}" />
+                                    <HyperlinkButton
+                                        Margin="0,8,0,0"
+                                        Content="{x:Static properties:Resources.OpenApiKeyPage}"
+                                        NavigateUri="https://aistudio.google.com/app/api-keys" />
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+
+                        <!-- カレンダースチE�E�E�E�E�E�E�E��E�E�E�E�E�E�E�チE-->
+                        <Border
+                            Margin="0,0,0,4"
+                            Padding="12,8"
+                            Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8">
+                            <DockPanel>
+                                <ui:FASymbolIcon Margin="0,0,12,0" VerticalAlignment="Center" DockPanel.Dock="Left" Symbol="Calendar" />
+                                <TextBlock VerticalAlignment="Center" DockPanel.Dock="Left" FontWeight="SemiBold" Text="{x:Static properties:Resources.SetupStepGoogleCalendar}" />
+                                <!-- 未接続時: 接続�Eタン -->
+                                <Button
+                                    HorizontalAlignment="Right"
+                                    Command="{Binding ConnectCalendarCommand}"
+                                    Content="{x:Static properties:Resources.Connect}"
+                                    IsVisible="{Binding !IsCalendarConnected}" />
+                                <!-- 接続済み: 更新ボタン -->
+                                <Button
+                                    HorizontalAlignment="Right"
+                                    Command="{Binding ConnectCalendarCommand}"
+                                    Content="{x:Static properties:Resources.Refresh}"
+                                    IsVisible="{Binding IsCalendarConnected}" />
+                            </DockPanel>
+                        </Border>
+
+                        <!-- ニューススチE�E�E�E�E�E�E�E��E�E�E�E�E�E�E�チE-->
+                        <Border
+                            Margin="0,0,0,4"
+                            Padding="12,8"
+                            Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8">
+                            <DockPanel>
+                                <ui:FASymbolIcon Margin="0,0,12,0" VerticalAlignment="Top" DockPanel.Dock="Left" Symbol="Help" />
+                                <TextBlock VerticalAlignment="Top" DockPanel.Dock="Left" FontWeight="SemiBold" Text="{x:Static properties:Resources.SetupStepNewsSite}" />
+                                <StackPanel HorizontalAlignment="Right">
+                                    <TextBlock
+                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                        Text="{x:Static properties:Resources.SetupNewsDescription}"
+                                        TextWrapping="Wrap" />
+                                    <TextBox
+                                        Width="520"
+                                        Margin="0,8,0,0"
+                                        Text="{Binding NewRssSourceUrl}"
+                                        PlaceholderText="https://example.com" />
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+
+                        <!-- 自動実行スチE�E�E�E�E�E�E�E��E�E�E�E�E�E�E�チE-->
+                        <Border
+                            Margin="0,0,0,4"
+                            Padding="12,8"
+                            Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8">
+                            <DockPanel>
+                                <ui:FASymbolIcon Margin="0,0,12,0" VerticalAlignment="Top" DockPanel.Dock="Left" Symbol="Clock" />
+                                <TextBlock VerticalAlignment="Top" DockPanel.Dock="Left" FontWeight="SemiBold" Text="{x:Static properties:Resources.SetupStepAutomaticExecution}" />
+                                <StackPanel HorizontalAlignment="Right">
+                                    <TextBlock
+                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                        Text="{x:Static properties:Resources.SetupAutomaticExecutionDescription}"
+                                        TextWrapping="Wrap" />
+                                    <ToggleSwitch
+                                        Margin="0,8,0,0"
+                                        Content="{x:Static properties:Resources.SetupEnableDailyTask}"
+                                        IsChecked="{Binding IsTaskSchedulerEnabled}" />
+                                    <TextBlock
+                                        Margin="0,8,0,0"
+                                        Text="{x:Static properties:Resources.SetupDailyTaskDescription}"
+                                        TextWrapping="Wrap" />
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+
+                        <TextBlock
+                            Margin="0,0,0,8"
+                            Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                            Text="{Binding LastResultMessage}"
+                            TextWrapping="Wrap" />
+                        <TextBlock
+                            Margin="0,0,0,4"
+                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                            Text="{x:Static properties:Resources.SetupFooterDescription}"
+                            TextWrapping="Wrap" />
+
+                        <Button
+                            Width="240"
+                            HorizontalAlignment="Right"
+                            Classes="accent"
+                            Command="{Binding CompleteSetupCommand}">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:FASymbolIcon Margin="0,0,8,0" Symbol="Image" />
+                                <TextBlock VerticalAlignment="Center" Text="{x:Static properties:Resources.SetupGenerateAndStart}" />
+                                <ui:FAProgressRing
+                                    Width="24"
+                                    Height="24"
+                                    Margin="8,0,0,0"
+                                    VerticalAlignment="Center"
+                                    IsVisible="{Binding IsGenerating}" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Border>
+            </ScrollViewer>
+        </Border>
+    </Grid>
+</Window>

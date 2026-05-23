@@ -1,0 +1,10 @@
+<Styles
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- RadioButton: 縦方向コンテンツ中央揃えをデフォルトに設定 -->
+    <Style Selector="RadioButton">
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+</Styles>
