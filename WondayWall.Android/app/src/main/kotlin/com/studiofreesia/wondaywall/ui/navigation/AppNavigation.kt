@@ -36,6 +36,7 @@ import androidx.navigation.compose.rememberNavController
 import com.studiofreesia.wondaywall.services.AppConfigService
 import com.studiofreesia.wondaywall.services.ContextService
 import com.studiofreesia.wondaywall.services.GenerationCoordinator
+import com.studiofreesia.wondaywall.services.AiService
 import com.studiofreesia.wondaywall.services.HistoryService
 import com.studiofreesia.wondaywall.services.TaskSchedulerService
 import com.studiofreesia.wondaywall.services.WallpaperService
@@ -80,6 +81,7 @@ fun AppNavigation(
     wallpaperService: WallpaperService,
     contextService: ContextService,
     taskSchedulerService: TaskSchedulerService,
+    aiService: AiService,
 ) {
     val rootNavController = rememberNavController()
 
@@ -107,7 +109,6 @@ fun AppNavigation(
                 factory = WizardViewModel.factory(
                     appConfigService = appConfigService,
                     contextService = contextService,
-                    generationCoordinator = generationCoordinator,
                     taskSchedulerService = taskSchedulerService,
                 )
             )
@@ -130,6 +131,7 @@ fun AppNavigation(
                 wallpaperService = wallpaperService,
                 contextService = contextService,
                 taskSchedulerService = taskSchedulerService,
+                aiService = aiService,
             )
         }
     }
@@ -145,6 +147,7 @@ private fun MainScreen(
     wallpaperService: WallpaperService,
     contextService: ContextService,
     taskSchedulerService: TaskSchedulerService,
+    aiService: AiService,
 ) {
     val navController = rememberNavController()
     var showAboutSheet by remember { mutableStateOf(false) }
@@ -266,6 +269,8 @@ private fun MainScreen(
             AboutScreen(
                 appConfigService = appConfigService,
                 generationCoordinator = generationCoordinator,
+                aiService = aiService,
+                taskSchedulerService = taskSchedulerService,
                 onClose = { showAboutSheet = false },
             )
         }

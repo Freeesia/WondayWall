@@ -2,6 +2,7 @@ package com.studiofreesia.wondaywall.models
 
 import kotlinx.datetime.Instant
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 
 // 画像生成 API に渡すカレンダーイベント（Gemini API プロンプト用）
 @Serializable
@@ -25,6 +26,11 @@ data class PromptNewsTopic(
     val url: String?,
     val publishedAt: Instant?,
     val ogpImageUrl: String?,
+    // 画像生成 API に添付する OGP 画像データ。プロンプト用 JSON には含めない。
+    @Transient
+    val ogpImageData: ByteArray? = null,
+    @Transient
+    val ogpImageMimeType: String? = null,
 )
 
 // 画像生成に渡すコンテキスト一式

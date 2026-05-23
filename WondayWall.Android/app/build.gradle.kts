@@ -50,6 +50,7 @@ configure<ApplicationExtension> {
     buildTypes {
         debug {
             applicationIdSuffix = ".local"
+            versionNameSuffix = "-local"
         }
 
         release {
@@ -67,8 +68,15 @@ configure<ApplicationExtension> {
         create("preview") {
             initWith(getByName("release"))
             applicationIdSuffix = ".preview"
+            versionNameSuffix = "-preview"
             signingConfig = signingConfigs.getByName("debug")
             matchingFallbacks += listOf("release")
+        }
+    }
+
+    sourceSets {
+        getByName("preview") {
+            kotlin.srcDir("src/debug/kotlin")
         }
     }
 
@@ -131,6 +139,7 @@ dependencies {
     implementation(libs.coil.network.okhttp)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
+    add("previewImplementation", libs.androidx.compose.ui.tooling)
 
     androidTestImplementation(libs.androidx.work.testing)
 }

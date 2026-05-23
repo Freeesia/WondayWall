@@ -52,7 +52,7 @@ class SettingsViewModel(
             val config = appConfigService.getConfig()
             if (enabled) {
                 taskSchedulerService.scheduleNext()
-            } else {
+            } else if (!taskSchedulerService.isGenerationWorkRunning()) {
                 taskSchedulerService.cancelScheduled()
             }
             _uiState.value = _uiState.value.copy(config = config)
@@ -69,7 +69,6 @@ class SettingsViewModel(
             _uiState.value = _uiState.value.copy(config = config)
             // スケジュールを再登録する
             if (config.autoGenerationEnabled) {
-                taskSchedulerService.cancelScheduled()
                 taskSchedulerService.scheduleNext()
             }
         }
@@ -77,7 +76,14 @@ class SettingsViewModel(
 
     // Wi-Fi のみ設定を切り替える
     fun toggleWifiOnly(enabled: Boolean) {
-        updateConfigValue { it.copy(generateOnlyOnWifi = enabled) }
+        viewModelScope.launch {
+            appConfigService.updateConfig { it.copy(generateOnlyOnWifi = enabled) }
+            val config = appConfigService.getConfig()
+            _uiState.value = _uiState.value.copy(config = config)
+            if (config.autoGenerationEnabled) {
+                taskSchedulerService.scheduleNext()
+            }
+        }
     }
 
     // 省電力中スキップ設定を切り替える

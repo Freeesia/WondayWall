@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
@@ -33,6 +34,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -67,7 +69,7 @@ fun HomeScreen(viewModel: HomeViewModel) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
 
     // エラー表示
     LaunchedEffect(uiState.errorMessage) {
@@ -97,7 +99,7 @@ fun HomeScreen(viewModel: HomeViewModel) {
                         color = Color.White,
                     )
                     Spacer(Modifier.size(8.dp))
-                    Text("生成中...")
+                    Text(uiState.generationProgress?.let { "生成中 ${it.percent}%" } ?: "生成中...")
                 } else {
                     Icon(Icons.Default.AutoAwesome, contentDescription = null)
                     Spacer(Modifier.size(8.dp))
@@ -219,7 +221,12 @@ fun HomeScreen(viewModel: HomeViewModel) {
             sheetState = sheetState,
             dragHandle = { BottomSheetDefaults.DragHandle() },
         ) {
-            GenerationConfirmSheet(uiState = uiState, viewModel = viewModel)
+            GenerationConfirmSheet(
+                uiState = uiState,
+                viewModel = viewModel,
+                isSheetExpanded = sheetState.currentValue == SheetValue.Expanded ||
+                    sheetState.targetValue == SheetValue.Expanded,
+            )
         }
     }
 }
@@ -229,137 +236,155 @@ fun HomeScreen(viewModel: HomeViewModel) {
 private fun GenerationConfirmSheet(
     uiState: HomeUiState,
     viewModel: HomeViewModel,
+    isSheetExpanded: Boolean,
 ) {
-    val uriHandler = LocalUriHandler.current
-
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
+            .fillMaxHeight()
             .windowInsetsPadding(WindowInsets.navigationBars),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text(
-            "壁紙を生成する",
-            style = MaterialTheme.typography.titleLarge,
-        )
-
-        if (uiState.isLoadingSheetData) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(120.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                CircularProgressIndicator()
-            }
-        } else {
-            // カレンダー予定セクション
-            if (uiState.sheetEvents.isNotEmpty()) {
-                ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            Icon(Icons.Default.CalendarMonth, contentDescription = null)
-                            Text("カレンダー予定", style = MaterialTheme.typography.titleSmall)
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        uiState.sheetEvents.forEachIndexed { index, event ->
-                            if (index > 0) HorizontalDivider(modifier = Modifier.padding(start = 12.dp))
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 6.dp),
-                            ) {
-                                Text(event.title, style = MaterialTheme.typography.bodyMedium)
-                                Text(
-                                    formatCalendarEventDateTime(event),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            // ニュースセクション
-            if (uiState.sheetNews.isNotEmpty()) {
-                ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            Icon(Icons.Default.Newspaper, contentDescription = null)
-                            Text("ニュース", style = MaterialTheme.typography.titleSmall)
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        uiState.sheetNews.forEachIndexed { index, item ->
-                            if (index > 0) HorizontalDivider(modifier = Modifier.padding(start = 12.dp))
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                FaviconIcon(url = item.url)
-                                Column(
-                                    modifier = Modifier.weight(1f),
-                                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                                ) {
-                                    Text(
-                                        text = item.title,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        maxLines = 2,
-                                    )
-                                    Text(
-                                        text = formatNewsPublishedAt(item.publishedAt),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // データなし
-            if (uiState.sheetEvents.isEmpty() && uiState.sheetNews.isEmpty()) {
-                Text(
-                    "利用できるカレンダー予定・ニュースがありません",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(vertical = 8.dp),
-                )
-            }
-        }
-
-        // 生成ボタン
-        Button(
-            onClick = { viewModel.generateFromSheet() },
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 16.dp),
-            enabled = !uiState.isGenerating && !uiState.isLoadingSheetData,
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 88.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            if (uiState.isLoadingSheetData) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(20.dp),
-                    strokeWidth = 2.dp,
-                    color = Color.White,
-                )
-                Spacer(Modifier.size(8.dp))
-            } else {
-                Icon(Icons.Default.AutoAwesome, contentDescription = null)
-                Spacer(Modifier.size(8.dp))
-            }
-            Text("生成！")
+            Text(
+                "壁紙を生成する",
+                style = MaterialTheme.typography.titleLarge,
+            )
+
+            GenerationSheetData(uiState = uiState)
         }
+
+        // 部分表示時も画面内に入る範囲で生成ボタンを固定する
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(if (isSheetExpanded) 1f else 0.47f)
+                .align(Alignment.TopCenter),
+            contentAlignment = Alignment.BottomCenter,
+        ) {
+            Button(
+                onClick = { viewModel.generateFromSheet() },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 16.dp),
+                enabled = !uiState.isGenerating && !uiState.isLoadingSheetData,
+            ) {
+                if (uiState.isLoadingSheetData) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp,
+                        color = Color.White,
+                    )
+                    Spacer(Modifier.size(8.dp))
+                } else {
+                    Icon(Icons.Default.AutoAwesome, contentDescription = null)
+                    Spacer(Modifier.size(8.dp))
+                }
+                Text("生成！")
+            }
+        }
+    }
+}
+
+@Composable
+private fun GenerationSheetData(uiState: HomeUiState) {
+    if (uiState.isLoadingSheetData) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(120.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            CircularProgressIndicator()
+        }
+        return
+    }
+
+    if (uiState.sheetEvents.isNotEmpty()) {
+        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(12.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Icon(Icons.Default.CalendarMonth, contentDescription = null)
+                    Text("カレンダー予定", style = MaterialTheme.typography.titleSmall)
+                }
+                Spacer(Modifier.height(8.dp))
+                uiState.sheetEvents.forEachIndexed { index, event ->
+                    if (index > 0) HorizontalDivider(modifier = Modifier.padding(start = 12.dp))
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 6.dp),
+                    ) {
+                        Text(event.title, style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            formatCalendarEventDateTime(event),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    if (uiState.sheetNews.isNotEmpty()) {
+        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(12.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Icon(Icons.Default.Newspaper, contentDescription = null)
+                    Text("ニュース", style = MaterialTheme.typography.titleSmall)
+                }
+                Spacer(Modifier.height(8.dp))
+                uiState.sheetNews.forEachIndexed { index, item ->
+                    if (index > 0) HorizontalDivider(modifier = Modifier.padding(start = 12.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        FaviconIcon(url = item.url)
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
+                        ) {
+                            Text(
+                                text = item.title,
+                                style = MaterialTheme.typography.bodyMedium,
+                                maxLines = 2,
+                            )
+                            Text(
+                                text = formatNewsPublishedAt(item.publishedAt),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (uiState.sheetEvents.isEmpty() && uiState.sheetNews.isEmpty()) {
+        Text(
+            "利用できるカレンダー予定・ニュースがありません",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(vertical = 8.dp),
+        )
     }
 }
 

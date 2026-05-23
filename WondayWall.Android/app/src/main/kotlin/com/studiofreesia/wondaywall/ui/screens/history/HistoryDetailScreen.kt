@@ -16,6 +16,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.TextSnippet
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Error
@@ -43,6 +44,7 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
+import com.studiofreesia.wondaywall.models.GenerationStatus
 import com.studiofreesia.wondaywall.models.HistoryItem
 import com.studiofreesia.wondaywall.ui.components.FaviconIcon
 import com.studiofreesia.wondaywall.ui.util.formatCalendarEventDateTime
@@ -107,6 +109,11 @@ fun HistoryDetailScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     when {
+                        item.isGenerating -> Icon(
+                            Icons.Default.AutoAwesome,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
                         item.isSkipped -> Icon(
                             Icons.Default.SkipNext,
                             contentDescription = null,
@@ -125,6 +132,7 @@ fun HistoryDetailScreen(
                     }
                     Text(
                         text = when {
+                            item.isGenerating -> generationStatusLabel(item.status)
                             item.isSkipped -> "スキップ"
                             item.isSuccess -> "成功"
                             else -> "失敗"
@@ -252,6 +260,27 @@ fun HistoryDetailScreen(
                 }
             }
 
+            // 生成済みプロンプト（再開用に保存された内容）
+            val generatedPrompt = item.generatedPrompt
+            if (!generatedPrompt.isNullOrEmpty()) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.TextSnippet, contentDescription = null)
+                        Text("生成済み画像プロンプト", style = MaterialTheme.typography.titleSmall)
+                    }
+                    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = generatedPrompt,
+                            modifier = Modifier.padding(12.dp),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
+                }
+            }
+
             // エラー詳細セクション
             val error = item.errorSummary
             if (!error.isNullOrEmpty()) {
@@ -285,4 +314,13 @@ fun HistoryDetailScreen(
             Spacer(Modifier.height(16.dp))
         }
     }
+}
+
+private fun generationStatusLabel(status: GenerationStatus): String = when (status) {
+    GenerationStatus.Generating -> "生成中"
+    GenerationStatus.GeneratingPromptReady -> "プロンプト生成済み"
+    GenerationStatus.GeneratingImageRequested -> "画像生成リクエスト済み"
+    GenerationStatus.Success -> "成功"
+    GenerationStatus.Skipped -> "スキップ"
+    GenerationStatus.Failure -> "失敗"
 }
