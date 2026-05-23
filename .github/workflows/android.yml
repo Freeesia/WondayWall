@@ -33,8 +33,6 @@ jobs:
         working-directory: WondayWall.Android
     outputs:
       artifact-name: ${{ steps.prepare-artifacts.outputs.artifact-name }}
-      release-artifact-name: ${{ steps.prepare-artifacts.outputs.release-artifact-name }}
-      debug-artifact-name: ${{ steps.prepare-artifacts.outputs.debug-artifact-name }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -101,14 +99,16 @@ jobs:
         with:
           gradle-version: ${{ steps.gradle-version.outputs.version }}
 
-      - name: Build debug APK
+      - name: Build preview APK
+        if: ${{ github.ref_type != 'tag' }}
         run: |
           gradle --no-daemon \
             -PwondaywallVersionCode=${{ steps.android-version.outputs.version-code }} \
             "-PwondaywallVersionName=${{ steps.android-version.outputs.version-name }}" \
-            :app:assembleDebug
+            :app:assemblePreview
 
       - name: Restore release signing key
+        if: ${{ github.ref_type == 'tag' }}
         id: release-signing
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -133,6 +133,7 @@ jobs:
           echo "signed=true" >> "$GITHUB_OUTPUT"
 
       - name: Build release APK
+        if: ${{ github.ref_type == 'tag' }}
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
@@ -144,6 +145,7 @@ jobs:
             :app:assembleRelease
 
       - name: Verify signed APK
+        if: ${{ github.ref_type == 'tag' }}
         run: |
           apk_path="app/build/outputs/apk/release/app-release.apk"
           if [ ! -f "$apk_path" ]; then
@@ -163,46 +165,31 @@ jobs:
         id: prepare-artifacts
         run: |
           version_label="${{ steps.gitversion.outputs.fullSemVer }}"
+          build_variant="${{ github.ref_type == 'tag' && 'release' || 'preview' }}"
 
           artifact_root="build/github-artifacts"
-          release_artifact_dir="$artifact_root/release"
-          debug_artifact_dir="$artifact_root/debug"
+          artifact_dir="$artifact_root/$build_variant"
           rm -rf "$artifact_root"
-          mkdir -p "$release_artifact_dir" "$debug_artifact_dir"
+          mkdir -p "$artifact_dir"
 
-          release_apk_path="app/build/outputs/apk/release/app-release.apk"
-          debug_apk_path="app/build/outputs/apk/debug/app-debug.apk"
-          for apk_path in "$release_apk_path" "$debug_apk_path"; do
-            if [ ! -f "$apk_path" ]; then
-              echo "::error::Android APK was not found: $apk_path"
-              exit 1
-            fi
-          done
+          apk_path="app/build/outputs/apk/$build_variant/app-$build_variant.apk"
+          if [ ! -f "$apk_path" ]; then
+            echo "::error::Android APK was not found: $apk_path"
+            exit 1
+          fi
 
-          cp "$release_apk_path" \
-            "$release_artifact_dir/WondayWall-Android-release-$version_label.apk"
-          cp "$debug_apk_path" \
-            "$debug_artifact_dir/WondayWall-Android-debug-$version_label.apk"
+          cp "$apk_path" \
+            "$artifact_dir/WondayWall-Android-$build_variant-$version_label.apk"
 
-          (cd "$release_artifact_dir" && sha256sum * > SHA256SUMS.txt)
-          (cd "$debug_artifact_dir" && sha256sum * > SHA256SUMS.txt)
+          (cd "$artifact_dir" && sha256sum * > SHA256SUMS.txt)
 
-          release_artifact_name="WondayWall-Android-release-$version_label"
-          debug_artifact_name="WondayWall-Android-debug-$version_label"
-          echo "artifact-name=$release_artifact_name" >> "$GITHUB_OUTPUT"
-          echo "release-artifact-name=$release_artifact_name" >> "$GITHUB_OUTPUT"
-          echo "debug-artifact-name=$debug_artifact_name" >> "$GITHUB_OUTPUT"
+          artifact_name="WondayWall-Android-$build_variant-$version_label"
+          echo "artifact-name=$artifact_name" >> "$GITHUB_OUTPUT"
+          echo "artifact-path=WondayWall.Android/$artifact_dir/" >> "$GITHUB_OUTPUT"
 
-      - name: Upload Android release artifact
+      - name: Upload Android artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.prepare-artifacts.outputs.release-artifact-name }}
-          path: WondayWall.Android/build/github-artifacts/release/
-          if-no-files-found: error
-
-      - name: Upload Android debug artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ steps.prepare-artifacts.outputs.debug-artifact-name }}
-          path: WondayWall.Android/build/github-artifacts/debug/
+          name: ${{ steps.prepare-artifacts.outputs.artifact-name }}
+          path: ${{ steps.prepare-artifacts.outputs.artifact-path }}
           if-no-files-found: error
