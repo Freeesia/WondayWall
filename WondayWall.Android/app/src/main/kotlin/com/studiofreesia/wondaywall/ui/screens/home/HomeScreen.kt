@@ -34,6 +34,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -223,6 +224,8 @@ fun HomeScreen(viewModel: HomeViewModel) {
             GenerationConfirmSheet(
                 uiState = uiState,
                 viewModel = viewModel,
+                isSheetExpanded = sheetState.currentValue == SheetValue.Expanded ||
+                    sheetState.targetValue == SheetValue.Expanded,
             )
         }
     }
@@ -233,6 +236,7 @@ fun HomeScreen(viewModel: HomeViewModel) {
 private fun GenerationConfirmSheet(
     uiState: HomeUiState,
     viewModel: HomeViewModel,
+    isSheetExpanded: Boolean,
 ) {
     Box(
         modifier = Modifier
@@ -256,27 +260,34 @@ private fun GenerationConfirmSheet(
             GenerationSheetData(uiState = uiState)
         }
 
-        // 生成ボタン
-        Button(
-            onClick = { viewModel.generateFromSheet() },
+        // 部分表示時も画面内に入る範囲で生成ボタンを固定する
+        Box(
             modifier = Modifier
-                .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 16.dp),
-            enabled = !uiState.isGenerating && !uiState.isLoadingSheetData,
+                .fillMaxHeight(if (isSheetExpanded) 1f else 0.5f)
+                .align(Alignment.TopCenter),
+            contentAlignment = Alignment.BottomCenter,
         ) {
-            if (uiState.isLoadingSheetData) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(20.dp),
-                    strokeWidth = 2.dp,
-                    color = Color.White,
-                )
-                Spacer(Modifier.size(8.dp))
-            } else {
-                Icon(Icons.Default.AutoAwesome, contentDescription = null)
-                Spacer(Modifier.size(8.dp))
+            Button(
+                onClick = { viewModel.generateFromSheet() },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 16.dp),
+                enabled = !uiState.isGenerating && !uiState.isLoadingSheetData,
+            ) {
+                if (uiState.isLoadingSheetData) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp,
+                        color = Color.White,
+                    )
+                    Spacer(Modifier.size(8.dp))
+                } else {
+                    Icon(Icons.Default.AutoAwesome, contentDescription = null)
+                    Spacer(Modifier.size(8.dp))
+                }
+                Text("生成！")
             }
-            Text("生成！")
         }
     }
 }
