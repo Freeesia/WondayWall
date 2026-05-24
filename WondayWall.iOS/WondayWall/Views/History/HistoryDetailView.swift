@@ -3,16 +3,22 @@ import SwiftUI
 // 履歴詳細画面 — 画像プレビュー・使用データ・アクション
 struct HistoryDetailView: View {
     let item: HistoryItem
+    let showsImagePreview: Bool
     @EnvironmentObject private var environment: AppEnvironment
     // Photos から非同期読み込まれた画像
     @State private var loadedImage: UIImage?
     @Environment(\.openURL) private var openURL
 
+    init(item: HistoryItem, showsImagePreview: Bool = true) {
+        self.item = item
+        self.showsImagePreview = showsImagePreview
+    }
+
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
                 // 画像プレビュー
-                if item.isSuccess {
+                if showsImagePreview && item.isSuccess {
                     imagePreview
                 }
 
@@ -44,6 +50,7 @@ struct HistoryDetailView: View {
         .navigationTitle(item.executedAt.formatted(date: .abbreviated, time: .omitted))
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
+            guard showsImagePreview else { return }
             Task<Void, Never> { @MainActor in await self.loadImage() }
         }
     }

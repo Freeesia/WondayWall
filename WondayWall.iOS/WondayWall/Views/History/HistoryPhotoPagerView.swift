@@ -27,6 +27,7 @@ struct HistoryPhotoPagerView: View {
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
+            .ignoresSafeArea()
         }
         .navigationTitle(currentTitle)
         .navigationBarTitleDisplayMode(.inline)
@@ -35,7 +36,7 @@ struct HistoryPhotoPagerView: View {
         .toolbarBackground(.visible, for: .navigationBar)
         .sheet(item: $detailItem) { item in
             NavigationStack {
-                HistoryDetailView(item: item)
+                HistoryDetailView(item: item, showsImagePreview: false)
                     .environmentObject(environment)
             }
             .presentationDetents([.medium, .large])
@@ -66,10 +67,14 @@ private struct HistoryPhotoPageView: View {
                 .ignoresSafeArea()
 
             if let image {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                GeometryReader { geometry in
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: geometry.size.width, height: geometry.size.height)
+                        .clipped()
+                }
+                .ignoresSafeArea()
             } else if item.isSuccess && !didFinishLoading {
                 ProgressView()
                     .tint(.white)
