@@ -10,6 +10,8 @@ val releaseKeystoreFile = providers.environmentVariable("ANDROID_KEYSTORE_FILE")
 val releaseKeystorePassword = providers.environmentVariable("ANDROID_KEYSTORE_PASSWORD").orNull
 val releaseKeyAlias = providers.environmentVariable("ANDROID_KEY_ALIAS").orNull
 val releaseKeyPassword = providers.environmentVariable("ANDROID_KEY_PASSWORD").orNull
+// Preview APK は更新互換性のため、リポジトリ内の固定デバッグ用キーで署名する。
+val previewKeystoreFile = file("preview-debug.keystore")
 val hasReleaseSigningConfig = listOf(
     releaseKeystoreFile,
     releaseKeystorePassword,
@@ -26,7 +28,7 @@ configure<ApplicationExtension> {
         minSdk = 26
         targetSdk = 37
         versionCode = providers.gradleProperty("wondaywallVersionCode")
-            .orElse("2100000000")
+            .orElse("1")
             .get()
             .toInt()
         versionName = providers.gradleProperty("wondaywallVersionName")
@@ -36,8 +38,15 @@ configure<ApplicationExtension> {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
-    if (hasReleaseSigningConfig) {
-        signingConfigs {
+    signingConfigs {
+        create("preview") {
+            storeFile = previewKeystoreFile
+            storePassword = "android"
+            keyAlias = "wondaywall-preview"
+            keyPassword = "android"
+        }
+
+        if (hasReleaseSigningConfig) {
             create("release") {
                 storeFile = file(releaseKeystoreFile!!)
                 storePassword = releaseKeystorePassword
@@ -51,19 +60,11 @@ configure<ApplicationExtension> {
         debug {
             applicationIdSuffix = ".local"
             versionNameSuffix = "-local"
-        }
-
-        create("preview") {
-            initWith(getByName("debug"))
-            applicationIdSuffix = ".debug"
-            versionNameSuffix = "-debug"
-            matchingFallbacks += listOf("debug")
-            if (hasReleaseSigningConfig) {
-                signingConfig = signingConfigs.getByName("release")
-            }
+            buildConfigField("boolean", "DEBUG_FEATURES_ENABLED", "true")
         }
 
         release {
+            buildConfigField("boolean", "DEBUG_FEATURES_ENABLED", "false")
             if (hasReleaseSigningConfig) {
                 signingConfig = signingConfigs.getByName("release")
             }
@@ -74,12 +75,20 @@ configure<ApplicationExtension> {
                 "proguard-rules.pro"
             )
         }
+
+        create("preview") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".preview"
+            versionNameSuffix = "-preview"
+            signingConfig = signingConfigs.getByName("preview")
+            buildConfigField("boolean", "DEBUG_FEATURES_ENABLED", "true")
+            matchingFallbacks += listOf("release")
+        }
     }
 
     sourceSets {
         getByName("preview") {
             kotlin.srcDir("src/debug/kotlin")
-            res.srcDir("src/debug/res")
         }
     }
 
