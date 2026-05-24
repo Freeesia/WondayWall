@@ -3,25 +3,11 @@ import SwiftUI
 // 履歴詳細画面 — 画像プレビュー・使用データ・アクション
 struct HistoryDetailView: View {
     let item: HistoryItem
-    let showsImagePreview: Bool
-    @EnvironmentObject private var environment: AppEnvironment
-    // Photos から非同期読み込まれた画像
-    @State private var loadedImage: UIImage?
     @Environment(\.openURL) private var openURL
-
-    init(item: HistoryItem, showsImagePreview: Bool = true) {
-        self.item = item
-        self.showsImagePreview = showsImagePreview
-    }
 
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
-                // 画像プレビュー
-                if showsImagePreview && item.isSuccess {
-                    imagePreview
-                }
-
                 // ステータスバッジ
                 statusBadge
 
@@ -49,31 +35,6 @@ struct HistoryDetailView: View {
         }
         .navigationTitle(item.executedAt.formatted(date: .abbreviated, time: .omitted))
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear {
-            guard showsImagePreview else { return }
-            Task<Void, Never> { @MainActor in await self.loadImage() }
-        }
-    }
-
-    // 画像プレビュー
-    @ViewBuilder
-    private var imagePreview: some View {
-        if let image = loadedImage {
-            Image(uiImage: image)
-                .resizable()
-                .scaledToFit()
-                .cornerRadius(16)
-                .shadow(radius: 8)
-        } else {
-            ZStack {
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color(.systemGray5))
-                    .aspectRatio(9.0 / 19.5, contentMode: .fit)
-                Image(systemName: "photo.slash")
-                    .font(.system(size: 48))
-                    .foregroundStyle(.secondary)
-            }
-        }
     }
 
     // ステータスバッジ
@@ -201,16 +162,11 @@ struct HistoryDetailView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var statusIcon: String {        if item.isSkipped { return "minus.circle" }
+    private var statusIcon: String {
+        if item.isSkipped { return "minus.circle" }
         if item.isGenerating { return "hourglass.circle" }
         if item.isSuccess { return "checkmark.circle.fill" }
         return "xmark.circle.fill"
-    }
-
-    // Photos から画像を非同期読み込む
-    private func loadImage() async {
-        guard item.isSuccess, let assetId = item.photoAssetId else { return }
-        loadedImage = await environment.wallpaperService.loadImage(assetId: assetId)
     }
 
     private var statusColor: Color {
