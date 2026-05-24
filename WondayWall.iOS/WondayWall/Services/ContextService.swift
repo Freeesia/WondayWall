@@ -231,9 +231,10 @@ final class ContextService {
         let config = configService.config
         let cal = Calendar.current
 
-        // デバイスのネイティブ解像度からアスペクト比を決定する（メインスレッドで取得）
-        let nativeSize = await MainActor.run { DisplayHelper.nativeScreenSize() }
-        let aspectRatio = DisplayHelper.closestGeminiAspectRatio(for: nativeSize)
+        let aspectRatio = DisplayHelper.closestGeminiAspectRatio(
+            screenPixelWidth: config.screenNativePixelWidth,
+            screenPixelHeight: config.screenNativePixelHeight
+        )
 
         // カレンダーイベントを最大5件取得
         onProgress?(0.05, "カレンダーの取得中")

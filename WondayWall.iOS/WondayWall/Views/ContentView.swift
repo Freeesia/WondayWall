@@ -12,10 +12,31 @@ struct ContentView: View {
     @State private var showSuccessToast = false
     @State private var startupAlertMode: StartupAlertMode?
     @State private var showStartupAlert = false
+    @State private var hasCompletedInitialSetup = false
+    @State private var showInitialWallpaperInstructions = false
     @EnvironmentObject private var environment: AppEnvironment
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
+        Group {
+            if isInitialSetupComplete {
+                mainTabs
+            } else {
+                InitialSetupView {
+                    completeInitialSetup()
+                }
+            }
+        }
+        .task {
+            hasCompletedInitialSetup = environment.configService.config.hasCompletedInitialSetup
+        }
+    }
+
+    private var isInitialSetupComplete: Bool {
+        hasCompletedInitialSetup || environment.configService.config.hasCompletedInitialSetup
+    }
+
+    private var mainTabs: some View {
         ZStack(alignment: .top) {
             TabView(selection: $selectedTab) {
                 HomeView()
@@ -74,6 +95,9 @@ struct ContentView: View {
                 }
             }
         }
+        .sheet(isPresented: $showInitialWallpaperInstructions) {
+            WallpaperInstructionsView()
+        }
         .animation(.spring(response: 0.4, dampingFraction: 0.8), value: showSuccessToast)
         .task {
             await evaluateStartupGeneration()
@@ -104,6 +128,12 @@ struct ContentView: View {
         } message: {
             Text(startupAlertMessage)
         }
+    }
+
+    private func completeInitialSetup() {
+        hasCompletedInitialSetup = true
+        selectedTab = 0
+        showInitialWallpaperInstructions = true
     }
 
     private var startupAlertTitle: String {
@@ -137,6 +167,7 @@ struct ContentView: View {
     }
 
     private func evaluateStartupGeneration() async {
+        guard isInitialSetupComplete else { return }
         guard environment.configService.config.autoGenerationEnabled else { return }
         guard environment.configService.hasMinimumConfigurationForStartupGeneration() else { return }
 

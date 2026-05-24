@@ -25,6 +25,12 @@ final class BackgroundTaskService {
     // 各生成完了後、またはアプリ起動時に呼ぶ
     func scheduleNextBackgroundTask() {
         let config = configService.config
+        guard config.hasCompletedInitialSetup else {
+            logger.notice("scheduleNextBackgroundTask: 初回セットアップ未完了のためキャンセル")
+            BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: Self.taskIdentifier)
+            return
+        }
+
         guard config.autoGenerationEnabled else {
             // 自動生成が無効なら既存のタスクをキャンセルする
             logger.notice("scheduleNextBackgroundTask: 自動生成無効のためキャンセル")
@@ -68,6 +74,13 @@ final class BackgroundTaskService {
     // BGProcessingTask が起動されたときの処理（AppDelegate から呼ばれる）
     func handle(_ task: BGProcessingTask) {
         logger.notice("handle: BGProcessingTask 受信 identifier=\(task.identifier, privacy: .public)")
+
+        guard configService.config.hasCompletedInitialSetup else {
+            logger.notice("handle: 初回セットアップ未完了のためキャンセル")
+            BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: Self.taskIdentifier)
+            task.setTaskCompleted(success: false)
+            return
+        }
 
         // 強制kill・expiration に備えて30分後フォールバックを先に登録する（安全弁）
         // 正常完了時は scheduleNextBackgroundTask() で次スロットへ上書きされる
