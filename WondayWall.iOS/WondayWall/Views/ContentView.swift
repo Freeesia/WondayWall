@@ -13,13 +13,15 @@ struct ContentView: View {
     @State private var startupAlertMode: StartupAlertMode?
     @State private var showStartupAlert = false
     @State private var hasCompletedInitialSetup = false
-    @State private var showInitialWallpaperInstructions = false
+    @State private var hasLoadedInitialSetupState = false
     @EnvironmentObject private var environment: AppEnvironment
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         Group {
-            if isInitialSetupComplete {
+            if !hasLoadedInitialSetupState {
+                ProgressView()
+            } else if isInitialSetupComplete {
                 mainTabs
             } else {
                 InitialSetupView {
@@ -28,12 +30,14 @@ struct ContentView: View {
             }
         }
         .task {
+            guard !hasLoadedInitialSetupState else { return }
             hasCompletedInitialSetup = environment.configService.config.hasCompletedInitialSetup
+            hasLoadedInitialSetupState = true
         }
     }
 
     private var isInitialSetupComplete: Bool {
-        hasCompletedInitialSetup || environment.configService.config.hasCompletedInitialSetup
+        hasCompletedInitialSetup
     }
 
     private var mainTabs: some View {
@@ -95,9 +99,6 @@ struct ContentView: View {
                 }
             }
         }
-        .sheet(isPresented: $showInitialWallpaperInstructions) {
-            WallpaperInstructionsView()
-        }
         .animation(.spring(response: 0.4, dampingFraction: 0.8), value: showSuccessToast)
         .task {
             await evaluateStartupGeneration()
@@ -133,7 +134,6 @@ struct ContentView: View {
     private func completeInitialSetup() {
         hasCompletedInitialSetup = true
         selectedTab = 0
-        showInitialWallpaperInstructions = true
     }
 
     private var startupAlertTitle: String {

@@ -11,7 +11,12 @@ final class InitialSetupViewModel {
     var state: InitialSetupState = .editing
     var googleAiApiKey: String
     var rssURL = ""
+    var userPrompt = ""
+    var schedule: UpdateSchedule = .onceADay
     var automaticGenerationEnabled = true
+    var skipIfNoChanges = false
+    var wifiOnlyGeneration = false
+    var forceFlexTier = false
     var notificationsEnabled = true
     var availableCalendars: [CalendarSourceItem] = []
     var selectedCalendarIds = Set<String>()
@@ -21,24 +26,32 @@ final class InitialSetupViewModel {
 
     private let environment: AppEnvironment
     private var resolvedRssURL: String?
+    private var preparedGenerationPermissions = false
 
     init(environment: AppEnvironment) {
         self.environment = environment
         let config = environment.configService.config
         googleAiApiKey = environment.configService.googleAiApiKey
-        automaticGenerationEnabled = config.autoGenerationEnabled
+        userPrompt = config.userPrompt
+        automaticGenerationEnabled = true
+        schedule = .onceADay
+        skipIfNoChanges = config.skipIfNoChanges
+        wifiOnlyGeneration = config.wifiOnlyGeneration
+        forceFlexTier = config.forceFlexTier
         notificationsEnabled = config.notificationsEnabled
         selectedCalendarIds = Set(config.targetCalendarIds)
         calendarAuthStatus = environment.calendarService.authorizationStatus()
     }
 
     var isBusy: Bool { state.isBusy || environment.isGenerating }
-    var isFirstStep: Bool { currentStep == .welcome }
+    var isFirstStep: Bool { currentStep == .welcome || currentStep == .wallpaperInstructions }
     var isGenerationStep: Bool { currentStep == .generation }
+    var isCompletionStep: Bool { currentStep == .wallpaperInstructions }
 
     var primaryButtonTitle: String {
+        if isCompletionStep { return "ホームへ" }
         if isGenerationStep { return "初回生成を開始" }
-        return currentStep == .automaticGeneration ? "生成へ進む" : "次へ"
+        return currentStep == .automaticGeneration ? "権限を確認して生成へ進む" : "次へ"
     }
 
     var canUseCalendar: Bool {
@@ -57,6 +70,10 @@ final class InitialSetupViewModel {
         !trimmedApiKey.isEmpty && !isBusy
     }
 
+    var wallpaperInstructions: String {
+        environment.wallpaperService.wallpaperInstructions()
+    }
+
     func loadInitialData() {
         calendarAuthStatus = environment.calendarService.authorizationStatus()
         guard canUseCalendar else { return }
@@ -64,11 +81,16 @@ final class InitialSetupViewModel {
     }
 
     func goBack() {
-        guard !isBusy, let previous = InitialSetupStep(rawValue: currentStep.rawValue - 1) else {
+        guard !isBusy,
+              currentStep != .wallpaperInstructions,
+              let previous = InitialSetupStep(rawValue: currentStep.rawValue - 1) else {
             return
         }
         errorMessage = nil
         infoMessage = nil
+        if previous == .automaticGeneration {
+            preparedGenerationPermissions = false
+        }
         currentStep = previous
     }
 
@@ -83,8 +105,10 @@ final class InitialSetupViewModel {
                 errorMessage = "Google AI API キーを入力してください。"
                 return
             }
-        case .rss:
+        case .context:
             guard await resolveRssIfNeeded() else { return }
+        case .automaticGeneration:
+            guard await prepareGenerationPermissions() else { return }
         default:
             break
         }
@@ -122,10 +146,13 @@ final class InitialSetupViewModel {
         }
     }
 
+    func togglePromptTemplate(_ template: String) {
+        userPrompt = userPrompt == template ? "" : template
+    }
+
     func runInitialGeneration(
         screenSize: CGSize,
-        displayScale: CGFloat,
-        onCompleted: @escaping @MainActor () -> Void
+        displayScale: CGFloat
     ) async {
         guard !isBusy else { return }
         errorMessage = nil
@@ -137,30 +164,24 @@ final class InitialSetupViewModel {
             return
         }
 
-        guard await resolveRssIfNeeded() else {
-            currentStep = .rss
+        if !rssURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+           resolvedRssURL == nil {
+            errorMessage = "RSS フィードを確認できていません。コンテキスト設定を確認してください。"
+            currentStep = .context
             return
         }
 
-        state = .requestingPhotos
-        guard await environment.wallpaperService.canSaveToPhotos() else {
-            state = .editing
+        guard preparedGenerationPermissions,
+              environment.wallpaperService.hasPhotoLibraryAccess() else {
             errorMessage = "写真ライブラリへのアクセス権限が必要です。設定アプリから許可してから再試行してください。"
+            currentStep = .automaticGeneration
             return
         }
-
-        state = .requestingNotifications
-        let shouldRequestNotifications = automaticGenerationEnabled || notificationsEnabled
-        let notificationGranted = shouldRequestNotifications
-            ? await environment.notificationService.requestPermission()
-            : false
-        let effectiveNotificationsEnabled = notificationsEnabled && notificationGranted
 
         state = .saving
         saveInitialSettings(
             screenSize: screenSize,
-            displayScale: displayScale,
-            notificationsEnabled: effectiveNotificationsEnabled
+            displayScale: displayScale
         )
 
         state = .generating
@@ -171,12 +192,21 @@ final class InitialSetupViewModel {
             }
             environment.backgroundTaskService.scheduleNextBackgroundTask()
             state = .completed
-            onCompleted()
+            currentStep = .wallpaperInstructions
+            infoMessage = "WondayWall アルバムに最初の壁紙を保存しました。"
             return
         }
 
         state = .editing
         errorMessage = result.errorSummary ?? "初回生成に失敗しました。設定を確認して再試行してください。"
+    }
+
+    func completeSetup(onCompleted: @escaping @MainActor () -> Void) {
+        guard currentStep == .wallpaperInstructions else { return }
+        environment.configService.update {
+            $0.hasCompletedInitialSetup = true
+        }
+        onCompleted()
     }
 
     private func loadCalendarsAndSelectDefaultIfNeeded() {
@@ -215,10 +245,32 @@ final class InitialSetupViewModel {
         return true
     }
 
+    private func prepareGenerationPermissions() async -> Bool {
+        state = .requestingPhotos
+        guard await environment.wallpaperService.canSaveToPhotos() else {
+            preparedGenerationPermissions = false
+            state = .editing
+            errorMessage = "写真ライブラリへのアクセス権限が必要です。設定アプリから許可してから再試行してください。"
+            return false
+        }
+
+        state = .requestingNotifications
+        if notificationsEnabled {
+            let notificationGranted = await environment.notificationService.requestPermission()
+            notificationsEnabled = notificationGranted
+            if !notificationGranted {
+                infoMessage = "通知権限が許可されなかったため、生成完了通知はオフにしました。"
+            }
+        }
+
+        preparedGenerationPermissions = true
+        state = .editing
+        return true
+    }
+
     private func saveInitialSettings(
         screenSize: CGSize,
-        displayScale: CGFloat,
-        notificationsEnabled: Bool
+        displayScale: CGFloat
     ) {
         environment.configService.googleAiApiKey = trimmedApiKey
 
@@ -233,14 +285,16 @@ final class InitialSetupViewModel {
             if let resolvedRssURL, !config.rssSources.contains(resolvedRssURL) {
                 config.rssSources.append(resolvedRssURL)
             }
+            config.userPrompt = userPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
             config.autoGenerationEnabled = automaticGenerationEnabled
-            config.schedule = .onceADay
+            config.schedule = schedule
+            config.skipIfNoChanges = skipIfNoChanges
+            config.wifiOnlyGeneration = wifiOnlyGeneration
+            config.forceFlexTier = forceFlexTier
             config.notificationsEnabled = notificationsEnabled
             config.hasCompletedInitialSetup = false
             config.screenNativePixelWidth = normalizedWidth
             config.screenNativePixelHeight = normalizedHeight
         }
-
-        self.notificationsEnabled = notificationsEnabled
     }
 }

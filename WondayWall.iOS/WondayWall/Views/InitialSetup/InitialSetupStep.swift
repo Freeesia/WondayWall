@@ -5,9 +5,10 @@ enum InitialSetupStep: Int, CaseIterable, Identifiable {
     case welcome
     case apiKey
     case calendar
-    case rss
+    case context
     case automaticGeneration
     case generation
+    case wallpaperInstructions
 
     var id: Int { rawValue }
 
@@ -16,9 +17,10 @@ enum InitialSetupStep: Int, CaseIterable, Identifiable {
         case .welcome: return "ようこそ"
         case .apiKey: return "API キー"
         case .calendar: return "カレンダー"
-        case .rss: return "ニュース"
+        case .context: return "コンテキスト"
         case .automaticGeneration: return "自動生成"
         case .generation: return "初回生成"
+        case .wallpaperInstructions: return "壁紙設定"
         }
     }
 
@@ -27,9 +29,10 @@ enum InitialSetupStep: Int, CaseIterable, Identifiable {
         case .welcome: return "sparkles"
         case .apiKey: return "key.fill"
         case .calendar: return "calendar"
-        case .rss: return "newspaper"
+        case .context: return "text.bubble"
         case .automaticGeneration: return "clock.arrow.circlepath"
         case .generation: return "photo.on.rectangle.angled"
+        case .wallpaperInstructions: return "hand.tap"
         }
     }
 }

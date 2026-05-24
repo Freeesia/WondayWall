@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // 初回セットアップ画面
 struct InitialSetupView: View {
@@ -87,9 +88,10 @@ private struct InitialSetupContentView: View {
                         if vm.isGenerationStep {
                             await vm.runInitialGeneration(
                                 screenSize: screenSize,
-                                displayScale: displayScale,
-                                onCompleted: onCompleted
+                                displayScale: displayScale
                             )
+                        } else if vm.isCompletionStep {
+                            vm.completeSetup(onCompleted: onCompleted)
                         } else {
                             await vm.advance()
                         }
@@ -140,26 +142,47 @@ private struct InitialSetupContentView: View {
             apiKeyStep
         case .calendar:
             calendarStep
-        case .rss:
-            rssStep
+        case .context:
+            contextStep
         case .automaticGeneration:
             automaticGenerationStep
         case .generation:
             generationStep
+        case .wallpaperInstructions:
+            wallpaperInstructionsStep
         }
     }
 
     private var welcomeStep: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Label("予定・ニュース・追加指示をもとに、iPhone 向けの壁紙候補を生成します。", systemImage: "photo")
-            Label("iOS では壁紙を直接変更できないため、生成後に写真アプリから手動で設定します。", systemImage: "hand.tap")
-            Label("生成画像には予定やニュース由来の情報が反映される場合があります。共有時は内容を確認してください。", systemImage: "person.crop.circle.badge.exclamationmark")
+        VStack(spacing: 20) {
+            if let icon = appIcon {
+                Image(uiImage: icon)
+                    .resizable()
+                    .frame(width: 88, height: 88)
+                    .clipShape(RoundedRectangle(cornerRadius: 20))
+            } else {
+                Image(systemName: "photo.on.rectangle.angled")
+                    .font(.system(size: 64))
+                    .foregroundStyle(Color.accentColor)
+            }
+
+            Text("WondayWall へようこそ")
+                .font(.title2.bold())
+                .frame(maxWidth: .infinity)
+                .multilineTextAlignment(.center)
+
+            Text("カレンダーの予定やニュースをもとに、\nAI があなた専用の壁紙を自動生成します。\n\n数ステップでセットアップを完了しましょう。")
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
 
             VStack(alignment: .leading, spacing: 8) {
                 setupLink("プライバシーポリシー", url: "https://ww.studiofreesia.com/PrivacyPolicy")
                 setupLink("生成画像の利用について", url: "https://ww.studiofreesia.com/GeneratedImageUsage")
             }
-            .padding(.top, 4)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, 8)
         }
     }
 
@@ -217,11 +240,50 @@ private struct InitialSetupContentView: View {
         }
     }
 
-    private var rssStep: some View {
-        VStack(alignment: .leading, spacing: 12) {
+    private var contextStep: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("ユーザープロンプト")
+                    .font(.headline)
+                Text("生成する壁紙のスタイルや制約を指示してください。")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            Text("テンプレート")
+                .font(.subheadline.weight(.semibold))
+
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 8)], spacing: 8) {
+                ForEach(promptTemplates, id: \.self) { template in
+                    promptTemplateButton(template)
+                }
+            }
+
             TextField(
-                "https://example.com",
-                text: $vm.rssURL
+                "",
+                text: $vm.userPrompt,
+                prompt: Text(verbatim: "例: 水彩画風、青系統で統一して")
+                    .foregroundColor(Color(UIColor.placeholderText)),
+                axis: .vertical
+            )
+            .lineLimit(3...6)
+            .padding(12)
+            .background(Color(.secondarySystemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("RSS ニュースソース")
+                    .font(.headline)
+                Text("ニュースを参考にした壁紙を生成したい場合はニュースサイト URL を追加してください。RSS URL の直接入力もできます。")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            TextField(
+                "",
+                text: $vm.rssURL,
+                prompt: Text(verbatim: "https://example.com")
+                    .foregroundColor(Color(UIColor.placeholderText))
             )
             .keyboardType(.URL)
             .textInputAutocapitalization(.never)
@@ -229,31 +291,88 @@ private struct InitialSetupContentView: View {
             .padding(12)
             .background(Color(.secondarySystemBackground))
             .clipShape(RoundedRectangle(cornerRadius: 8))
-
-            Text("空欄のまま進めるとニュースは使いません。ニュースサイト URL を入力した場合は RSS フィードを自動検出します。")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
         }
+    }
+
+    @ViewBuilder
+    private func promptTemplateButton(_ template: String) -> some View {
+        if vm.userPrompt == template {
+            Button {
+                vm.togglePromptTemplate(template)
+            } label: {
+                promptTemplateLabel(template)
+            }
+            .buttonStyle(.borderedProminent)
+        } else {
+            Button {
+                vm.togglePromptTemplate(template)
+            } label: {
+                promptTemplateLabel(template)
+            }
+            .buttonStyle(.bordered)
+        }
+    }
+
+    private func promptTemplateLabel(_ template: String) -> some View {
+        Text(template)
+            .font(.caption)
+            .frame(maxWidth: .infinity)
+            .lineLimit(2)
+            .multilineTextAlignment(.center)
     }
 
     private var automaticGenerationStep: some View {
         VStack(alignment: .leading, spacing: 16) {
             Toggle("自動生成を有効にする", isOn: $vm.automaticGenerationEnabled)
-            Toggle("生成完了を通知する", isOn: $vm.notificationsEnabled)
+
+            if vm.automaticGenerationEnabled {
+                Picker("生成頻度", selection: $vm.schedule) {
+                    ForEach(ScheduleHelper.supportedSchedules, id: \.self) { schedule in
+                        Text(ScheduleHelper.displayText(for: schedule)).tag(schedule)
+                    }
+                }
+                .pickerStyle(.menu)
+
+                Toggle("変化がなければスキップ", isOn: $vm.skipIfNoChanges)
+                Toggle("Wi-Fi 接続時のみ生成", isOn: $vm.wifiOnlyGeneration)
+                Toggle("Flex ティアを強制使用", isOn: $vm.forceFlexTier)
+            }
 
             Text("""
-                1日1回、壁紙候補の自動生成を試みます。iOS の制御により、実行時刻は前後したり、実行されない場合があります。壁紙への設定は手動で行ってください。
+                バックグラウンドでスケジュールに従って壁紙を生成します。iOS のバックグラウンド実行制限により、指定時刻に実行されないことがあります。低電力モード中は自動生成をスキップします。
                 """)
                 .font(.footnote)
                 .foregroundStyle(.secondary)
+
+            Toggle("生成完了を通知する", isOn: $vm.notificationsEnabled)
         }
     }
 
     private var generationStep: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Label("初回生成の前に写真ライブラリへのアクセス権を確認します。", systemImage: "photo.badge.plus")
-            Label("生成に成功すると WondayWall アルバムに保存され、通常画面へ移動します。", systemImage: "checkmark.circle")
+            Label("写真ライブラリへのアクセスを確認済みです。", systemImage: "photo.badge.plus")
+            Label("生成中にアプリを閉じても、継続タスクの通知で進捗を表示します。", systemImage: "clock.badge.checkmark")
+            Label("生成に成功すると WondayWall アルバムに保存され、壁紙設定方法を表示します。", systemImage: "checkmark.circle")
             Label("失敗した場合はこの画面に留まり、設定を直して再試行できます。", systemImage: "arrow.clockwise")
+        }
+    }
+
+    private var wallpaperInstructionsStep: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Label("WondayWall アルバムに最初の壁紙を保存しました。", systemImage: "checkmark.circle.fill")
+                .foregroundStyle(.green)
+
+            Text(vm.wallpaperInstructions)
+                .font(.body)
+                .foregroundStyle(.primary)
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color(.secondarySystemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+
+            Text("ホーム画面では最新の生成結果を確認できます。")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -297,18 +416,41 @@ private struct InitialSetupContentView: View {
     private func description(for step: InitialSetupStep) -> String {
         switch step {
         case .welcome:
-            return "WondayWall の基本と iOS 版の制約を確認します。"
+            return "WondayWall のセットアップを始めます。"
         case .apiKey:
             return "壁紙生成に必要な Google AI API キーを設定します。"
         case .calendar:
             return "予定を壁紙生成の文脈に使うか選びます。"
-        case .rss:
-            return "気になるニュースサイトや RSS フィードを 1 件登録できます。"
+        case .context:
+            return "壁紙のスタイル指示とニュースソースを設定します。"
         case .automaticGeneration:
             return "バックグラウンドでの自動生成と通知を設定します。"
         case .generation:
             return "設定を保存して、最初の壁紙候補を生成します。"
+        case .wallpaperInstructions:
+            return "保存した画像を壁紙に設定する手順を確認します。"
         }
+    }
+
+    private var promptTemplates: [String] {
+        [
+            "水彩画風で生成してください",
+            "写実的な風景で生成してください",
+            "ミニマルなデザインで生成してください",
+            "イラスト・アニメ調で生成してください",
+            "油絵風で生成してください",
+        ]
+    }
+
+    // アプリアイコンを Info.plist から取得する
+    private var appIcon: UIImage? {
+        guard
+            let icons = Bundle.main.infoDictionary?["CFBundleIcons"] as? [String: Any],
+            let primaryIcon = icons["CFBundlePrimaryIcon"] as? [String: Any],
+            let iconFiles = primaryIcon["CFBundleIconFiles"] as? [String],
+            let lastIcon = iconFiles.last
+        else { return nil }
+        return UIImage(named: lastIcon)
     }
 }
 
