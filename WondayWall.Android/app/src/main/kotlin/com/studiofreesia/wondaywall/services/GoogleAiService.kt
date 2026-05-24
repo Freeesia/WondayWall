@@ -38,6 +38,8 @@ class GoogleAiService(
     companion object {
         private const val TEXT_MODEL_NAME = "gemini-3-flash-preview"
         private const val IMAGE_MODEL_NAME = "gemini-3.1-flash-image-preview"
+        private const val SYNTHETIC_PROGRESS_INTERVAL_MS = 1_500L
+        private const val SYNTHETIC_PROGRESS_STEP = 0.02
     }
 
     private val json = Json { ignoreUnknownKeys = true }
@@ -162,8 +164,8 @@ class GoogleAiService(
             val progressJob = launch {
                 var emitted = initial
                 while (isActive && emitted < maxBeforeCompletion) {
-                    delay(1_000)
-                    emitted = (emitted + 0.03).coerceAtMost(maxBeforeCompletion)
+                    delay(SYNTHETIC_PROGRESS_INTERVAL_MS)
+                    emitted = (emitted + SYNTHETIC_PROGRESS_STEP).coerceAtMost(maxBeforeCompletion)
                     onProgress(emitted, message)
                 }
             }

@@ -193,7 +193,7 @@ class GenerationCoordinator(
                     serviceTier = serviceTier,
                     onProgress = { progress, message ->
                         postProgress(
-                            percent = 35 + (progress * 30).roundToInt(),
+                            percent = 15 + (progress * 30).roundToInt(),
                             message = message,
                             phase = GenerationPhase.GeneratingPrompt,
                             historyId = generatingItem.id,
@@ -223,8 +223,8 @@ class GenerationCoordinator(
                 contextResult.promptContext
             }
             val contextWithOgp = runWithSyntheticProgress(
-                startPercent = 65,
-                maxBeforeCompletionPercent = 70,
+                startPercent = 45,
+                maxBeforeCompletionPercent = 50,
                 message = "採用ニュース画像を取得中",
                 phase = GenerationPhase.FetchingOgp,
                 historyId = generatingItem.id,
@@ -235,7 +235,7 @@ class GenerationCoordinator(
                     selectedNewsIds = promptResult.selectedNewsIds,
                 )
             }
-            postProgress(70, "採用ニュース画像の取得完了", GenerationPhase.FetchingOgp, generatingItem.id, trigger)
+            postProgress(50, "採用ニュース画像の取得完了", GenerationPhase.FetchingOgp, generatingItem.id, trigger)
 
             historyService.updateHistoryItem(
                 generatingItem.copy(
@@ -253,7 +253,7 @@ class GenerationCoordinator(
                 serviceTier = serviceTier,
                 onProgress = { progress, message ->
                     postProgress(
-                        percent = 70 + (progress * 25).roundToInt(),
+                        percent = 50 + (progress * 45).roundToInt(),
                         message = message,
                         phase = GenerationPhase.RequestingImage,
                         historyId = generatingItem.id,

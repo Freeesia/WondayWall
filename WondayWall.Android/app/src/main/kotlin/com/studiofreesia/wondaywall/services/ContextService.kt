@@ -105,32 +105,32 @@ class ContextService(
     }
 
     // PromptContext を構築して返す
-    // onProgress は iOS と同じく全体進捗 0.0〜1.0 の値を通知する
+    // onProgress はプロンプト生成開始前までの全体進捗 0.0〜1.0 の値を通知する
     suspend fun buildPromptContext(onProgress: ((Double, String) -> Unit)? = null): ContextBuildResult {
         val config = appConfigService.getConfig()
 
         // カレンダーイベントを取得する
         onProgress?.invoke(0.05, "カレンダーの取得中")
         val calendarEvents = getCalendarEvents(config.targetCalendarIds)
-        onProgress?.invoke(0.12, "カレンダーの取得完了")
+        onProgress?.invoke(0.08, "カレンダーの取得完了")
 
         // ニュースを取得する（最大10件）
         val newsTopics = runWithSyntheticProgress(
-            start = 0.18,
-            maxBeforeCompletion = 0.30,
+            start = 0.10,
+            maxBeforeCompletion = 0.14,
             message = "ニュースの取得中",
             onProgress = onProgress,
         ) {
             fetchAllNews(config.rssSources).take(10)
         }
-        onProgress?.invoke(0.30, "ニュース画像情報の取得完了")
+        onProgress?.invoke(0.14, "ニュース画像情報の取得完了")
 
         val promptContext = PromptContext(
             calendarEvents = calendarEvents.map { it.toPromptCalendarEvent() },
             newsTopics = newsTopics.map { it.toPromptNewsTopic() },
             additionalConstraints = config.userPrompt,
         )
-        onProgress?.invoke(0.35, "コンテキスト生成完了")
+        onProgress?.invoke(0.15, "コンテキスト生成完了")
 
         return ContextBuildResult(
             promptContext = promptContext,
