@@ -156,10 +156,10 @@ class HomeViewModel(
     }
 
     // 画像を壁紙に適用する
-    fun applyWallpaper(filePath: String) {
+    fun applyWallpaper(imageReference: String) {
         viewModelScope.launch {
             val config = appConfigService.getConfig()
-            val result = wallpaperService.applyWallpaper(filePath, config.updateLockScreen)
+            val result = wallpaperService.applyWallpaper(imageReference, config.updateLockScreen)
             if (result.isFailure) {
                 _uiState.value = _uiState.value.copy(
                     errorMessage = "壁紙の適用に失敗しました: ${result.exceptionOrNull()?.message}"
@@ -170,16 +170,8 @@ class HomeViewModel(
         }
     }
 
-    // 画像をギャラリーに保存する
-    fun saveToGallery(filePath: String, onResult: (Boolean) -> Unit) {
-        viewModelScope.launch {
-            val result = wallpaperService.saveToGallery(filePath)
-            onResult(result.isSuccess)
-        }
-    }
-
     // 画像共有 Intent を取得する（Activity から startActivity で使用する）
-    fun buildShareIntent(filePath: String) = wallpaperService.buildShareIntent(filePath)
+    fun buildShareIntent(imageReference: String) = wallpaperService.buildShareIntent(imageReference)
 
     // エラーメッセージをクリアする
     fun clearError() {

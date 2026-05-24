@@ -34,7 +34,7 @@ data class WizardUiState(
     val updateLockScreen: Boolean = false,
     val isTestGenerating: Boolean = false,
     val isCompleting: Boolean = false,
-    val testGenerationImagePath: String? = null,
+    val testGenerationImageReference: String? = null,
     val errorMessage: String? = null,
 )
 
@@ -193,7 +193,7 @@ class WizardViewModel(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(
                 isTestGenerating = true,
-                testGenerationImagePath = null,
+                testGenerationImageReference = null,
                 errorMessage = null,
             )
             // ウィザード設定を一時的に保存してから生成する
@@ -203,7 +203,7 @@ class WizardViewModel(
                 val errorMessage = generationErrorMessage(result)
                 _uiState.value = _uiState.value.copy(
                     isTestGenerating = false,
-                    testGenerationImagePath = result?.appliedImagePath,
+                    testGenerationImageReference = result?.imageReference,
                     errorMessage = errorMessage,
                 )
             } catch (e: Exception) {
@@ -231,7 +231,7 @@ class WizardViewModel(
                 saveCurrentConfig(enableAutoGeneration = true)
                 taskSchedulerService.scheduleNext()
                 // テスト生成がまだ実行されていない場合は自動で生成する
-                if (_uiState.value.testGenerationImagePath == null) {
+                if (_uiState.value.testGenerationImageReference == null) {
                     _uiState.value = _uiState.value.copy(isTestGenerating = true)
                     val result = taskSchedulerService.enqueueManualGenerationAndWait()
                     val errorMessage = generationErrorMessage(result)
@@ -243,9 +243,9 @@ class WizardViewModel(
                         return@launch
                     }
                     _uiState.value = _uiState.value.copy(
-                        testGenerationImagePath = result?.appliedImagePath,
+                        testGenerationImageReference = result?.imageReference,
                     )
-                    if (_uiState.value.testGenerationImagePath == null) {
+                    if (_uiState.value.testGenerationImageReference == null) {
                         _uiState.value = _uiState.value.copy(isTestGenerating = false)
                         return@launch
                     }
@@ -267,6 +267,13 @@ class WizardViewModel(
         if (result == null) return "すでに生成中です"
         if (result.isSuccess) return null
         return result.errorSummary ?: if (result.isSkipped) "生成がスキップされました" else "生成に失敗しました"
+    }
+
+    // 写真領域への保存権限が拒否されたときに初回生成を止める
+    fun onStoragePermissionDenied() {
+        _uiState.value = _uiState.value.copy(
+            errorMessage = "写真領域に保存する権限がないため、画像生成を開始できません。"
+        )
     }
 
     // 現在の ViewModel 状態を AppConfig として保存する

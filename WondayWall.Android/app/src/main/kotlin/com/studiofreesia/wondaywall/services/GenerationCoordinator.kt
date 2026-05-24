@@ -17,6 +17,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
+import java.io.File
+import java.io.IOException
 import kotlin.time.Clock
 
 // 生成処理全体を統括するコーディネーター
@@ -113,7 +115,8 @@ class GenerationCoordinator(
         var usedEvents: List<CalendarEventItem>? = null
         var usedNews: List<NewsTopicItem>? = null
         var generatedPrompt: String? = null
-        var appliedImagePath: String? = null
+        var appliedImageUri: String? = null
+        var temporaryImagePath: String? = null
 
         val resumable = historyService.getGeneratingWithPrompt()
         val pending = if (resumable == null) {
@@ -128,6 +131,7 @@ class GenerationCoordinator(
                 status = GenerationStatus.Generating,
                 errorSummary = null,
                 appliedImagePath = null,
+                appliedImageUri = null,
                 serviceTier = serviceTier,
                 generatedPrompt = null,
             ).also { historyService.updateHistoryItem(it) }
@@ -238,23 +242,28 @@ class GenerationCoordinator(
                     )
                 },
             )
-            appliedImagePath = imageResult.filePath
+
+            temporaryImagePath = imageResult.temporaryFilePath
+            postProgress(95, "写真に保存中", GenerationPhase.ApplyingWallpaper, generatingItem.id, trigger)
+            val imageUri = wallpaperService.saveToPhotos(imageResult.temporaryFilePath)
+                .getOrElse { error ->
+                    throw IOException("写真領域への保存に失敗しました: ${error.message ?: "不明なエラー"}", error)
+                }
+            val imageUriString = imageUri.toString()
+            appliedImageUri = imageUriString
 
             postProgress(96, "壁紙を適用中", GenerationPhase.ApplyingWallpaper, generatingItem.id, trigger)
             val applyResult = wallpaperService.applyWallpaper(
-                filePath = imageResult.filePath,
+                imageReference = imageUriString,
                 updateLockScreen = config.updateLockScreen,
             )
-
-            if (config.saveToGallery) {
-                wallpaperService.saveToGallery(imageResult.filePath)
-            }
 
             if (applyResult.isSuccess) {
                 val success = generatingItem.copy(
                     status = GenerationStatus.Success,
                     errorSummary = null,
-                    appliedImagePath = imageResult.filePath,
+                    appliedImagePath = null,
+                    appliedImageUri = imageUriString,
                     usedCalendarEvents = usedEvents,
                     usedNewsTopics = adoptedNews,
                     usedPrompt = resumable?.usedPrompt ?: config.userPrompt.takeIf { it.isNotEmpty() },
@@ -262,7 +271,7 @@ class GenerationCoordinator(
                 )
                 historyService.updateHistoryItem(success)
                 if (config.showNotification) {
-                    notificationHelper.showSuccessNotification()
+                    notificationHelper.showSuccessNotification(imageUriString)
                 }
                 postProgress(100, "処理完了", GenerationPhase.Completed, success.id, trigger)
                 success
@@ -271,7 +280,8 @@ class GenerationCoordinator(
                 val failure = generatingItem.copy(
                     status = GenerationStatus.Failure,
                     errorSummary = errorSummary,
-                    appliedImagePath = imageResult.filePath,
+                    appliedImagePath = null,
+                    appliedImageUri = imageUriString,
                     usedCalendarEvents = usedEvents,
                     usedNewsTopics = adoptedNews,
                     usedPrompt = resumable?.usedPrompt ?: config.userPrompt.takeIf { it.isNotEmpty() },
@@ -289,7 +299,8 @@ class GenerationCoordinator(
             val failure = generatingItem.copy(
                 status = GenerationStatus.Failure,
                 errorSummary = e.message ?: "不明なエラー",
-                appliedImagePath = appliedImagePath,
+                appliedImagePath = null,
+                appliedImageUri = appliedImageUri,
                 usedCalendarEvents = usedEvents,
                 usedNewsTopics = usedNews,
                 usedPrompt = resumable?.usedPrompt ?: config.userPrompt.takeIf { it.isNotEmpty() },
@@ -301,6 +312,10 @@ class GenerationCoordinator(
             }
             postProgress(100, "生成に失敗しました", GenerationPhase.Failed, failure.id, trigger)
             failure
+        } finally {
+            temporaryImagePath?.let {
+                runCatching { File(it).delete() }
+            }
         }
     }
 

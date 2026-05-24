@@ -72,9 +72,9 @@ class App : Application() {
             appConfigService.getDebugConfig().useDummyAiService
         }
         return if (useDummy) {
-            DummyAiService(appConfigService, filesDir)
+            DummyAiService(appConfigService, cacheDir)
         } else {
-            GoogleAiService(appConfigService, filesDir)
+            GoogleAiService(appConfigService, cacheDir)
         }
     }
 

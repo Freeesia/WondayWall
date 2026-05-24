@@ -21,7 +21,7 @@ import kotlin.random.Random
 // 実 API を使わずに遅延付きで動作を再現するダミー実装（Debug ビルド専用）
 class DummyAiService(
     private val appConfigService: AppConfigService,
-    private val filesDir: File,
+    private val cacheDir: File,
 ) : AiService {
 
     override suspend fun generatePrompt(
@@ -59,7 +59,7 @@ class DummyAiService(
             onProgress = onProgress,
         )
         return GeneratedImageResult(
-            filePath = saveDummyImage(context),
+            temporaryFilePath = saveDummyImage(context),
             imagePrompt = imagePrompt,
         )
     }
@@ -122,7 +122,7 @@ class DummyAiService(
             )
         }
 
-        val wallpapersDir = File(filesDir, "wallpapers").also { it.mkdirs() }
+        val wallpapersDir = File(cacheDir, "wallpaper-staging").also { it.mkdirs() }
         val file = File(wallpapersDir, "wallpaper_${System.currentTimeMillis()}.png")
         file.outputStream().use { output ->
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
