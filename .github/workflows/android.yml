@@ -119,6 +119,32 @@ jobs:
             "-PwondaywallVersionName=${{ steps.android-version.outputs.version-name }}" \
             :app:assemblePreview
 
+      - name: Verify preview APK
+        if: ${{ github.ref_type != 'tag' }}
+        run: |
+          apk_path="app/build/outputs/apk/preview/app-preview.apk"
+          if [ ! -f "$apk_path" ]; then
+            echo "::error::Preview APK was not found: $apk_path"
+            exit 1
+          fi
+
+          aapt=$(find "$ANDROID_HOME/build-tools" -name aapt -type f | sort -V | tail -n 1)
+          apksigner=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)
+          if [ -z "$aapt" ] || [ -z "$apksigner" ]; then
+            echo "::error::Android build tools were not found in $ANDROID_HOME/build-tools."
+            exit 1
+          fi
+
+          "$aapt" dump badging "$apk_path" | sed -n '1p'
+          signer_output=$("$apksigner" verify --print-certs "$apk_path")
+          echo "$signer_output"
+
+          expected_digest="d70b9013cab9412278ac9ee4c18982c9b65c90cc2ce3b41dc03f87b25d50ee58"
+          if ! grep -q "$expected_digest" <<< "$signer_output"; then
+            echo "::error::Preview APK is not signed with the stable preview key."
+            exit 1
+          fi
+
       - name: Restore release signing key
         if: ${{ github.ref_type == 'tag' }}
         id: release-signing
