@@ -10,15 +10,29 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Version Condition="'$(Version)' == ''">0.0.0-local</Version>
     <Company>StudioFreesia</Company>
-    <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
     <EnableDefaultApplicationDefinition>false</EnableDefaultApplicationDefinition>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <WondayWallBuildType>Local</WondayWallBuildType>
+    <WondayWallBuildType Condition="'$(GITHUB_ACTIONS)' == 'true'">Test</WondayWallBuildType>
+    <WondayWallBuildType Condition="'$(GITHUB_ACTIONS)' == 'true' and '$(GITHUB_REF_TYPE)' == 'tag'">Product</WondayWallBuildType>
+
+    <WondayWallIconIco Condition="'$(WondayWallBuildType)' == 'Local'">..\docs\assets\icon_local.ico</WondayWallIconIco>
+    <WondayWallIconIco Condition="'$(WondayWallBuildType)' == 'Test'">..\docs\assets\icon_test.ico</WondayWallIconIco>
+    <WondayWallIconIco Condition="'$(WondayWallBuildType)' == 'Product'">..\docs\assets\icon.ico</WondayWallIconIco>
+
+    <WondayWallIconPng Condition="'$(WondayWallBuildType)' == 'Local'">..\docs\assets\icon_local_512.png</WondayWallIconPng>
+    <WondayWallIconPng Condition="'$(WondayWallBuildType)' == 'Test'">..\docs\assets\icon_test_512.png</WondayWallIconPng>
+    <WondayWallIconPng Condition="'$(WondayWallBuildType)' == 'Product'">..\docs\assets\icon_512.png</WondayWallIconPng>
+
+    <ApplicationIcon>$(WondayWallIconIco)</ApplicationIcon>
+  </PropertyGroup>
+
   <ItemGroup>
-    <None Remove="Assets\AppIcon.ico" />
-    <Resource Include="Assets\AppIcon.ico" />
-    <Resource Include="..\docs\assets\icon_512.png" Link="Assets\icon_512.png" />
+    <Resource Include="$(WondayWallIconIco)" Link="Assets\AppIcon.ico" />
+    <Resource Include="$(WondayWallIconPng)" Link="Assets\icon_512.png" />
     <EmbeddedResource Update="Properties\Resources.resx">
       <Generator>PublicResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>

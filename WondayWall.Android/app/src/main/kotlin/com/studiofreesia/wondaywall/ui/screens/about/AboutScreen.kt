@@ -58,7 +58,7 @@ fun AboutScreen(
 ) {
     var showDebugInfo by remember { mutableStateOf(false) }
 
-    if (showDebugInfo && BuildConfig.DEBUG) {
+    if (showDebugInfo && BuildConfig.DEBUG_FEATURES_ENABLED) {
         AboutDebugScreen(
             appConfigService = appConfigService,
             generationCoordinator = generationCoordinator,
@@ -70,7 +70,7 @@ fun AboutScreen(
     } else {
         AboutContent(
             onClose = onClose,
-            onShowDebugInfo = { showDebugInfo = BuildConfig.DEBUG },
+            onShowDebugInfo = { showDebugInfo = BuildConfig.DEBUG_FEATURES_ENABLED },
         )
     }
 }
@@ -165,7 +165,7 @@ private fun AboutContent(
             }
         }
 
-        if (BuildConfig.DEBUG) {
+        if (BuildConfig.DEBUG_FEATURES_ENABLED) {
             AboutDebugEntry(onShowDebugInfo = onShowDebugInfo)
         }
 

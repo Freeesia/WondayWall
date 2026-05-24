@@ -41,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.studiofreesia.wondaywall.BuildConfig
 import com.studiofreesia.wondaywall.models.AppConfig
 import com.studiofreesia.wondaywall.models.DebugConfig
 import com.studiofreesia.wondaywall.services.AppConfigService
@@ -208,7 +209,7 @@ internal fun AboutDebugScreen(
         ElevatedCard(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("アプリ状態", style = MaterialTheme.typography.titleMedium)
-                DebugInfoRow("ビルド種別", "Debug")
+                DebugInfoRow("ビルド種別", BuildConfig.BUILD_TYPE)
                 DebugInfoRow("AI サービス", if (aiService is DummyAiService) "Dummy" else "Live")
                 DebugInfoRow("次回起動時のAIサービス", if (debugConfig.useDummyAiService) "Dummy" else "Live")
                 DebugInfoRow("生成中", if (isGenerating) "YES" else "NO")

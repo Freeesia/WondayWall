@@ -63,11 +63,11 @@ class AppConfigService(private val context: Context) {
             }
         }
 
-    // Debug ビルド用の追加設定を監視する Flow
+    // Debug / Preview ビルド用の追加設定を監視する Flow
     private val debugConfigFlow: Flow<DebugConfig> = context.appConfigDataStore.data
         .catch { emit(emptyPreferences()) }
         .map { prefs ->
-            if (!BuildConfig.DEBUG) return@map DebugConfig()
+            if (!BuildConfig.DEBUG_FEATURES_ENABLED) return@map DebugConfig()
             val jsonStr = prefs[debugConfigJsonKey] ?: return@map DebugConfig()
             try {
                 json.decodeFromString<DebugConfig>(jsonStr).normalized()
@@ -103,13 +103,13 @@ class AppConfigService(private val context: Context) {
         saveConfig(transform(current))
     }
 
-    // Debug ビルド用の追加設定を取得する
+    // Debug / Preview ビルド用の追加設定を取得する
     suspend fun getDebugConfig(): DebugConfig =
-        if (BuildConfig.DEBUG) debugConfigFlow.first() else DebugConfig()
+        if (BuildConfig.DEBUG_FEATURES_ENABLED) debugConfigFlow.first() else DebugConfig()
 
-    // Debug ビルド用の追加設定を保存する
+    // Debug / Preview ビルド用の追加設定を保存する
     suspend fun saveDebugConfig(config: DebugConfig) {
-        if (!BuildConfig.DEBUG) return
+        if (!BuildConfig.DEBUG_FEATURES_ENABLED) return
         val jsonStr = json.encodeToString(config.normalized())
         context.appConfigDataStore.edit { prefs ->
             prefs[debugConfigJsonKey] = jsonStr
