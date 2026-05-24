@@ -14,10 +14,7 @@ struct HistoryPhotoPagerView: View {
     }
 
     var body: some View {
-        ZStack {
-            Color.black
-                .ignoresSafeArea()
-
+        ZStack(alignment: .top) {
             TabView(selection: $selectedItemID) {
                 ForEach(items) { item in
                     HistoryPhotoPageView(item: item) {
@@ -27,12 +24,19 @@ struct HistoryPhotoPagerView: View {
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
+            .ignoresSafeArea(edges: .top)
         }
-        .navigationTitle(currentTitle)
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarColorScheme(.dark, for: .navigationBar)
-        .toolbarBackground(.black, for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                if let currentItem {
+                    HistoryPhotoHeaderView(item: currentItem) {
+                        detailItem = currentItem
+                    }
+                }
+            }
+        }
         .sheet(item: $detailItem) { item in
             NavigationStack {
                 HistoryDetailView(item: item)
@@ -43,11 +47,48 @@ struct HistoryPhotoPagerView: View {
         }
     }
 
-    private var currentTitle: String {
-        guard let item = items.first(where: { $0.id == selectedItemID }) else {
-            return "履歴"
+    private var currentItem: HistoryItem? {
+        items.first { $0.id == selectedItemID }
+    }
+}
+
+// 標準ナビゲーションバー上に表示する Liquid Glass 風タイトル
+private struct HistoryPhotoHeaderView: View {
+    let item: HistoryItem
+    let onShowDetail: () -> Void
+
+    private static let relativeDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        formatter.doesRelativeDateFormatting = true
+        return formatter
+    }()
+
+    var body: some View {
+        GlassEffectContainer(spacing: 10) {
+            titleButton
         }
-        return item.executedAt.formatted(date: .abbreviated, time: .omitted)
+    }
+
+    private var titleButton: some View {
+        Button(action: onShowDetail) {
+            VStack(alignment: .center, spacing: 2) {
+                Text(Self.relativeDateFormatter.string(from: item.executedAt))
+                    .font(.headline)
+                    .lineLimit(1)
+                Text(item.executedAt.formatted(date: .omitted, time: .shortened))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 4)
+        }
+        .frame(minWidth: 160, maxWidth: .infinity)
+        .buttonStyle(.plain)
+        .glassEffect(.regular.interactive(), in: Capsule())
+        .accessibilityLabel("履歴詳細を表示")
     }
 }
 
@@ -62,8 +103,6 @@ private struct HistoryPhotoPageView: View {
 
     var body: some View {
         ZStack {
-            Color.black
-
             if let image {
                 GeometryReader { geometry in
                     Image(uiImage: image)
@@ -74,7 +113,6 @@ private struct HistoryPhotoPageView: View {
                 }
             } else if item.isSuccess && !didFinishLoading {
                 ProgressView()
-                    .tint(.white)
             } else {
                 placeholder
             }
@@ -106,11 +144,9 @@ private struct HistoryPhotoPageView: View {
                 Text(statusLabel)
                     .font(.title3)
                     .fontWeight(.semibold)
-                    .foregroundStyle(.white)
                 Text(item.executedAt.formatted(date: .abbreviated, time: .shortened))
                     .font(.subheadline)
-                    .foregroundStyle(.white.opacity(0.68))
-            }
+                }
         }
         .padding(28)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
