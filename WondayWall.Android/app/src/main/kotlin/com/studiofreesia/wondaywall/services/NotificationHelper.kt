@@ -4,6 +4,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import androidx.core.app.NotificationCompat
 import com.studiofreesia.wondaywall.MainActivity
 import com.studiofreesia.wondaywall.models.GenerationProgress
@@ -25,6 +26,7 @@ class NotificationHelper(private val context: Context) {
 
     // 生成完了通知を送る
     fun showSuccessNotification() {
+        if (!NotificationPermissionHelper.hasPostNotificationsPermission(context)) return
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         }
@@ -44,6 +46,7 @@ class NotificationHelper(private val context: Context) {
 
     // 生成失敗通知を送る
     fun showFailureNotification(errorMessage: String) {
+        if (!NotificationPermissionHelper.hasPostNotificationsPermission(context)) return
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         }
@@ -67,12 +70,16 @@ class NotificationHelper(private val context: Context) {
         val percent = progress?.percent?.coerceIn(0, 100) ?: 0
         val message = progress?.message
             ?: context.getString(com.studiofreesia.wondaywall.R.string.notification_generating_text)
-        return NotificationCompat.Builder(context, CHANNEL_PROGRESS)
+        val builder = NotificationCompat.Builder(context, CHANNEL_PROGRESS)
             .setSmallIcon(android.R.drawable.stat_sys_download)
             .setContentTitle(context.getString(com.studiofreesia.wondaywall.R.string.notification_generating_title))
-            .setContentText(message)
-            .setProgress(100, percent, progress == null)
+            .setContentText("${percent}% $message")
+            .setProgress(100, percent, false)
             .setOngoing(true)
-            .build()
+            .setOnlyAlertOnce(true)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            builder.setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+        }
+        return builder.build()
     }
 }

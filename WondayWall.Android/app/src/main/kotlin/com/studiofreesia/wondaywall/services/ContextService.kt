@@ -14,7 +14,12 @@ import com.studiofreesia.wondaywall.models.NewsTopicItem
 import com.studiofreesia.wondaywall.models.PromptCalendarEvent
 import com.studiofreesia.wondaywall.models.PromptContext
 import com.studiofreesia.wondaywall.models.PromptNewsTopic
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
@@ -100,26 +105,65 @@ class ContextService(
     }
 
     // PromptContext を構築して返す
-    suspend fun buildPromptContext(): ContextBuildResult {
+    // onProgress は iOS と同じく全体進捗 0.0〜1.0 の値を通知する
+    suspend fun buildPromptContext(onProgress: ((Double, String) -> Unit)? = null): ContextBuildResult {
         val config = appConfigService.getConfig()
 
         // カレンダーイベントを取得する
+        onProgress?.invoke(0.05, "カレンダーの取得中")
         val calendarEvents = getCalendarEvents(config.targetCalendarIds)
+        onProgress?.invoke(0.12, "カレンダーの取得完了")
 
         // ニュースを取得する（最大10件）
-        val newsTopics = fetchAllNews(config.rssSources).take(10)
+        val newsTopics = runWithSyntheticProgress(
+            start = 0.18,
+            maxBeforeCompletion = 0.30,
+            message = "ニュースの取得中",
+            onProgress = onProgress,
+        ) {
+            fetchAllNews(config.rssSources).take(10)
+        }
+        onProgress?.invoke(0.30, "ニュース画像情報の取得完了")
 
         val promptContext = PromptContext(
             calendarEvents = calendarEvents.map { it.toPromptCalendarEvent() },
             newsTopics = newsTopics.map { it.toPromptNewsTopic() },
             additionalConstraints = config.userPrompt,
         )
+        onProgress?.invoke(0.35, "コンテキスト生成完了")
 
         return ContextBuildResult(
             promptContext = promptContext,
             calendarEvents = calendarEvents,
             newsTopics = newsTopics,
         )
+    }
+
+    // RSS/OGP 取得のように実進捗が取れない処理を、指定範囲内の合成進捗として通知する
+    private suspend fun <T> runWithSyntheticProgress(
+        start: Double,
+        maxBeforeCompletion: Double,
+        message: String,
+        onProgress: ((Double, String) -> Unit)?,
+        block: suspend () -> T,
+    ): T {
+        if (onProgress == null) return block()
+        return coroutineScope {
+            var emitted = start.coerceIn(0.0, maxBeforeCompletion)
+            onProgress(emitted, message)
+            val progressJob = launch {
+                while (isActive && emitted < maxBeforeCompletion) {
+                    delay(1_000)
+                    emitted = (emitted + 0.02).coerceAtMost(maxBeforeCompletion)
+                    onProgress(emitted, message)
+                }
+            }
+            try {
+                block()
+            } finally {
+                progressJob.cancelAndJoin()
+            }
+        }
     }
 
     // READ_CALENDAR 権限があるか確認する

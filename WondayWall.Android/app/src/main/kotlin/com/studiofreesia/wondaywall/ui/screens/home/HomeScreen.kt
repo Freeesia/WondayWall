@@ -31,6 +31,7 @@ import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
@@ -56,6 +57,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import com.studiofreesia.wondaywall.models.CalendarEventItem
+import com.studiofreesia.wondaywall.models.GenerationProgress
 import com.studiofreesia.wondaywall.models.NewsTopicItem
 import com.studiofreesia.wondaywall.ui.components.FaviconIcon
 import com.studiofreesia.wondaywall.ui.util.formatCalendarEventDateTime
@@ -93,13 +95,15 @@ fun HomeScreen(viewModel: HomeViewModel) {
                 shape = RoundedCornerShape(50),
             ) {
                 if (uiState.isGenerating) {
+                    val percent = uiState.generationProgress?.percent ?: 0
                     CircularProgressIndicator(
+                        progress = { percent / 100f },
                         modifier = Modifier.size(20.dp),
                         strokeWidth = 2.dp,
                         color = Color.White,
                     )
                     Spacer(Modifier.size(8.dp))
-                    Text(uiState.generationProgress?.let { "生成中 ${it.percent}%" } ?: "生成中...")
+                    Text("生成中 $percent%")
                 } else {
                     Icon(Icons.Default.AutoAwesome, contentDescription = null)
                     Spacer(Modifier.size(8.dp))
@@ -211,6 +215,15 @@ fun HomeScreen(viewModel: HomeViewModel) {
                 // FAB 分の余白
                 Spacer(Modifier.height(80.dp))
             }
+
+            uiState.generationProgress?.let { progress ->
+                GenerationProgressBanner(
+                    progress = progress,
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(16.dp),
+                )
+            }
         }
     }
 
@@ -288,6 +301,40 @@ private fun GenerationConfirmSheet(
                 }
                 Text("生成！")
             }
+        }
+    }
+}
+
+@Composable
+private fun GenerationProgressBanner(
+    progress: GenerationProgress,
+    modifier: Modifier = Modifier,
+) {
+    ElevatedCard(modifier = modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(
+                    "生成中 ${progress.percent}%",
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                Text(
+                    progress.message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            LinearProgressIndicator(
+                progress = { progress.percent / 100f },
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
     }
 }

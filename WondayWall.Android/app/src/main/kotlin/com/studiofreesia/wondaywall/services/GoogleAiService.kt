@@ -14,7 +14,12 @@ import com.studiofreesia.wondaywall.models.PromptCalendarEvent
 import com.studiofreesia.wondaywall.models.PromptContext
 import com.studiofreesia.wondaywall.models.PromptGenerationResult
 import com.studiofreesia.wondaywall.models.PromptNewsTopic
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
@@ -51,8 +56,14 @@ class GoogleAiService(
     ): PromptGenerationResult {
         val apiKey = requireApiKey()
         val client = Client.builder().apiKey(apiKey).build()
-        onProgress?.invoke(0.0, "画像生成プロンプトの生成中")
-        val promptSelection = generatePromptSelectionWithFallback(client, context, serviceTier)
+        val promptSelection = runWithSyntheticProgress(
+            start = 0.0,
+            maxBeforeCompletion = 0.90,
+            message = "画像生成プロンプトの生成中",
+            onProgress = onProgress,
+        ) {
+            generatePromptSelectionWithFallback(client, context, serviceTier)
+        }
         onProgress?.invoke(1.0, "画像生成プロンプトを生成しました")
         return PromptGenerationResult(
             imagePrompt = promptSelection.imagePrompt,
@@ -106,13 +117,19 @@ class GoogleAiService(
     ): GeneratedImageResult {
         val apiKey = requireApiKey()
         val client = Client.builder().apiKey(apiKey).build()
-        onProgress?.invoke(0.0, "壁紙画像の生成中")
-        val imageData = generateImageWithFallback(
-            client = client,
-            prompt = imagePrompt,
-            context = context,
-            serviceTier = serviceTier,
-        )
+        val imageData = runWithSyntheticProgress(
+            start = 0.0,
+            maxBeforeCompletion = 0.90,
+            message = "壁紙画像の生成中",
+            onProgress = onProgress,
+        ) {
+            generateImageWithFallback(
+                client = client,
+                prompt = imagePrompt,
+                context = context,
+                serviceTier = serviceTier,
+            )
+        }
         onProgress?.invoke(0.95, "生成画像を保存中")
         val filePath = saveGeneratedImage(imageData)
         onProgress?.invoke(1.0, "生成画像を保存しました")
@@ -128,6 +145,34 @@ class GoogleAiService(
             throw IllegalStateException("Google AI API キーが設定されていません。")
         }
         return apiKey
+    }
+
+    // SDK が実進捗を返さないリクエスト中に、完了直前で止まる合成進捗を通知する
+    private suspend fun <T> runWithSyntheticProgress(
+        start: Double,
+        maxBeforeCompletion: Double,
+        message: String,
+        onProgress: ((Double, String) -> Unit)?,
+        block: suspend () -> T,
+    ): T {
+        if (onProgress == null) return block()
+        return coroutineScope {
+            val initial = start.coerceIn(0.0, maxBeforeCompletion)
+            onProgress(initial, message)
+            val progressJob = launch {
+                var emitted = initial
+                while (isActive && emitted < maxBeforeCompletion) {
+                    delay(1_000)
+                    emitted = (emitted + 0.03).coerceAtMost(maxBeforeCompletion)
+                    onProgress(emitted, message)
+                }
+            }
+            try {
+                block()
+            } finally {
+                progressJob.cancelAndJoin()
+            }
+        }
     }
 
     // Flex → Standard フォールバック付きでプロンプトを生成する
