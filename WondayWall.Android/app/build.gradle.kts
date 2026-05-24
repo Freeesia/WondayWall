@@ -51,9 +51,11 @@ configure<ApplicationExtension> {
         debug {
             applicationIdSuffix = ".local"
             versionNameSuffix = "-local"
+            buildConfigField("boolean", "DEBUG_FEATURES_ENABLED", "true")
         }
 
         release {
+            buildConfigField("boolean", "DEBUG_FEATURES_ENABLED", "false")
             if (hasReleaseSigningConfig) {
                 signingConfig = signingConfigs.getByName("release")
             }
@@ -70,6 +72,7 @@ configure<ApplicationExtension> {
             applicationIdSuffix = ".preview"
             versionNameSuffix = "-preview"
             signingConfig = signingConfigs.getByName("debug")
+            buildConfigField("boolean", "DEBUG_FEATURES_ENABLED", "true")
             matchingFallbacks += listOf("release")
         }
     }
