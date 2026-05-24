@@ -78,6 +78,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import com.studiofreesia.wondaywall.models.UpdateSchedule
+import com.studiofreesia.wondaywall.services.NotificationPermissionHelper
 import com.studiofreesia.wondaywall.ui.components.FaviconIcon
 import com.studiofreesia.wondaywall.ui.components.SquareAppIcon
 import java.io.File
@@ -484,6 +485,20 @@ private fun StepPromptAndRss(uiState: WizardUiState, viewModel: WizardViewModel)
 @Composable
 private fun StepSchedule(uiState: WizardUiState, viewModel: WizardViewModel) {
     var scheduleDropdownExpanded by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        viewModel.onNotificationPermissionResult(granted)
+    }
+
+    LaunchedEffect(uiState.showNotification) {
+        if (uiState.showNotification &&
+            NotificationPermissionHelper.shouldRequestPostNotificationsPermission(context)
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -532,7 +547,18 @@ private fun StepSchedule(uiState: WizardUiState, viewModel: WizardViewModel) {
 
         WizardSwitchRow("Wi-Fi 接続時のみ生成する", uiState.wifiOnly, viewModel::toggleWifiOnly)
         WizardSwitchRow("省電力モード中はスキップ", uiState.skipOnBatterySaver, viewModel::toggleSkipOnBatterySaver)
-        WizardSwitchRow("通知を表示する", uiState.showNotification, viewModel::toggleShowNotification)
+        WizardSwitchRow(
+            "通知を表示する",
+            uiState.showNotification,
+        ) { enabled ->
+            if (enabled &&
+                NotificationPermissionHelper.shouldRequestPostNotificationsPermission(context)
+            ) {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            } else {
+                viewModel.toggleShowNotification(enabled)
+            }
+        }
         WizardSwitchRow("ロック画面も更新する", uiState.updateLockScreen, viewModel::toggleUpdateLockScreen)
     }
 }
@@ -569,11 +595,47 @@ private fun StepTestGenerate(uiState: WizardUiState, viewModel: WizardViewModel)
             enabled = !uiState.isTestGenerating,
         ) {
             if (uiState.isTestGenerating) {
-                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                Text("  生成中…（最大10分かかる場合があります）")
+                val percent = uiState.generationProgress?.percent ?: 0
+                CircularProgressIndicator(
+                    progress = { percent / 100f },
+                    modifier = Modifier.size(20.dp),
+                    strokeWidth = 2.dp,
+                )
+                Text("  生成中 $percent%")
             } else {
                 Icon(Icons.Default.Refresh, contentDescription = null)
                 Text("  テスト生成を実行")
+            }
+        }
+
+        if (uiState.isTestGenerating) {
+            val progress = uiState.generationProgress
+            ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Text(
+                            "生成中 ${progress?.percent ?: 0}%",
+                            style = MaterialTheme.typography.titleSmall,
+                        )
+                        Text(
+                            progress?.message ?: "生成を開始しています",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                    LinearProgressIndicator(
+                        progress = { (progress?.percent ?: 0) / 100f },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             }
         }
 

@@ -13,10 +13,16 @@ import com.studiofreesia.wondaywall.models.HistoryItem
 import com.studiofreesia.wondaywall.models.NewsTopicItem
 import com.studiofreesia.wondaywall.models.PromptGenerationResult
 import com.studiofreesia.wondaywall.models.PromptNewsTopic
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
+import kotlin.math.roundToInt
 import kotlin.time.Clock
 
 // 生成処理全体を統括するコーディネーター
@@ -151,8 +157,16 @@ class GenerationCoordinator(
                 }
             }
 
-            postProgress(20, "生成材料を確認中", GenerationPhase.BuildingContext, generatingItem.id, trigger)
-            val contextResult = contextService.buildPromptContext()
+            postProgress(5, "生成材料を確認中", GenerationPhase.BuildingContext, generatingItem.id, trigger)
+            val contextResult = contextService.buildPromptContext { progress, message ->
+                postProgress(
+                    percent = (progress * 100).roundToInt(),
+                    message = message,
+                    phase = GenerationPhase.BuildingContext,
+                    historyId = generatingItem.id,
+                    trigger = trigger,
+                )
+            }
             usedEvents = contextResult.calendarEvents
 
             if (!isInterruptedRetry &&
@@ -179,7 +193,7 @@ class GenerationCoordinator(
                     serviceTier = serviceTier,
                     onProgress = { progress, message ->
                         postProgress(
-                            percent = 35 + (progress * 30).toInt(),
+                            percent = 15 + (progress * 30).roundToInt(),
                             message = message,
                             phase = GenerationPhase.GeneratingPrompt,
                             historyId = generatingItem.id,
@@ -203,16 +217,25 @@ class GenerationCoordinator(
             }
 
             val adoptedNews = usedNews.orEmpty()
-            postProgress(65, "採用ニュース画像を取得中", GenerationPhase.FetchingOgp, generatingItem.id, trigger)
             val contextForImage = if (isResume) {
                 contextResult.promptContext.copy(newsTopics = adoptedNews.map { it.toPromptNewsTopic() })
             } else {
                 contextResult.promptContext
             }
-            val contextWithOgp = aiService.fetchOgpImages(
-                context = contextForImage,
-                selectedNewsIds = promptResult.selectedNewsIds,
-            )
+            val contextWithOgp = runWithSyntheticProgress(
+                startPercent = 45,
+                maxBeforeCompletionPercent = 50,
+                message = "採用ニュース画像を取得中",
+                phase = GenerationPhase.FetchingOgp,
+                historyId = generatingItem.id,
+                trigger = trigger,
+            ) {
+                aiService.fetchOgpImages(
+                    context = contextForImage,
+                    selectedNewsIds = promptResult.selectedNewsIds,
+                )
+            }
+            postProgress(50, "採用ニュース画像の取得完了", GenerationPhase.FetchingOgp, generatingItem.id, trigger)
 
             historyService.updateHistoryItem(
                 generatingItem.copy(
@@ -230,7 +253,7 @@ class GenerationCoordinator(
                 serviceTier = serviceTier,
                 onProgress = { progress, message ->
                     postProgress(
-                        percent = 65 + (progress * 30).toInt(),
+                        percent = 50 + (progress * 45).roundToInt(),
                         message = message,
                         phase = GenerationPhase.RequestingImage,
                         historyId = generatingItem.id,
@@ -281,7 +304,7 @@ class GenerationCoordinator(
                 if (config.showNotification) {
                     notificationHelper.showFailureNotification(errorSummary)
                 }
-                postProgress(100, "生成に失敗しました", GenerationPhase.Failed, failure.id, trigger)
+                postProgress(99, "生成に失敗しました", GenerationPhase.Failed, failure.id, trigger)
                 failure
             }
         } catch (e: Exception) {
@@ -299,7 +322,7 @@ class GenerationCoordinator(
             if (config.showNotification) {
                 notificationHelper.showFailureNotification(failure.errorSummary ?: "不明なエラー")
             }
-            postProgress(100, "生成に失敗しました", GenerationPhase.Failed, failure.id, trigger)
+            postProgress(99, "生成に失敗しました", GenerationPhase.Failed, failure.id, trigger)
             failure
         }
     }
@@ -319,6 +342,32 @@ class GenerationCoordinator(
         historyService.updateHistoryItem(skipped)
         postProgress(100, "生成をスキップしました", GenerationPhase.Skipped, skipped.id, trigger)
         return skipped
+    }
+
+    // 実進捗が取れない短い待機処理を、指定範囲内の合成進捗として通知する
+    private suspend fun <T> runWithSyntheticProgress(
+        startPercent: Int,
+        maxBeforeCompletionPercent: Int,
+        message: String,
+        phase: GenerationPhase,
+        historyId: String?,
+        trigger: GenerationTrigger,
+        block: suspend () -> T,
+    ): T = coroutineScope {
+        var emitted = startPercent.coerceAtMost(maxBeforeCompletionPercent)
+        postProgress(emitted, message, phase, historyId, trigger)
+        val progressJob = launch {
+            while (isActive && emitted < maxBeforeCompletionPercent) {
+                delay(1_000)
+                emitted = (emitted + 1).coerceAtMost(maxBeforeCompletionPercent)
+                postProgress(emitted, message, phase, historyId, trigger)
+            }
+        }
+        try {
+            block()
+        } finally {
+            progressJob.cancelAndJoin()
+        }
     }
 
     private fun postProgress(

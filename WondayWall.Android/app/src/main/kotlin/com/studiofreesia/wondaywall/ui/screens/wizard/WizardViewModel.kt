@@ -5,9 +5,11 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.studiofreesia.wondaywall.models.AppConfig
 import com.studiofreesia.wondaywall.models.CalendarSourceItem
+import com.studiofreesia.wondaywall.models.GenerationProgress
 import com.studiofreesia.wondaywall.models.UpdateSchedule
 import com.studiofreesia.wondaywall.services.AppConfigService
 import com.studiofreesia.wondaywall.services.ContextService
+import com.studiofreesia.wondaywall.services.GenerationCoordinator
 import com.studiofreesia.wondaywall.services.TaskSchedulerService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -34,6 +36,7 @@ data class WizardUiState(
     val updateLockScreen: Boolean = false,
     val isTestGenerating: Boolean = false,
     val isCompleting: Boolean = false,
+    val generationProgress: GenerationProgress? = null,
     val testGenerationImagePath: String? = null,
     val errorMessage: String? = null,
 )
@@ -51,10 +54,19 @@ class WizardViewModel(
     private val appConfigService: AppConfigService,
     private val contextService: ContextService,
     private val taskSchedulerService: TaskSchedulerService,
+    private val generationCoordinator: GenerationCoordinator,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(WizardUiState())
     val uiState: StateFlow<WizardUiState> = _uiState.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            generationCoordinator.progress.collect { progress ->
+                _uiState.value = _uiState.value.copy(generationProgress = progress)
+            }
+        }
+    }
 
     // 次のステップに進む
     fun nextStep() {
@@ -183,6 +195,18 @@ class WizardViewModel(
         _uiState.value = _uiState.value.copy(showNotification = enabled)
     }
 
+    // 通知権限の結果をウィザード設定へ反映する
+    fun onNotificationPermissionResult(granted: Boolean) {
+        _uiState.value = if (granted) {
+            _uiState.value.copy(showNotification = true)
+        } else {
+            _uiState.value.copy(
+                showNotification = false,
+                errorMessage = "通知権限が許可されていないため、通知はオフにしました。",
+            )
+        }
+    }
+
     // ロック画面更新設定を切り替える
     fun toggleUpdateLockScreen(enabled: Boolean) {
         _uiState.value = _uiState.value.copy(updateLockScreen = enabled)
@@ -298,6 +322,7 @@ class WizardViewModel(
             appConfigService: AppConfigService,
             contextService: ContextService,
             taskSchedulerService: TaskSchedulerService,
+            generationCoordinator: GenerationCoordinator,
         ): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T =
@@ -305,6 +330,7 @@ class WizardViewModel(
                     appConfigService,
                     contextService,
                     taskSchedulerService,
+                    generationCoordinator,
                 ) as T
         }
     }
