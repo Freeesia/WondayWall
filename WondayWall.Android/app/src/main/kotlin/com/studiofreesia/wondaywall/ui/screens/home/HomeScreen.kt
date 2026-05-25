@@ -116,7 +116,7 @@ fun HomeScreen(viewModel: HomeViewModel) {
         ) {
             val wallpaperPeekHeight = maxHeight * 2f / 3f
             val usedInfoBackground = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
-            val imageReference = uiState.latestHistoryItem?.imageReference
+            val imageReference = uiState.latestHistoryItem?.appliedImageUri
             val canDisplayImage = imageReference != null && canDisplayImageReference(imageReference)
             if (imageReference != null && canDisplayImage) {
                 // 最新壁紙を全画面背景として表示する

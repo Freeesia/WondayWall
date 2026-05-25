@@ -38,9 +38,7 @@ data class HistoryItem(
     val status: GenerationStatus,
     // エラー概要（失敗時のみ）
     val errorSummary: String? = null,
-    // 旧履歴互換用のアプリ内画像ファイルパス
-    val appliedImagePath: String? = null,
-    // 写真領域に保存した画像 URI（新規履歴の正本）
+    // 写真領域に保存した画像 URI
     val appliedImageUri: String? = null,
     // 生成に使用したカレンダーイベント
     val usedCalendarEvents: List<CalendarEventItem>? = null,
@@ -71,7 +69,4 @@ data class HistoryItem(
             -> false
         }
 
-    // 画像表示・適用・共有で使う現在の参照。新規履歴は写真 URI、旧履歴はファイルパスを使う。
-    val imageReference: String?
-        get() = appliedImageUri ?: appliedImagePath
 }

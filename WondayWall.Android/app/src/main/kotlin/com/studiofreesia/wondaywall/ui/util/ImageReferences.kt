@@ -3,7 +3,7 @@ package com.studiofreesia.wondaywall.ui.util
 import android.net.Uri
 import java.io.File
 
-// 履歴に保存された画像参照を Coil に渡せるモデルへ変換する
+// 画像 URI を Coil に渡せるモデルへ変換する
 fun imageReferenceModel(reference: String): Any {
     val uri = Uri.parse(reference)
     return if (uri.scheme.isNullOrEmpty()) File(reference) else uri

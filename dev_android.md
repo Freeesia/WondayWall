@@ -654,7 +654,6 @@ data class HistoryItem(
     val executedAt: Instant,
     val status: GenerationStatus,
     val errorSummary: String?,
-    val appliedImagePath: String?, // 旧履歴互換
     val appliedImageUri: String?, // 写真領域に保存した画像 URI
     val usedCalendarEvents: List<CalendarEventItem>?,
     val usedNewsTopics: List<NewsTopicItem>?,

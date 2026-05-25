@@ -89,7 +89,7 @@ fun HistoryDetailScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             // 画像プレビュー（写真保存後に壁紙適用だけ失敗した場合も表示する）
-            val imageReference = item.imageReference
+            val imageReference = item.appliedImageUri
             if (imageReference != null && canDisplayImageReference(imageReference)) {
                 AsyncImage(
                     model = ImageRequest.Builder(context).data(imageReferenceModel(imageReference)).build(),

@@ -73,7 +73,7 @@ class HistoryViewModel(
 
     // 壁紙を再適用する
     fun reapplyWallpaper(item: HistoryItem) {
-        val imageReference = item.imageReference ?: return
+        val imageReference = item.appliedImageUri ?: return
         viewModelScope.launch {
             val config = appConfigService.getConfig()
             val result = wallpaperService.applyWallpaper(imageReference, config.updateLockScreen)
@@ -87,7 +87,7 @@ class HistoryViewModel(
 
     // 画像共有 Intent を取得する（Activity から startActivity で使用する）
     fun buildShareIntent(item: HistoryItem) =
-        item.imageReference?.let { wallpaperService.buildShareIntent(it) }
+        item.appliedImageUri?.let { wallpaperService.buildShareIntent(it) }
 
     // エラーメッセージをクリアする
     fun clearError() {

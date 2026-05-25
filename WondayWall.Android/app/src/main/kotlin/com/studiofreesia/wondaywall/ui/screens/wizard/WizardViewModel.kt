@@ -203,7 +203,7 @@ class WizardViewModel(
                 val errorMessage = generationErrorMessage(result)
                 _uiState.value = _uiState.value.copy(
                     isTestGenerating = false,
-                    testGenerationImageReference = result?.imageReference,
+                    testGenerationImageReference = result?.appliedImageUri,
                     errorMessage = errorMessage,
                 )
             } catch (e: Exception) {
@@ -243,7 +243,7 @@ class WizardViewModel(
                         return@launch
                     }
                     _uiState.value = _uiState.value.copy(
-                        testGenerationImageReference = result?.imageReference,
+                        testGenerationImageReference = result?.appliedImageUri,
                     )
                     if (_uiState.value.testGenerationImageReference == null) {
                         _uiState.value = _uiState.value.copy(isTestGenerating = false)

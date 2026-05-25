@@ -170,7 +170,7 @@ private fun HistoryItemCard(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             // サムネイル
-            val imageReference = item.imageReference
+            val imageReference = item.appliedImageUri
             if (imageReference != null && canDisplayImageReference(imageReference)) {
                 AsyncImage(
                     model = ImageRequest.Builder(context).data(imageReferenceModel(imageReference)).build(),

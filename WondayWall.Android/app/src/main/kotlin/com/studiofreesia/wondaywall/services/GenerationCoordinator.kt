@@ -130,7 +130,6 @@ class GenerationCoordinator(
                 executedAt = Clock.System.now(),
                 status = GenerationStatus.Generating,
                 errorSummary = null,
-                appliedImagePath = null,
                 appliedImageUri = null,
                 serviceTier = serviceTier,
                 generatedPrompt = null,
@@ -262,7 +261,6 @@ class GenerationCoordinator(
                 val success = generatingItem.copy(
                     status = GenerationStatus.Success,
                     errorSummary = null,
-                    appliedImagePath = null,
                     appliedImageUri = imageUriString,
                     usedCalendarEvents = usedEvents,
                     usedNewsTopics = adoptedNews,
@@ -280,7 +278,6 @@ class GenerationCoordinator(
                 val failure = generatingItem.copy(
                     status = GenerationStatus.Failure,
                     errorSummary = errorSummary,
-                    appliedImagePath = null,
                     appliedImageUri = imageUriString,
                     usedCalendarEvents = usedEvents,
                     usedNewsTopics = adoptedNews,
@@ -299,7 +296,6 @@ class GenerationCoordinator(
             val failure = generatingItem.copy(
                 status = GenerationStatus.Failure,
                 errorSummary = e.message ?: "不明なエラー",
-                appliedImagePath = null,
                 appliedImageUri = appliedImageUri,
                 usedCalendarEvents = usedEvents,
                 usedNewsTopics = usedNews,
