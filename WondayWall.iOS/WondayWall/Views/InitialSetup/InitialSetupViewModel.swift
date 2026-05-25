@@ -2,6 +2,7 @@ import CoreGraphics
 import EventKit
 import Foundation
 import Observation
+import UIKit
 
 // 初回セットアップ画面の ViewModel
 @MainActor
@@ -21,6 +22,9 @@ final class InitialSetupViewModel {
     var availableCalendars: [CalendarSourceItem] = []
     var selectedCalendarIds = Set<String>()
     var calendarAuthStatus: EKAuthorizationStatus
+    var generationPreviewEvents: [CalendarEventItem] = []
+    var generationPreviewNews: [NewsTopicItem] = []
+    var generatedWallpaperImage: UIImage?
     var errorMessage: String?
     var infoMessage: String?
 
@@ -51,7 +55,7 @@ final class InitialSetupViewModel {
     var primaryButtonTitle: String {
         if isCompletionStep { return "ホームへ" }
         if isGenerationStep { return "初回生成を開始" }
-        return currentStep == .automaticGeneration ? "権限を確認して生成へ進む" : "次へ"
+        return "次へ"
     }
 
     var canUseCalendar: Bool {
@@ -109,6 +113,7 @@ final class InitialSetupViewModel {
             guard await resolveRssIfNeeded() else { return }
         case .automaticGeneration:
             guard await prepareGenerationPermissions() else { return }
+            await loadGenerationPreviewData()
         default:
             break
         }
@@ -187,6 +192,9 @@ final class InitialSetupViewModel {
         state = .generating
         let result = await environment.coordinator.runManual()
         if result.isSuccess, result.photoAssetId != nil {
+            if let assetId = result.photoAssetId {
+                generatedWallpaperImage = await environment.wallpaperService.loadImage(assetId: assetId)
+            }
             environment.configService.update {
                 $0.hasCompletedInitialSetup = true
             }
@@ -266,6 +274,20 @@ final class InitialSetupViewModel {
         preparedGenerationPermissions = true
         state = .editing
         return true
+    }
+
+    private func loadGenerationPreviewData() async {
+        state = .loadingGenerationPreview
+        generationPreviewEvents = environment.contextService.fetchCalendarEvents(
+            calendarIds: Array(selectedCalendarIds)
+        )
+
+        var rssSources = environment.configService.config.rssSources
+        if let resolvedRssURL, !rssSources.contains(resolvedRssURL) {
+            rssSources.append(resolvedRssURL)
+        }
+        generationPreviewNews = await environment.contextService.fetchNews(from: rssSources)
+        state = .editing
     }
 
     private func saveInitialSettings(

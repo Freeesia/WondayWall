@@ -58,13 +58,13 @@ actor GenerationCoordinator {
     // 手動生成を実行する
     // バックグラウンド移行に備えて BGContinuedProcessingTask を開始する
     func runManual() async -> HistoryItem {
-        await setIsGenerating(true)
-        defer { Task { await self.setIsGenerating(false) } }
-
         // バックグラウンド移行時の BGContinuedProcessingTask を開始する
         fgBgTaskService.beginTask { [weak self] in
             Task { await self?.handleBackgroundExpiration() }
         }
+
+        await setIsGenerating(true)
+        defer { Task { await self.setIsGenerating(false) } }
 
         // 手動生成は変化がなくても必ず実行し、自動生成の枠も消費する
         let tier: GoogleAiServiceTier = configService.config.forceFlexTier ? .flex : .standard

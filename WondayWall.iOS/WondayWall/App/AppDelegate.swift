@@ -64,9 +64,7 @@ extension AppDelegate {
         // 前回セッションで残存した可能性のある submit 済みリクエストをキャンセルする。
         // 生成中にアプリが強制終了された場合、リクエストが残り次回 beginTask 時に
         // tooManyPendingTaskRequests が発生して BG 保護なしで生成が走るのを防ぐ。
-        BGTaskScheduler.shared.cancel(
-            taskRequestWithIdentifier: ForegroundBackgroundTaskService.continuedTaskIdentifier
-        )
+        ForegroundBackgroundTaskService.cancelStoredPendingRequest()
         logger.notice("起動時クリア: BGContinuedProcessingTask 残存リクエストをキャンセル (identifier=\(ForegroundBackgroundTaskService.continuedTaskIdentifier, privacy: .public))")
         BGTaskScheduler.shared.register(
             forTaskWithIdentifier: ForegroundBackgroundTaskService.continuedTaskIdentifier,

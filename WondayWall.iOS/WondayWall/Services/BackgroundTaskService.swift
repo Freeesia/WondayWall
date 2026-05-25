@@ -6,7 +6,9 @@ import OSLog
 final class BackgroundTaskService {
     private let logger = Logger(subsystem: "com.studiofreesia.wondaywall", category: "BackgroundTaskService")
     // Info.plist の BGTaskSchedulerPermittedIdentifiers に登録するタスク ID
-    static let taskIdentifier = "com.studiofreesia.wondaywall.generation"
+    static var taskIdentifier: String {
+        "\(Bundle.main.bundleIdentifier ?? "com.studiofreesia.wondaywall").generation"
+    }
 
     // AppDelegate のハンドラーから参照できるよう静的に保持する
     // AppEnvironment で初期化後に設定される

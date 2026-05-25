@@ -127,9 +127,6 @@ private struct InitialSetupContentView: View {
         VStack(alignment: .leading, spacing: 8) {
             Label(vm.currentStep.title, systemImage: vm.currentStep.systemImage)
                 .font(.title2.bold())
-            Text(description(for: vm.currentStep))
-                .font(.body)
-                .foregroundStyle(.secondary)
         }
     }
 
@@ -155,16 +152,10 @@ private struct InitialSetupContentView: View {
 
     private var welcomeStep: some View {
         VStack(spacing: 20) {
-            if let icon = appIcon {
-                Image(uiImage: icon)
-                    .resizable()
-                    .frame(width: 88, height: 88)
-                    .clipShape(RoundedRectangle(cornerRadius: 20))
-            } else {
-                Image(systemName: "photo.on.rectangle.angled")
-                    .font(.system(size: 64))
-                    .foregroundStyle(Color.accentColor)
-            }
+            Image("AppIconDisplay")
+                .resizable()
+                .frame(width: 88, height: 88)
+                .clipShape(RoundedRectangle(cornerRadius: 20))
 
             Text("WondayWall へようこそ")
                 .font(.title2.bold())
@@ -316,7 +307,7 @@ private struct InitialSetupContentView: View {
     private func promptTemplateLabel(_ template: String) -> some View {
         Text(template)
             .font(.caption)
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, minHeight: 36, maxHeight: 36)
             .lineLimit(2)
             .multilineTextAlignment(.center)
     }
@@ -345,35 +336,146 @@ private struct InitialSetupContentView: View {
                 .foregroundStyle(.secondary)
 
             Toggle("生成完了を通知する", isOn: $vm.notificationsEnabled)
+
+            Label(
+                "次へ進むと、初回生成の前に写真ライブラリと通知のアクセス権を確認します。",
+                systemImage: "photo.badge.plus"
+            )
+            .font(.footnote)
+            .foregroundStyle(.secondary)
         }
     }
 
     private var generationStep: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Label("写真ライブラリへのアクセスを確認済みです。", systemImage: "photo.badge.plus")
-            Label("生成中にアプリを閉じても、継続タスクの通知で進捗を表示します。", systemImage: "clock.badge.checkmark")
-            Label("生成に成功すると WondayWall アルバムに保存され、壁紙設定方法を表示します。", systemImage: "checkmark.circle")
-            Label("失敗した場合はこの画面に留まり、設定を直して再試行できます。", systemImage: "arrow.clockwise")
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("準備ができました。生成してみましょう！")
+                    .font(.title3.bold())
+                Text("次の内容をもとに最初の壁紙を作成します。")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+
+            generationPreviewSection(
+                title: "使用する予定",
+                systemImage: "calendar",
+                emptyText: "今回は予定を使いません",
+                isEmpty: vm.generationPreviewEvents.isEmpty
+            ) {
+                ForEach(Array(vm.generationPreviewEvents.prefix(3))) { event in
+                    eventPreviewRow(event)
+                }
+            }
+
+            generationPreviewSection(
+                title: "使用するニュース",
+                systemImage: "newspaper",
+                emptyText: "今回はニュースを使いません",
+                isEmpty: vm.generationPreviewNews.isEmpty
+            ) {
+                ForEach(Array(vm.generationPreviewNews.prefix(3))) { item in
+                    newsPreviewRow(item)
+                }
+            }
         }
     }
 
-    private var wallpaperInstructionsStep: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Label("WondayWall アルバムに最初の壁紙を保存しました。", systemImage: "checkmark.circle.fill")
-                .foregroundStyle(.green)
-
-            Text(vm.wallpaperInstructions)
-                .font(.body)
-                .foregroundStyle(.primary)
-                .padding(14)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color(.secondarySystemBackground))
+    private func generationPreviewSection<Content: View>(
+        title: String,
+        systemImage: String,
+        emptyText: String,
+        isEmpty: Bool,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(title, systemImage: systemImage)
+                .font(.headline)
+            if isEmpty {
+                Text(emptyText)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .background(.regularMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+            } else {
+                VStack(spacing: 0) {
+                    content()
+                }
+                .background(.regularMaterial)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
-
-            Text("ホーム画面では最新の生成結果を確認できます。")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+            }
         }
+    }
+
+    private func eventPreviewRow(_ event: CalendarEventItem) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(event.title)
+                .font(.subheadline)
+                .lineLimit(1)
+            HStack(spacing: 6) {
+                Text(event.startTime, style: .date)
+                if event.isAllDay {
+                    Text("終日")
+                } else {
+                    Text(event.startTime, style: .time)
+                }
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func newsPreviewRow(_ item: NewsTopicItem) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            FaviconImage(urlString: item.url)
+                .padding(.top, 2)
+            Text(item.title)
+                .font(.subheadline)
+                .lineLimit(2)
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var wallpaperInstructionsStep: some View {
+        ZStack(alignment: .bottomLeading) {
+            if let image = vm.generatedWallpaperImage {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(maxWidth: .infinity, minHeight: 520, maxHeight: 520)
+                    .clipped()
+            } else {
+                LinearGradient(
+                    colors: [Color(.systemGray5), Color(.systemGray3)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            }
+
+            VStack(alignment: .leading, spacing: 14) {
+                Label("WondayWall アルバムに保存しました", systemImage: "checkmark.circle.fill")
+                    .font(.headline)
+                    .foregroundStyle(.green)
+
+                Text(vm.wallpaperInstructions)
+                    .font(.body)
+                    .foregroundStyle(.primary)
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.regularMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .padding(16)
+        }
+        .frame(maxWidth: .infinity, minHeight: 520, maxHeight: 520)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
     private func calendarRow(_ calendar: CalendarSourceItem) -> some View {
@@ -413,25 +515,6 @@ private struct InitialSetupContentView: View {
         }
     }
 
-    private func description(for step: InitialSetupStep) -> String {
-        switch step {
-        case .welcome:
-            return "WondayWall のセットアップを始めます。"
-        case .apiKey:
-            return "壁紙生成に必要な Google AI API キーを設定します。"
-        case .calendar:
-            return "予定を壁紙生成の文脈に使うか選びます。"
-        case .context:
-            return "壁紙のスタイル指示とニュースソースを設定します。"
-        case .automaticGeneration:
-            return "バックグラウンドでの自動生成と通知を設定します。"
-        case .generation:
-            return "設定を保存して、最初の壁紙候補を生成します。"
-        case .wallpaperInstructions:
-            return "保存した画像を壁紙に設定する手順を確認します。"
-        }
-    }
-
     private var promptTemplates: [String] {
         [
             "水彩画風で生成してください",
@@ -440,17 +523,6 @@ private struct InitialSetupContentView: View {
             "イラスト・アニメ調で生成してください",
             "油絵風で生成してください",
         ]
-    }
-
-    // アプリアイコンを Info.plist から取得する
-    private var appIcon: UIImage? {
-        guard
-            let icons = Bundle.main.infoDictionary?["CFBundleIcons"] as? [String: Any],
-            let primaryIcon = icons["CFBundlePrimaryIcon"] as? [String: Any],
-            let iconFiles = primaryIcon["CFBundleIconFiles"] as? [String],
-            let lastIcon = iconFiles.last
-        else { return nil }
-        return UIImage(named: lastIcon)
     }
 }
 

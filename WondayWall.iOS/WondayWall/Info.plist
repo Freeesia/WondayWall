@@ -24,9 +24,9 @@
         <!-- バックグラウンド処理タスクの許可 ID -->
         <key>BGTaskSchedulerPermittedIdentifiers</key>
         <array>
-            <string>com.studiofreesia.wondaywall.generation</string>
+            <string>$(PRODUCT_BUNDLE_IDENTIFIER).generation</string>
             <!-- 明示的なユーザーリクエスト用の continued processing task -->
-            <string>com.studiofreesia.wondaywall.manual</string>
+            <string>$(PRODUCT_BUNDLE_IDENTIFIER).manual.*</string>
         </array>
         <!-- バックグラウンドモード -->
         <key>UIBackgroundModes</key>

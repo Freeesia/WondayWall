@@ -6,8 +6,27 @@ import OSLog
 // BGContinuedProcessingTask を使い、ユーザーに進捗を明示しながら処理を継続する
 final class ForegroundBackgroundTaskService {
     private let logger = Logger(subsystem: "com.studiofreesia.wondaywall", category: "ForegroundBackgroundTaskService")
-    // BGContinuedProcessingTask の識別子（Info.plist に登録済み）
-    static let continuedTaskIdentifier = "com.studiofreesia.wondaywall.manual"
+    private static let storedRequestIdentifierKey = "WondayWall.lastContinuedProcessingTaskRequest"
+    // BGContinuedProcessingTask の登録識別子（Info.plist では wildcard 形式で登録する）
+    static var continuedTaskIdentifier: String {
+        "\(continuedTaskIdentifierPrefix).*"
+    }
+
+    private static var continuedTaskIdentifierPrefix: String {
+        "\(Bundle.main.bundleIdentifier ?? "com.studiofreesia.wondaywall").manual"
+    }
+
+    private static func makeRequestIdentifier() -> String {
+        "\(continuedTaskIdentifierPrefix).\(UUID().uuidString)"
+    }
+
+    static func cancelStoredPendingRequest() {
+        guard let identifier = UserDefaults.standard.string(forKey: storedRequestIdentifierKey) else {
+            return
+        }
+        BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: identifier)
+        UserDefaults.standard.removeObject(forKey: storedRequestIdentifierKey)
+    }
 
     // AppDelegate のハンドラーから参照できるよう静的に保持する
     static weak var current: ForegroundBackgroundTaskService?
@@ -19,6 +38,7 @@ final class ForegroundBackgroundTaskService {
     // 手放した時点で activeTask が nil になり、app の BG 保護が失われる。
     private var activeTask: BGContinuedProcessingTask?
     private var isTaskCompleted = false
+    private var submittedRequestIdentifier: String?
 
     init() {
         ForegroundBackgroundTaskService.current = self
@@ -27,9 +47,12 @@ final class ForegroundBackgroundTaskService {
     // フォアグラウンド開始の生成を BGContinuedProcessingTask 経由で開始する
     func beginTask(onExpiration: @escaping () -> Void) {
         self.onExpiration = onExpiration
-        logger.notice("beginTask: BGContinuedProcessingTaskRequest を submit 試行 (identifier=\(Self.continuedTaskIdentifier))")
+        let requestIdentifier = Self.makeRequestIdentifier()
+        submittedRequestIdentifier = requestIdentifier
+        UserDefaults.standard.set(requestIdentifier, forKey: Self.storedRequestIdentifierKey)
+        logger.notice("beginTask: BGContinuedProcessingTaskRequest を submit 試行 (identifier=\(requestIdentifier, privacy: .public))")
         let request = BGContinuedProcessingTaskRequest(
-            identifier: Self.continuedTaskIdentifier,
+            identifier: requestIdentifier,
             title: "壁紙を生成中",
             subtitle: "壁紙候補画像を作成しています"
         )
@@ -58,9 +81,13 @@ final class ForegroundBackgroundTaskService {
                 self.completeTask(success: success)
             } else {
                 // FG中に完了 → 未処理の submit リクエストをキャンセルする
-                self.logger.notice("FG完了: BGContinuedProcessingTask リクエストをキャンセル (identifier=\(Self.continuedTaskIdentifier))")
-                BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: Self.continuedTaskIdentifier)
+                if let identifier = self.submittedRequestIdentifier {
+                    self.logger.notice("FG完了: BGContinuedProcessingTask リクエストをキャンセル (identifier=\(identifier, privacy: .public))")
+                    BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: identifier)
+                }
                 self.onExpiration = nil
+                self.submittedRequestIdentifier = nil
+                UserDefaults.standard.removeObject(forKey: Self.storedRequestIdentifierKey)
                 self.clearObservers()
             }
         }
@@ -122,6 +149,8 @@ final class ForegroundBackgroundTaskService {
             logger.warning("completeTask: activeTask が nil — setTaskCompleted を呼べない")
         }
         activeTask = nil
+        submittedRequestIdentifier = nil
+        UserDefaults.standard.removeObject(forKey: Self.storedRequestIdentifierKey)
         clearObservers()
     }
 

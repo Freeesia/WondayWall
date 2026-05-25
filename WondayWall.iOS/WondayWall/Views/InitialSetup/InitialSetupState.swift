@@ -7,6 +7,7 @@ enum InitialSetupState {
     case resolvingRss
     case requestingPhotos
     case requestingNotifications
+    case loadingGenerationPreview
     case saving
     case generating
     case completed
@@ -16,7 +17,7 @@ enum InitialSetupState {
         case .editing, .completed:
             return false
         case .requestingCalendar, .resolvingRss, .requestingPhotos,
-             .requestingNotifications, .saving, .generating:
+             .requestingNotifications, .loadingGenerationPreview, .saving, .generating:
             return true
         }
     }
@@ -33,6 +34,8 @@ enum InitialSetupState {
             return "写真ライブラリのアクセス権を確認しています..."
         case .requestingNotifications:
             return "通知権限を確認しています..."
+        case .loadingGenerationPreview:
+            return "使用する予定とニュースを確認しています..."
         case .saving:
             return "設定を保存しています..."
         case .generating:
