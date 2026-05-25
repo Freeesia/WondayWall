@@ -1,5 +1,8 @@
 package com.studiofreesia.wondaywall.ui.screens.settings
 
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -43,11 +46,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 
 import com.studiofreesia.wondaywall.models.UpdateSchedule
+import com.studiofreesia.wondaywall.services.NotificationPermissionHelper
 
 // 設定画面
 @OptIn(ExperimentalMaterial3Api::class)
@@ -60,6 +65,16 @@ fun SettingsScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var apiKeyText by remember { mutableStateOf(uiState.config.googleAiApiKey) }
     var scheduleDropdownExpanded by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            viewModel.toggleShowNotification(true)
+        } else {
+            viewModel.onNotificationPermissionDenied()
+        }
+    }
 
     LaunchedEffect(uiState.config.googleAiApiKey) {
         if (apiKeyText != uiState.config.googleAiApiKey) {
@@ -218,7 +233,15 @@ fun SettingsScreen(
                     SwitchRow(
                         label = "通知を表示する",
                         checked = uiState.config.showNotification,
-                        onCheckedChange = viewModel::toggleShowNotification,
+                        onCheckedChange = { enabled ->
+                            if (enabled &&
+                                NotificationPermissionHelper.shouldRequestPostNotificationsPermission(context)
+                            ) {
+                                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            } else {
+                                viewModel.toggleShowNotification(enabled)
+                            }
+                        },
                     )
                     SwitchRow(
                         label = "Flex ティアを強制使用する",

@@ -3,6 +3,7 @@ package com.studiofreesia.wondaywall.workers
 import android.content.Context
 import android.content.pm.ServiceInfo
 import android.os.Build
+import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
@@ -20,6 +21,9 @@ class GenerationWorker(
     appContext: Context,
     workerParams: WorkerParameters,
 ) : CoroutineWorker(appContext, workerParams) {
+    companion object {
+        private const val TAG = "GenerationWorker"
+    }
 
     override suspend fun doWork(): Result {
         val trigger = inputData.getString(TaskSchedulerService.KEY_TRIGGER)
@@ -35,7 +39,7 @@ class GenerationWorker(
         return try {
             // フォアグラウンド通知を表示して OS による中断を防ぐ
             setProgress(TaskSchedulerService.progressToData(initialProgress))
-            setForeground(createForegroundInfo(initialProgress))
+            setForegroundWithLog(initialProgress)
 
             val historyItem = coroutineScope {
                 val progressJob = launch {
@@ -43,7 +47,7 @@ class GenerationWorker(
                         if (progress == null) return@collect
                         val data = TaskSchedulerService.progressToData(progress)
                         setProgress(data)
-                        setForeground(createForegroundInfo(progress))
+                        setForegroundWithLog(progress)
                     }
                 }
 
@@ -57,8 +61,18 @@ class GenerationWorker(
             Result.success(TaskSchedulerService.resultToData(historyItem))
         } catch (e: Exception) {
             // 失敗時はリトライしない（次回スロットで再試行する）
+            Log.e(TAG, "生成 Worker に失敗しました", e)
             app.taskSchedulerService.scheduleNext(allowWhileRunning = true)
             Result.failure()
+        }
+    }
+
+    private suspend fun setForegroundWithLog(progress: GenerationProgress) {
+        try {
+            setForeground(createForegroundInfo(progress))
+        } catch (e: Exception) {
+            Log.e(TAG, "Foreground Worker 通知の設定に失敗しました", e)
+            throw e
         }
     }
 
