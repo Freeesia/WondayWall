@@ -17,9 +17,15 @@ final class AppEnvironment: ObservableObject {
 
     // 生成進捗（0-100）。nil は非生成中を表す
     @Published var generationProgress: Int? = nil
+    // BGContinuedProcessingTask を開始できなかった場合のユーザー向け警告
+    @Published var continuationWarningMessage: String? = nil
 
     // 生成中かどうか（手動・起動時補完・バックグラウンド両方を含む）
     var isGenerating: Bool { generationProgress != nil }
+
+    func dismissContinuationWarning() {
+        continuationWarningMessage = nil
+    }
 
     init() {
         let config = AppConfigService()
@@ -98,6 +104,23 @@ final class AppEnvironment: ObservableObject {
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
                 self?.generationProgress = nil
+                self?.continuationWarningMessage = nil
+            }
+        }
+
+        NotificationCenter.default.addObserver(
+            forName: .generationContinuationStatusChanged,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            let isAvailable = notification.userInfo?["isAvailable"] as? Bool ?? false
+            let message = notification.userInfo?["message"] as? String
+            Task { @MainActor [weak self] in
+                if isAvailable {
+                    self?.continuationWarningMessage = nil
+                } else {
+                    self?.continuationWarningMessage = message ?? "バックグラウンド継続を開始できませんでした。生成が完了するまでアプリを開いたままにしてください。"
+                }
             }
         }
     }

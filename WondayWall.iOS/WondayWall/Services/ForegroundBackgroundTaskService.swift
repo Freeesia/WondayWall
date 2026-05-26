@@ -47,10 +47,15 @@ final class ForegroundBackgroundTaskService {
         do {
             try BGTaskScheduler.shared.submit(request)
             logger.notice("beginTask: submit 成功 strategy=fail")
+            notifyContinuationStatus(isAvailable: true)
         } catch {
             // submit 失敗は生成自体の失敗にはしないが、BG継続保護は効かないため詳細を残す。
             let nsError = error as NSError
             logger.error("beginTask: submit 失敗 domain=\(nsError.domain, privacy: .public) code=\(nsError.code, privacy: .public) message=\(error.localizedDescription, privacy: .public)")
+            notifyContinuationStatus(
+                isAvailable: false,
+                message: Self.warningMessage(for: nsError)
+            )
         }
 
         // 生成完了通知を beginTask 時点で監視する。
@@ -149,6 +154,37 @@ final class ForegroundBackgroundTaskService {
         if let token = progressObserver {
             NotificationCenter.default.removeObserver(token)
             progressObserver = nil
+        }
+    }
+
+    private static func warningMessage(for error: NSError) -> String {
+        if error.domain == BGTaskScheduler.errorDomain,
+           let code = BGTaskScheduler.Error.Code(rawValue: error.code) {
+            switch code {
+            case .unavailable:
+                return "この環境ではバックグラウンド継続を開始できません。生成が完了するまでアプリを開いたままにしてください。"
+            case .notPermitted:
+                return "バックグラウンド継続が許可されていません。生成が完了するまでアプリを開いたままにしてください。"
+            case .immediateRunIneligible:
+                return "現在の端末状況ではバックグラウンド継続をすぐ開始できません。生成が完了するまでアプリを開いたままにしてください。"
+            default:
+                break
+            }
+        }
+        return "バックグラウンド継続を開始できませんでした。生成が完了するまでアプリを開いたままにしてください。"
+    }
+
+    private func notifyContinuationStatus(isAvailable: Bool, message: String? = nil) {
+        DispatchQueue.main.async {
+            var userInfo: [String: Any] = ["isAvailable": isAvailable]
+            if let message {
+                userInfo["message"] = message
+            }
+            NotificationCenter.default.post(
+                name: .generationContinuationStatusChanged,
+                object: nil,
+                userInfo: userInfo
+            )
         }
     }
 }
