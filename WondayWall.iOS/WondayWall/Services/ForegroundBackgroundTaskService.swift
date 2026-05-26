@@ -43,12 +43,14 @@ final class ForegroundBackgroundTaskService {
             title: "壁紙を生成中",
             subtitle: "壁紙候補画像を作成しています"
         )
+        request.strategy = .fail
         do {
             try BGTaskScheduler.shared.submit(request)
-            logger.notice("beginTask: submit 成功")
+            logger.notice("beginTask: submit 成功 strategy=fail")
         } catch {
-            // submit 失敗は無視する（生成処理自体は続行する）
-            logger.error("beginTask: submit 失敗 error=\(error.localizedDescription) (\(String(describing: (error as NSError).code)))")
+            // submit 失敗は生成自体の失敗にはしないが、BG継続保護は効かないため詳細を残す。
+            let nsError = error as NSError
+            logger.error("beginTask: submit 失敗 domain=\(nsError.domain, privacy: .public) code=\(nsError.code, privacy: .public) message=\(error.localizedDescription, privacy: .public)")
         }
 
         // 生成完了通知を beginTask 時点で監視する。
