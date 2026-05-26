@@ -68,7 +68,7 @@ extension AppDelegate {
         logger.notice("起動時クリア: BGContinuedProcessingTask 残存リクエストをキャンセル (identifier=\(ForegroundBackgroundTaskService.continuedTaskIdentifier, privacy: .public))")
         let registered = BGTaskScheduler.shared.register(
             forTaskWithIdentifier: ForegroundBackgroundTaskService.continuedTaskIdentifier,
-            using: nil
+            using: DispatchQueue.main
         ) { [weak self] task in
             self?.logger.notice("BGContinuedProcessingTask ハンドラー呼び出し: identifier=\(task.identifier, privacy: .public)")
             guard let continuedTask = task as? BGContinuedProcessingTask else {

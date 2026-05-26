@@ -59,8 +59,10 @@ actor GenerationCoordinator {
     // バックグラウンド移行に備えて BGContinuedProcessingTask を開始する
     func runManual() async -> HistoryItem {
         // バックグラウンド移行時の BGContinuedProcessingTask を開始する
-        fgBgTaskService.beginTask { [weak self] in
-            Task { await self?.handleBackgroundExpiration() }
+        await MainActor.run {
+            fgBgTaskService.beginTask { [weak self] in
+                Task { await self?.handleBackgroundExpiration() }
+            }
         }
 
         await setIsGenerating(true)
