@@ -33,7 +33,7 @@ import java.util.concurrent.TimeUnit
 // Google AI Gemini API を使った壁紙画像生成サービス（google-genai SDK 使用）
 class GoogleAiService(
     private val appConfigService: AppConfigService,
-    private val filesDir: File,
+    private val cacheDir: File,
 ) : AiService {
     companion object {
         private const val TEXT_MODEL_NAME = "gemini-3-flash-preview"
@@ -136,7 +136,7 @@ class GoogleAiService(
         val filePath = saveGeneratedImage(imageData)
         onProgress?.invoke(1.0, "生成画像を保存しました")
         return GeneratedImageResult(
-            filePath = filePath,
+            temporaryFilePath = filePath,
             imagePrompt = imagePrompt,
         )
     }
@@ -322,7 +322,7 @@ class GoogleAiService(
     }
 
     private suspend fun saveGeneratedImage(imageData: ImageData): String = withContext(Dispatchers.IO) {
-        val wallpapersDir = File(filesDir, "wallpapers").also { it.mkdirs() }
+        val wallpapersDir = File(cacheDir, "wallpaper-staging").also { it.mkdirs() }
         val fileName = "wallpaper_${System.currentTimeMillis()}.${imageData.extension}"
         val file = File(wallpapersDir, fileName)
         file.writeBytes(imageData.bytes)

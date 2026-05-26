@@ -40,7 +40,6 @@
     <!-- 共通 -->
     <string name="generate_now">今すぐ生成</string>
     <string name="apply_wallpaper">壁紙に適用</string>
-    <string name="save_to_gallery">ギャラリーに保存</string>
     <string name="share">共有</string>
     <string name="delete">削除</string>
     <string name="reapply">再適用</string>

@@ -52,7 +52,8 @@ import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import com.studiofreesia.wondaywall.models.GenerationStatus
 import com.studiofreesia.wondaywall.models.HistoryItem
-import java.io.File
+import com.studiofreesia.wondaywall.ui.util.canDisplayImageReference
+import com.studiofreesia.wondaywall.ui.util.imageReferenceModel
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -169,10 +170,10 @@ private fun HistoryItemCard(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             // サムネイル
-            val imagePath = item.appliedImagePath
-            if (imagePath != null && File(imagePath).exists()) {
+            val imageReference = item.appliedImageUri
+            if (imageReference != null && canDisplayImageReference(imageReference)) {
                 AsyncImage(
-                    model = ImageRequest.Builder(context).data(File(imagePath)).build(),
+                    model = ImageRequest.Builder(context).data(imageReferenceModel(imageReference)).build(),
                     contentDescription = "壁紙サムネイル",
                     modifier = Modifier
                         .width(56.dp)

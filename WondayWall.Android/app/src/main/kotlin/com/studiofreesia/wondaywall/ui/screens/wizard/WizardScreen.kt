@@ -1,6 +1,9 @@
 package com.studiofreesia.wondaywall.ui.screens.wizard
 
 import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
@@ -75,13 +78,20 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import com.studiofreesia.wondaywall.models.UpdateSchedule
 import com.studiofreesia.wondaywall.services.NotificationPermissionHelper
 import com.studiofreesia.wondaywall.ui.components.FaviconIcon
 import com.studiofreesia.wondaywall.ui.components.SquareAppIcon
-import java.io.File
+import com.studiofreesia.wondaywall.ui.util.canDisplayImageReference
+import com.studiofreesia.wondaywall.ui.util.imageReferenceModel
+
+private enum class PendingStorageGenerationAction {
+    TestGenerate,
+    CompleteWizard,
+}
 
 // ウィザード画面（セットアップ）
 @OptIn(ExperimentalMaterial3Api::class)
@@ -92,7 +102,37 @@ fun WizardScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
     val canGoNext = uiState.currentStep != 1 || uiState.apiKey.isNotBlank()
+    var pendingStorageAction by remember { mutableStateOf<PendingStorageGenerationAction?>(null) }
+
+    fun runGenerationAction(action: PendingStorageGenerationAction) {
+        when (action) {
+            PendingStorageGenerationAction.TestGenerate -> viewModel.testGenerate()
+            PendingStorageGenerationAction.CompleteWizard -> viewModel.completeWizard(onComplete)
+        }
+    }
+
+    val storagePermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        val action = pendingStorageAction
+        pendingStorageAction = null
+        if (granted && action != null) {
+            runGenerationAction(action)
+        } else {
+            viewModel.onStoragePermissionDenied()
+        }
+    }
+
+    fun runGenerationActionWithStoragePermission(action: PendingStorageGenerationAction) {
+        if (requiresLegacyPhotoWritePermission(context)) {
+            pendingStorageAction = action
+            storagePermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        } else {
+            runGenerationAction(action)
+        }
+    }
 
     LaunchedEffect(uiState.errorMessage) {
         uiState.errorMessage?.let {
@@ -135,7 +175,14 @@ fun WizardScreen(
                         2 -> StepCalendar(uiState, viewModel)
                         3 -> StepPromptAndRss(uiState, viewModel)
                         4 -> StepSchedule(uiState, viewModel)
-                        5 -> StepTestGenerate(uiState, viewModel)
+                        5 -> StepTestGenerate(
+                            uiState = uiState,
+                            onTestGenerate = {
+                                runGenerationActionWithStoragePermission(
+                                    PendingStorageGenerationAction.TestGenerate
+                                )
+                            },
+                        )
                     }
                 }
             }
@@ -173,7 +220,11 @@ fun WizardScreen(
                     }
                 } else {
                     Button(
-                        onClick = { viewModel.completeWizard(onComplete) },
+                        onClick = {
+                            runGenerationActionWithStoragePermission(
+                                PendingStorageGenerationAction.CompleteWizard
+                            )
+                        },
                         enabled = !uiState.isCompleting && !uiState.isTestGenerating,
                     ) {
                         if (uiState.isCompleting || uiState.isTestGenerating) {
@@ -565,7 +616,10 @@ private fun StepSchedule(uiState: WizardUiState, viewModel: WizardViewModel) {
 
 // ステップ 6: テスト生成
 @Composable
-private fun StepTestGenerate(uiState: WizardUiState, viewModel: WizardViewModel) {
+private fun StepTestGenerate(
+    uiState: WizardUiState,
+    onTestGenerate: () -> Unit,
+) {
     val context = LocalContext.current
 
     Column(
@@ -590,7 +644,7 @@ private fun StepTestGenerate(uiState: WizardUiState, viewModel: WizardViewModel)
 
         // テスト生成ボタン
         FilledTonalButton(
-            onClick = { viewModel.testGenerate() },
+            onClick = onTestGenerate,
             modifier = Modifier.fillMaxWidth(),
             enabled = !uiState.isTestGenerating,
         ) {
@@ -640,11 +694,11 @@ private fun StepTestGenerate(uiState: WizardUiState, viewModel: WizardViewModel)
         }
 
         // 生成結果プレビュー
-        val imagePath = uiState.testGenerationImagePath
-        if (imagePath != null && File(imagePath).exists()) {
+        val imageReference = uiState.testGenerationImageReference
+        if (imageReference != null && canDisplayImageReference(imageReference)) {
             ElevatedCard(modifier = Modifier.fillMaxWidth()) {
                 AsyncImage(
-                    model = ImageRequest.Builder(context).data(File(imagePath)).build(),
+                    model = ImageRequest.Builder(context).data(imageReferenceModel(imageReference)).build(),
                     contentDescription = "テスト生成プレビュー",
                     modifier = Modifier
                         .fillMaxWidth()
@@ -701,3 +755,10 @@ private fun WizardSwitchRow(
         Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
+
+private fun requiresLegacyPhotoWritePermission(context: Context): Boolean =
+    Build.VERSION.SDK_INT <= Build.VERSION_CODES.P &&
+        ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.WRITE_EXTERNAL_STORAGE,
+        ) != PackageManager.PERMISSION_GRANTED

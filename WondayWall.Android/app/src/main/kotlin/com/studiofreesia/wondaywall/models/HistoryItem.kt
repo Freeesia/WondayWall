@@ -38,8 +38,8 @@ data class HistoryItem(
     val status: GenerationStatus,
     // エラー概要（失敗時のみ）
     val errorSummary: String? = null,
-    // 適用した画像のファイルパス（成功時のみ）
-    val appliedImagePath: String? = null,
+    // 写真領域に保存した画像 URI
+    val appliedImageUri: String? = null,
     // 生成に使用したカレンダーイベント
     val usedCalendarEvents: List<CalendarEventItem>? = null,
     // 生成に使用したニューストピック
@@ -68,4 +68,5 @@ data class HistoryItem(
             GenerationStatus.Failure,
             -> false
         }
+
 }

@@ -73,10 +73,10 @@ class HistoryViewModel(
 
     // 壁紙を再適用する
     fun reapplyWallpaper(item: HistoryItem) {
-        val imagePath = item.appliedImagePath ?: return
+        val imageReference = item.appliedImageUri ?: return
         viewModelScope.launch {
             val config = appConfigService.getConfig()
-            val result = wallpaperService.applyWallpaper(imagePath, config.updateLockScreen)
+            val result = wallpaperService.applyWallpaper(imageReference, config.updateLockScreen)
             if (result.isFailure) {
                 _uiState.value = _uiState.value.copy(
                     errorMessage = "壁紙の適用に失敗しました: ${result.exceptionOrNull()?.message}"
@@ -85,18 +85,9 @@ class HistoryViewModel(
         }
     }
 
-    // ギャラリーに保存する
-    fun saveToGallery(item: HistoryItem, onResult: (Boolean) -> Unit) {
-        val imagePath = item.appliedImagePath ?: return onResult(false)
-        viewModelScope.launch {
-            val result = wallpaperService.saveToGallery(imagePath)
-            onResult(result.isSuccess)
-        }
-    }
-
     // 画像共有 Intent を取得する（Activity から startActivity で使用する）
     fun buildShareIntent(item: HistoryItem) =
-        item.appliedImagePath?.let { wallpaperService.buildShareIntent(it) }
+        item.appliedImageUri?.let { wallpaperService.buildShareIntent(it) }
 
     // エラーメッセージをクリアする
     fun clearError() {

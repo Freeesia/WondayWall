@@ -60,9 +60,10 @@ import com.studiofreesia.wondaywall.models.CalendarEventItem
 import com.studiofreesia.wondaywall.models.GenerationProgress
 import com.studiofreesia.wondaywall.models.NewsTopicItem
 import com.studiofreesia.wondaywall.ui.components.FaviconIcon
+import com.studiofreesia.wondaywall.ui.util.canDisplayImageReference
 import com.studiofreesia.wondaywall.ui.util.formatCalendarEventDateTime
 import com.studiofreesia.wondaywall.ui.util.formatNewsPublishedAt
-import java.io.File
+import com.studiofreesia.wondaywall.ui.util.imageReferenceModel
 
 // ホーム画面（iOSのHomeViewと同等の構成）
 @OptIn(ExperimentalMaterial3Api::class)
@@ -119,12 +120,13 @@ fun HomeScreen(viewModel: HomeViewModel) {
         ) {
             val wallpaperPeekHeight = maxHeight * 2f / 3f
             val usedInfoBackground = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
-            val imagePath = uiState.latestHistoryItem?.appliedImagePath
-            if (imagePath != null && File(imagePath).exists()) {
+            val imageReference = uiState.latestHistoryItem?.appliedImageUri
+            val canDisplayImage = imageReference != null && canDisplayImageReference(imageReference)
+            if (imageReference != null && canDisplayImage) {
                 // 最新壁紙を全画面背景として表示する
                 AsyncImage(
                     model = ImageRequest.Builder(context)
-                        .data(File(imagePath))
+                        .data(imageReferenceModel(imageReference))
                         .build(),
                     contentDescription = "最新の壁紙",
                     modifier = Modifier.fillMaxSize(),
@@ -164,7 +166,7 @@ fun HomeScreen(viewModel: HomeViewModel) {
                 val events = latestHistory?.usedCalendarEvents.orEmpty()
                 val news = latestHistory?.usedNewsTopics.orEmpty()
 
-                if (imagePath != null && (events.isNotEmpty() || news.isNotEmpty())) {
+                if (canDisplayImage && (events.isNotEmpty() || news.isNotEmpty())) {
                     // 画像を見せるための空白（画面の2/3）
                     Spacer(modifier = Modifier.height(wallpaperPeekHeight))
                 }
