@@ -79,6 +79,9 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
         defer { completionHandler() }
+        let requestIdentifier = response.notification.request.identifier
+        center.removeDeliveredNotifications(withIdentifiers: [requestIdentifier])
+        center.removePendingNotificationRequests(withIdentifiers: [requestIdentifier])
         // 通知タップ時に履歴詳細へ遷移する
         // NotificationCenter 経由で ContentView に伝達する
         NotificationCenter.default.post(
