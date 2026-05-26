@@ -6,26 +6,14 @@ import OSLog
 // BGContinuedProcessingTask を使い、ユーザーに進捗を明示しながら処理を継続する
 final class ForegroundBackgroundTaskService {
     private let logger = Logger(subsystem: "com.studiofreesia.wondaywall", category: "ForegroundBackgroundTaskService")
-    private static let storedRequestIdentifierKey = "WondayWall.lastContinuedProcessingTaskRequest"
+
     // BGContinuedProcessingTask の登録識別子（Info.plist では wildcard 形式で登録する）
     static var continuedTaskIdentifier: String {
-        "\(continuedTaskIdentifierPrefix).*"
+        "\(Bundle.main.bundleIdentifier ?? "com.studiofreesia.wondaywall").manual.*"
     }
 
-    private static var continuedTaskIdentifierPrefix: String {
-        "\(Bundle.main.bundleIdentifier ?? "com.studiofreesia.wondaywall").manual"
-    }
-
-    private static func makeRequestIdentifier() -> String {
-        "\(continuedTaskIdentifierPrefix).\(UUID().uuidString)"
-    }
-
-    static func cancelStoredPendingRequest() {
-        guard let identifier = UserDefaults.standard.string(forKey: storedRequestIdentifierKey) else {
-            return
-        }
-        BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: identifier)
-        UserDefaults.standard.removeObject(forKey: storedRequestIdentifierKey)
+    static func cancelPendingRequest() {
+        BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: continuedTaskIdentifier)
     }
 
     // AppDelegate のハンドラーから参照できるよう静的に保持する
@@ -47,9 +35,8 @@ final class ForegroundBackgroundTaskService {
     // フォアグラウンド開始の生成を BGContinuedProcessingTask 経由で開始する
     func beginTask(onExpiration: @escaping () -> Void) {
         self.onExpiration = onExpiration
-        let requestIdentifier = Self.makeRequestIdentifier()
+        let requestIdentifier = Self.continuedTaskIdentifier
         submittedRequestIdentifier = requestIdentifier
-        UserDefaults.standard.set(requestIdentifier, forKey: Self.storedRequestIdentifierKey)
         logger.notice("beginTask: BGContinuedProcessingTaskRequest を submit 試行 (identifier=\(requestIdentifier, privacy: .public))")
         let request = BGContinuedProcessingTaskRequest(
             identifier: requestIdentifier,
@@ -87,7 +74,6 @@ final class ForegroundBackgroundTaskService {
                 }
                 self.onExpiration = nil
                 self.submittedRequestIdentifier = nil
-                UserDefaults.standard.removeObject(forKey: Self.storedRequestIdentifierKey)
                 self.clearObservers()
             }
         }
@@ -150,7 +136,6 @@ final class ForegroundBackgroundTaskService {
         }
         activeTask = nil
         submittedRequestIdentifier = nil
-        UserDefaults.standard.removeObject(forKey: Self.storedRequestIdentifierKey)
         clearObservers()
     }
 
