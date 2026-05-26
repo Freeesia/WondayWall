@@ -48,47 +48,15 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         }
         logger.notice("BGProcessingTask ハンドラー登録完了: identifier=\(BackgroundTaskService.taskIdentifier, privacy: .public)")
 
-        // BGContinuedProcessingTask ハンドラーを登録する
-        registerContinuedProcessingTask()
+        // 前回セッションで残存した可能性のある continued processing request をキャンセルする。
+        // BGContinuedProcessingTask はユーザー操作ごとに具体 ID で登録・submit する。
+        ForegroundBackgroundTaskService.cancelPendingRequest()
+        logger.notice("起動時クリア: BGContinuedProcessingTask 残存リクエストをキャンセル")
 
         // 通知デリゲートを設定する
         UNUserNotificationCenter.current().delegate = self
 
         return true
-    }
-}
-
-// BGContinuedProcessingTask 登録
-extension AppDelegate {
-    func registerContinuedProcessingTask() {
-        // 前回セッションで残存した可能性のある submit 済みリクエストをキャンセルする。
-        // 生成中にアプリが強制終了された場合、リクエストが残り次回 beginTask 時に
-        // tooManyPendingTaskRequests が発生して BG 保護なしで生成が走るのを防ぐ。
-        ForegroundBackgroundTaskService.cancelPendingRequest()
-        logger.notice("起動時クリア: BGContinuedProcessingTask 残存リクエストをキャンセル (identifier=\(ForegroundBackgroundTaskService.continuedTaskIdentifier, privacy: .public))")
-        let registered = BGTaskScheduler.shared.register(
-            forTaskWithIdentifier: ForegroundBackgroundTaskService.continuedTaskIdentifier,
-            using: DispatchQueue.main
-        ) { [weak self] task in
-            self?.logger.notice("BGContinuedProcessingTask ハンドラー呼び出し: identifier=\(task.identifier, privacy: .public)")
-            guard let continuedTask = task as? BGContinuedProcessingTask else {
-                self?.logger.error("BGContinuedProcessingTask: 型キャスト失敗 (taskType=\(String(describing: type(of: task)), privacy: .public))")
-                task.setTaskCompleted(success: false)
-                return
-            }
-            if let service = ForegroundBackgroundTaskService.current {
-                self?.logger.notice("BGContinuedProcessingTask: handleContinuedTask 呼び出し")
-                service.handleContinuedTask(continuedTask)
-            } else {
-                self?.logger.error("BGContinuedProcessingTask: ForegroundBackgroundTaskService.current が nil のため完了(失敗)")
-                continuedTask.setTaskCompleted(success: false)
-            }
-        }
-        if registered {
-            logger.notice("BGContinuedProcessingTask ハンドラー登録完了: identifier=\(ForegroundBackgroundTaskService.continuedTaskIdentifier, privacy: .public)")
-        } else {
-            logger.error("BGContinuedProcessingTask ハンドラー登録失敗: identifier=\(ForegroundBackgroundTaskService.continuedTaskIdentifier, privacy: .public)")
-        }
     }
 }
 
