@@ -4,6 +4,8 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import android.view.Gravity
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
@@ -29,11 +31,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Key
@@ -51,7 +51,6 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -83,7 +82,6 @@ import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import com.studiofreesia.wondaywall.models.UpdateSchedule
 import com.studiofreesia.wondaywall.services.NotificationPermissionHelper
-import com.studiofreesia.wondaywall.ui.components.FaviconIcon
 import com.studiofreesia.wondaywall.ui.components.SquareAppIcon
 import com.studiofreesia.wondaywall.ui.util.canDisplayImageReference
 import com.studiofreesia.wondaywall.ui.util.imageReferenceModel
@@ -103,7 +101,8 @@ fun WizardScreen(
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
-    val canGoNext = uiState.currentStep != 1 || uiState.apiKey.isNotBlank()
+    val canGoNext = (uiState.currentStep != 1 || uiState.apiKey.isNotBlank()) &&
+        !uiState.isResolvingRssSource
     var pendingStorageAction by remember { mutableStateOf<PendingStorageGenerationAction?>(null) }
 
     fun runGenerationAction(action: PendingStorageGenerationAction) {
@@ -138,6 +137,16 @@ fun WizardScreen(
         uiState.errorMessage?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.clearError()
+        }
+    }
+
+    LaunchedEffect(uiState.topToastMessage) {
+        uiState.topToastMessage?.let {
+            Toast.makeText(context, it, Toast.LENGTH_LONG).apply {
+                setGravity(Gravity.TOP or Gravity.CENTER_HORIZONTAL, 0, 96)
+                show()
+            }
+            viewModel.clearTopToastMessage()
         }
     }
 
@@ -196,7 +205,10 @@ fun WizardScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (uiState.currentStep > 0) {
-                    OutlinedButton(onClick = { viewModel.prevStep() }) {
+                    OutlinedButton(
+                        onClick = { viewModel.prevStep() },
+                        enabled = !uiState.isResolvingRssSource,
+                    ) {
                         Icon(Icons.Default.ArrowBack, contentDescription = null)
                         Text("  戻る")
                     }
@@ -215,8 +227,13 @@ fun WizardScreen(
                         onClick = { viewModel.nextStep() },
                         enabled = canGoNext,
                     ) {
-                        Text("次へ  ")
-                        Icon(Icons.Default.ArrowForward, contentDescription = null)
+                        if (uiState.currentStep == 3 && uiState.isResolvingRssSource) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                            Text("  確認中…")
+                        } else {
+                            Text("次へ  ")
+                            Icon(Icons.Default.ArrowForward, contentDescription = null)
+                        }
                     }
                 } else {
                     Button(
@@ -426,8 +443,6 @@ private fun StepCalendar(uiState: WizardUiState, viewModel: WizardViewModel) {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun StepPromptAndRss(uiState: WizardUiState, viewModel: WizardViewModel) {
-    var newRssUrl by remember { mutableStateOf("") }
-
     // プロンプトテンプレート一覧
     val promptTemplates = listOf(
         "水彩画風で生成してください",
@@ -484,50 +499,20 @@ private fun StepPromptAndRss(uiState: WizardUiState, viewModel: WizardViewModel)
         // RSS ソース
         Text("RSS ニュースソース", style = MaterialTheme.typography.titleMedium)
         Text(
-            text = "ニュースを参考にした壁紙を生成したい場合はニュースサイト URL を追加してください。RSS URL の直接入力もできます。",
+            text = "ニュースを参考にした壁紙を生成したい場合はニュースサイト URL を入力してください。RSS URL の直接入力もできます。",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
-        Row(
+        OutlinedTextField(
+            value = uiState.rssSourceUrl,
+            onValueChange = { viewModel.updateRssSourceUrl(it) },
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            OutlinedTextField(
-                value = newRssUrl,
-                onValueChange = { newRssUrl = it },
-                modifier = Modifier.weight(1f),
-                placeholder = { Text("ニュースサイト URL") },
-                singleLine = true,
-            )
-            IconButton(onClick = {
-                viewModel.addRssSource(newRssUrl) {
-                    newRssUrl = ""
-                }
-            }) {
-                Icon(Icons.Default.Add, contentDescription = "追加")
-            }
-        }
-
-        uiState.rssSources.forEach { url ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                FaviconIcon(url = url, size = 24.dp)
-                Text(
-                    text = url,
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.bodySmall,
-                    maxLines = 1,
-                )
-                IconButton(onClick = { viewModel.removeRssSource(url) }) {
-                    Icon(Icons.Default.Close, contentDescription = "削除")
-                }
-            }
-        }
+            placeholder = { Text("https://example.com") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+            singleLine = true,
+            enabled = !uiState.isResolvingRssSource,
+        )
     }
 }
 

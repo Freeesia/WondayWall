@@ -27,17 +27,20 @@ data class WizardUiState(
     val hasCalendarPermission: Boolean = false,
     val calendarSources: List<CalendarSourceItem> = emptyList(),
     val selectedCalendarIds: Set<String> = emptySet(),
-    val rssSources: List<String> = emptyList(),
+    val rssSourceUrl: String = "",
+    val resolvedRssSourceUrl: String? = null,
     val userPrompt: String = "",
     val schedule: UpdateSchedule = UpdateSchedule.OnceADay,
     val wifiOnly: Boolean = false,
     val skipOnBatterySaver: Boolean = true,
     val showNotification: Boolean = true,
     val updateLockScreen: Boolean = false,
+    val isResolvingRssSource: Boolean = false,
     val isTestGenerating: Boolean = false,
     val isCompleting: Boolean = false,
     val generationProgress: GenerationProgress? = null,
     val testGenerationImageReference: String? = null,
+    val topToastMessage: String? = null,
     val errorMessage: String? = null,
 )
 
@@ -70,6 +73,7 @@ class WizardViewModel(
 
     // 次のステップに進む
     fun nextStep() {
+        if (_uiState.value.isResolvingRssSource) return
         val current = _uiState.value.currentStep
         if (current == 1 && _uiState.value.apiKey.isBlank()) {
             _uiState.value = _uiState.value.copy(
@@ -77,6 +81,15 @@ class WizardViewModel(
             )
             return
         }
+        if (current == 3) {
+            resolveRssSourceAndAdvance()
+            return
+        }
+        advanceToNextStep(current)
+    }
+
+    // 次のステップへ進める
+    private fun advanceToNextStep(current: Int) {
         if (current < WIZARD_TOTAL_STEPS - 1) {
             _uiState.value = _uiState.value.copy(currentStep = current + 1)
         }
@@ -142,32 +155,47 @@ class WizardViewModel(
         _uiState.value = _uiState.value.copy(selectedCalendarIds = updated)
     }
 
-    // RSS ソースを追加する
-    fun addRssSource(url: String, onAdded: () -> Unit = {}) {
-        if (url.isBlank()) return
+    // RSS ソース URL を更新する
+    fun updateRssSourceUrl(url: String) {
+        _uiState.value = _uiState.value.copy(
+            rssSourceUrl = url,
+            resolvedRssSourceUrl = null,
+        )
+    }
+
+    // RSS ソースを解決してから次のステップに進む
+    private fun resolveRssSourceAndAdvance() {
+        val state = _uiState.value
+        val sourceUrl = state.rssSourceUrl.trim()
+        if (sourceUrl.isBlank()) {
+            _uiState.value = state.copy(
+                rssSourceUrl = "",
+                resolvedRssSourceUrl = null,
+                currentStep = state.currentStep + 1,
+            )
+            return
+        }
+
         viewModelScope.launch {
-            val sourceUrl = url.trim()
+            _uiState.value = _uiState.value.copy(isResolvingRssSource = true)
             val resolvedRssUrl = contextService.resolveRssSourceUrl(sourceUrl)
             if (resolvedRssUrl == null) {
                 _uiState.value = _uiState.value.copy(
-                    errorMessage = "指定のサイトからニュース情報を得られませんでした。"
+                    isResolvingRssSource = false,
+                    resolvedRssSourceUrl = null,
+                    topToastMessage = "指定の URL から RSS フィードを見つけられませんでした。",
                 )
                 return@launch
             }
 
-            val sources = _uiState.value.rssSources
-            if (!sources.contains(resolvedRssUrl)) {
-                _uiState.value = _uiState.value.copy(rssSources = sources + resolvedRssUrl)
-                onAdded()
-            }
+            val current = _uiState.value.currentStep
+            _uiState.value = _uiState.value.copy(
+                rssSourceUrl = sourceUrl,
+                resolvedRssSourceUrl = resolvedRssUrl,
+                isResolvingRssSource = false,
+                currentStep = current + 1,
+            )
         }
-    }
-
-    // RSS ソースを削除する
-    fun removeRssSource(url: String) {
-        _uiState.value = _uiState.value.copy(
-            rssSources = _uiState.value.rssSources - url
-        )
     }
 
     // ユーザープロンプトを更新する
@@ -307,7 +335,7 @@ class WizardViewModel(
             it.copy(
                 googleAiApiKey = state.apiKey,
                 targetCalendarIds = state.selectedCalendarIds.toList(),
-                rssSources = state.rssSources,
+                rssSources = state.resolvedRssSourceUrl?.let { listOf(it) }.orEmpty(),
                 userPrompt = state.userPrompt,
                 autoGenerationEnabled = enableAutoGeneration,
                 schedule = state.schedule,
@@ -322,6 +350,11 @@ class WizardViewModel(
     // エラーメッセージをクリアする
     fun clearError() {
         _uiState.value = _uiState.value.copy(errorMessage = null)
+    }
+
+    // 上部 Toast メッセージをクリアする
+    fun clearTopToastMessage() {
+        _uiState.value = _uiState.value.copy(topToastMessage = null)
     }
 
     companion object {
