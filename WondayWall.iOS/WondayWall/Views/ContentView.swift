@@ -34,17 +34,6 @@ struct ContentView: View {
             hasCompletedInitialSetup = environment.configService.config.hasCompletedInitialSetup
             hasLoadedInitialSetupState = true
         }
-        .safeAreaInset(edge: .top) {
-            if let message = environment.continuationWarningMessage {
-                ContinuationWarningBanner(message: message) {
-                    environment.dismissContinuationWarning()
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .transition(.move(edge: .top).combined(with: .opacity))
-            }
-        }
-        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: environment.continuationWarningMessage)
     }
 
     private var isInitialSetupComplete: Bool {
@@ -227,46 +216,6 @@ private struct ToastView: View {
             .shadow(radius: 6)
         }
         .buttonStyle(.plain)
-    }
-}
-
-// BG継続保護が効かない場合に生成中の注意を表示する
-private struct ContinuationWarningBanner: View {
-    let message: String
-    let onDismiss: () -> Void
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(.orange)
-                .font(.headline)
-                .frame(width: 22, height: 22)
-
-            Text(message)
-                .font(.footnote)
-                .foregroundStyle(.primary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Spacer(minLength: 8)
-
-            Button(action: onDismiss) {
-                Image(systemName: "xmark")
-                    .font(.caption.bold())
-                    .foregroundStyle(.secondary)
-                    .frame(width: 28, height: 28)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("閉じる")
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background(.regularMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay {
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.orange.opacity(0.35), lineWidth: 1)
-        }
     }
 }
 

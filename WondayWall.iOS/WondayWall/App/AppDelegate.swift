@@ -95,8 +95,6 @@ extension Notification.Name {
     static let openHistoryNotification = Notification.Name("com.studiofreesia.wondaywall.openHistory")
     // フォアグラウンド中に生成が成功したときに発火する通知
     static let generationSucceededInForeground = Notification.Name("com.studiofreesia.wondaywall.generationSucceededInForeground")
-    // BGContinuedProcessingTask の利用可否を知らせる通知
-    static let generationContinuationStatusChanged = Notification.Name("com.studiofreesia.wondaywall.generationContinuationStatusChanged")
     // BGContinuedProcessingTask の進捗更新通知
     static let generationTaskProgress = Notification.Name("com.studiofreesia.wondaywall.generationTaskProgress")
     // BGContinuedProcessingTask の完了を知らせる通知

@@ -152,7 +152,7 @@ private struct InitialSetupContentView: View {
 
     private var welcomeStep: some View {
         VStack(spacing: 20) {
-            Image("AppIconDisplay")
+            Image(currentAppIconAssetName)
                 .resizable()
                 .frame(width: 88, height: 88)
                 .clipShape(RoundedRectangle(cornerRadius: 20))
@@ -175,6 +175,10 @@ private struct InitialSetupContentView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.top, 8)
         }
+    }
+
+    private var currentAppIconAssetName: String {
+        Bundle.main.object(forInfoDictionaryKey: "WondayWallAppIconAssetName") as? String ?? "AppIcon"
     }
 
     private var apiKeyStep: some View {
