@@ -1,4 +1,4 @@
-import UIKit
+import CoreGraphics
 
 // デバイス画面情報から Gemini API パラメータを決定するヘルパー
 enum DisplayHelper {
@@ -12,23 +12,25 @@ enum DisplayHelper {
         ("4:5",  4.0 / 5.0),    // 1856×2304
     ]
 
-    // 現在のデバイス画面のネイティブピクセルサイズを返す
-    // UIScreen.main は iOS 16 で deprecated のため UIWindowScene 経由で取得する
-    // TODO: 初回ウィザードで画面サイズを保存するようにする
-    @MainActor
-    static func nativeScreenSize() -> CGSize {
-        let screen =
-            (UIApplication.shared.connectedScenes.first as? UIWindowScene)?.screen
-            ?? UIScreen.main
-        let bounds = screen.nativeBounds
-        // nativeBounds は常に縦長で返るとは限らないため、縦長に正規化する
-        let w = min(bounds.width, bounds.height)
-        let h = max(bounds.width, bounds.height)
-        return CGSize(width: w, height: h)
+    // 保存済みの画面サイズから Gemini 対応比率文字列を返す
+    static func closestGeminiAspectRatio(
+        screenPixelWidth: Double?,
+        screenPixelHeight: Double?
+    ) -> String {
+        guard let width = screenPixelWidth,
+              let height = screenPixelHeight,
+              width > 0,
+              height > 0
+        else {
+            return "9:16"
+        }
+
+        let size = CGSize(width: min(width, height), height: max(width, height))
+        return closestGeminiAspectRatio(for: size)
     }
 
     // ネイティブ画面サイズから最も近い Gemini 対応比率文字列を返す
-    static func closestGeminiAspectRatio(for size: CGSize) -> String {
+    private static func closestGeminiAspectRatio(for size: CGSize) -> String {
         let ratio = size.width / size.height  // 縦長前提なので < 1
         return supportedPortraitRatios
             .min(by: { abs($0.whRatio - ratio) < abs($1.whRatio - ratio) })?

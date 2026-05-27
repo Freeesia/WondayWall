@@ -7,7 +7,6 @@
 - Xcode 16.0 以降
 - XcodeGen 2.45.4 以降
 - iOS 17.0 以降（実機またはシミュレーター）
-- Google Cloud プロジェクト（Calendar API 有効化済み）
 - Google AI Studio API キー
 
 ## ビルド方法
@@ -46,7 +45,7 @@ CI では `xcodegen generate` で `WondayWall.xcodeproj` を生成し、`Config/
 ## 初期設定
 
 1. **Google AI API キー**: [Google AI Studio](https://aistudio.google.com) で取得し、設定画面に入力する
-2. **Google Calendar 連携**: 設定画面の「Google Calendar と連携」から OAuth 認証を行う
+2. **カレンダー連携**: 設定画面または初回セットアップで iOS カレンダーアクセスを許可する
 3. **RSS ソース**: 必要に応じてニュースフィードの URL を追加する
 
 ## アーキテクチャ
@@ -78,7 +77,7 @@ WondayWall.iOS/
 |---------|------|
 | `AppConfigService` | 設定の読み書き（`Application Support/WondayWall/config.json`） |
 | `HistoryService` | 生成履歴の読み書き（`history.json`） |
-| `ContextService` | Google Calendar + RSS からプロンプトコンテキストを構築 |
+| `ContextService` | iOS カレンダー + RSS からプロンプトコンテキストを構築 |
 | `GoogleAiService` | Gemini API で壁紙画像を生成 |
 | `WallpaperService` | 写真ライブラリ保存・共有シート・設定手順表示 |
 | `GenerationCoordinator` | 生成フロー全体の統括（`actor` による多重実行防止） |
@@ -88,7 +87,7 @@ WondayWall.iOS/
 
 ## 注意事項
 
-- iOS では通常アプリから壁紙を直接変更できないため、写真ライブラリ保存と共有で対応
+- iOS では通常アプリから壁紙を直接変更できないため、写真ライブラリの WondayWall アルバム保存と共有で対応
 - バックグラウンド定期生成は iOS のバックグラウンド実行制限の影響を受ける
-- OAuth トークンは Keychain に保存される
-- 生成画像は `Application Support/WondayWall/wallpapers/` に保存される
+- Google AI API キーは Keychain に保存される
+- 初回セットアップ時に保存した画面サイズを BG 生成でも使用する
