@@ -152,10 +152,7 @@ private struct InitialSetupContentView: View {
 
     private var welcomeStep: some View {
         VStack(spacing: 20) {
-            Image(currentAppIconAssetName)
-                .resizable()
-                .frame(width: 88, height: 88)
-                .clipShape(RoundedRectangle(cornerRadius: 20))
+            appIconView
 
             Text("WondayWall へようこそ")
                 .font(.title2.bold())
@@ -175,6 +172,32 @@ private struct InitialSetupContentView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.top, 8)
         }
+    }
+
+    private var appIconView: some View {
+        ZStack {
+            if let image = currentAppIconImage {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Image(systemName: "app.fill")
+                    .resizable()
+                    .scaledToFit()
+                    .foregroundStyle(.secondary)
+                    .padding(18)
+            }
+        }
+        .frame(width: 88, height: 88)
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+    }
+
+    private var currentAppIconImage: UIImage? {
+        if let url = Bundle.main.url(forResource: "WondayWallAppIconDisplay", withExtension: "png"),
+           let image = UIImage(contentsOfFile: url.path) {
+            return image
+        }
+        return UIImage(named: currentAppIconAssetName)
     }
 
     private var currentAppIconAssetName: String {
