@@ -251,11 +251,14 @@ platform :ios do
       xcargs: manual_signing_xcargs(signing_assets, build_number)
     )
 
-    changelog = [
-      "PR preview build",
+    changelog_lines = ["PR preview build"]
+    pr_number = ENV["PREVIEW_PR_NUMBER"].to_s.strip
+    changelog_lines << "PR: ##{pr_number}" unless pr_number.empty?
+    changelog_lines += [
       "Commit: #{ENV.fetch("GITHUB_SHA", "local")}",
       "Build: #{build_number}"
-    ].join("\n")
+    ]
+    changelog = changelog_lines.join("\n")
 
     UI.message("Relying on App Store Connect automatic distribution for #{tester_group}")
     upload_to_testflight(
