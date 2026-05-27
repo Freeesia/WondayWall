@@ -40,7 +40,7 @@ APPSTORE_PROVISIONING_PROFILE_BASE64
 KEYCHAIN_PASSWORD
 ```
 
-CI では `xcodegen generate` で `WondayWall.xcodeproj` を生成し、`Config/Preview.xcconfig` を include した一時 xcconfig で build number を上書きして Release archive を作成する。IPA は TestFlight Internal Only としてアップロードし、内部グループへの配信は App Store Connect の自動配信設定に任せる。アップロード成功後は Actions Summary に PR、commit、build number、TestFlight インストール手順を出力する。
+CI では `xcodegen generate` で `WondayWall.xcodeproj` を生成し、`Config/Preview.xcconfig` を include した一時 xcconfig で build number を上書きして Release archive を作成する。IPA は TestFlight Internal Only としてアップロードし、内部グループへの配信は App Store Connect の自動配信設定に任せる。PR起動時は TestFlight changelog に PR 番号を含める。アップロード成功後は Actions Summary に PR、commit、build number、TestFlight インストール手順を出力する。
 
 ## 初期設定
 
