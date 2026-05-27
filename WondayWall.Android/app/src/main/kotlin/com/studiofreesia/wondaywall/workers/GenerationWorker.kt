@@ -16,7 +16,7 @@ import com.studiofreesia.wondaywall.services.TaskSchedulerService
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
-// 手動生成・定期生成・起動時補完を実行する WorkManager Foreground Worker
+// 手動生成・定期生成・起動時補完を実行する WorkManager Worker
 class GenerationWorker(
     appContext: Context,
     workerParams: WorkerParameters,
@@ -37,9 +37,13 @@ class GenerationWorker(
             trigger = trigger,
         )
         return try {
-            // フォアグラウンド通知を表示して OS による中断を防ぐ
+            Log.i(TAG, "生成 Worker を開始します trigger=$trigger id=$id")
             setProgress(TaskSchedulerService.progressToData(initialProgress))
-            setForegroundWithLog(initialProgress)
+            var foregroundUpdatesEnabled = trigger != GenerationTrigger.Scheduled
+            if (foregroundUpdatesEnabled) {
+                // 手動・起動時補完は通知付き Foreground Worker として開始を試みる。
+                foregroundUpdatesEnabled = setForegroundIfAllowed(initialProgress)
+            }
 
             val historyItem = coroutineScope {
                 val progressJob = launch {
@@ -47,7 +51,9 @@ class GenerationWorker(
                         if (progress == null) return@collect
                         val data = TaskSchedulerService.progressToData(progress)
                         setProgress(data)
-                        setForegroundWithLog(progress)
+                        if (foregroundUpdatesEnabled) {
+                            foregroundUpdatesEnabled = setForegroundIfAllowed(progress)
+                        }
                     }
                 }
 
@@ -58,6 +64,7 @@ class GenerationWorker(
                     app.taskSchedulerService.scheduleNext(allowWhileRunning = true)
                 }
             }
+            Log.i(TAG, "生成 Worker が完了しました trigger=$trigger status=${historyItem.status} id=$id")
             Result.success(TaskSchedulerService.resultToData(historyItem))
         } catch (e: Exception) {
             // 失敗時はリトライしない（次回スロットで再試行する）
@@ -67,14 +74,14 @@ class GenerationWorker(
         }
     }
 
-    private suspend fun setForegroundWithLog(progress: GenerationProgress) {
+    private suspend fun setForegroundIfAllowed(progress: GenerationProgress): Boolean =
         try {
             setForeground(createForegroundInfo(progress))
+            true
         } catch (e: Exception) {
-            Log.e(TAG, "Foreground Worker 通知の設定に失敗しました", e)
-            throw e
+            Log.w(TAG, "Foreground Worker 通知の設定に失敗したため通常 Worker として継続します", e)
+            false
         }
-    }
 
     // フォアグラウンドサービス用の通知情報を作成する
     private fun createForegroundInfo(progress: GenerationProgress? = null): ForegroundInfo {

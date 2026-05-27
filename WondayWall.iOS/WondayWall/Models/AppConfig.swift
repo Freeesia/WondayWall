@@ -22,5 +22,9 @@ struct AppConfig: Codable {
     var forceFlexTier: Bool = false
     // WondayWall アルバムの最大保存枚数（超過分は古い順にアルバムから外す）
     var albumMaxCount: Int = 1
+    // 初回セットアップ完了済みかどうか
+    var hasCompletedInitialSetup: Bool = false
+    // 初回セットアップ時に保存した画面のネイティブピクセルサイズ
+    var screenNativePixelWidth: Double?
+    var screenNativePixelHeight: Double?
 }
-
