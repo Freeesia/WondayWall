@@ -34,26 +34,49 @@ WondayWall は Gemini API を使って、その日の予定や関心に合わせ
 
 ## 必要な環境
 
-- **全OS共通**: Google AI API キー（Gemini API）
-- **Windows**: Windows 10 / 11、[.NET 10 Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)、Google アカウント（カレンダー連携用）
-- **iOS**: iOS 17.0 以降、カレンダー・写真ライブラリ・通知へのアクセス許可
-- **Android**: Android 8.0 以降、カレンダー・通知・壁紙設定へのアクセス許可
+| OS | 必要なもの |
+|----|------------|
+| Windows | Windows 10 / 11、[.NET 10 Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)、Google AI API キー、Google Calendar 連携 |
+| iOS | iOS 17.0 以降、Google AI API キー、カレンダー・写真・通知への許可 |
+| Android | Android 8.0 以降、Google AI API キー、カレンダー・通知・壁紙設定への許可 |
 
-## セットアップと使い方
+## セットアップ
 
-各OSでアプリを起動後、画面の案内に従ってセットアップを行います。
+### Windows
 
-1. **Google AI API キー**: [Google AI Studio](https://aistudio.google.com) で取得した API キーを入力します。
-2. **カレンダー連携**: アプリが参照するカレンダー（Windowsは Google カレンダー、モバイルは端末カレンダー）を選択します。
-3. **キーワード・ニュース**: 興味のあるキーワードや RSS フィードの URL を登録します。
-4. **生成の確認**: 「今すぐ生成」を押して、壁紙が正しく生成されるかテストします。
+1. [リリースページ](https://github.com/Freeesia/WondayWall/releases/latest)から `WondayWall-(バージョン).msi` をダウンロード
+2. ダウンロードした MSI を実行し、インストーラーの案内に従ってインストール
+3. インストールした WondayWall を起動するとセットアップ画面が表示される
+4. **Google AI API キー** を設定
+5. **Google Calendar** の認証を行う
+6. 興味キーワードと RSS フィード URL を登録
+7. 「今すぐ生成」で動作確認
 
-#### 定期実行について
-- **Windows**: アプリの設定画面で実行頻度を選び、Windows Task Scheduler に `WondayWall.exe run-once` を登録します。
-- **iOS / Android**: アプリ設定で自動生成を有効にすると、バックグラウンドでの自動生成・更新が行われます。
+定期実行するには、アプリの設定画面で **実行頻度** を選び、Windows Task Scheduler に下記コマンドを登録します。
 
-※ Windows 版は、[リリースページ](https://github.com/Freeesia/WondayWall/releases/latest)から `WondayWall-(バージョン).msi` をダウンロードしてインストールします。
-※ iOS では OS の制約上、壁紙をアプリから直接適用できません。生成された画像を写真ライブラリに保存し、共有や設定手順の案内から手動で壁紙に設定します。
+```powershell
+WondayWall.exe run-once
+```
+
+### iOS
+
+1. アプリを起動し、**Google AI API キー** を設定
+2. iOS カレンダーへのアクセスを許可し、参照するカレンダーを選択
+3. 興味キーワードと RSS フィード URL を登録
+4. 写真ライブラリ保存や通知を使う場合は、必要な許可を付与
+5. 「今すぐ生成」で壁紙候補を生成
+
+iOS では通常のアプリからホーム画面・ロック画面の壁紙を直接変更できないため、生成画像を写真ライブラリへ保存し、共有またはアプリ内の手順表示に従って手動で壁紙に設定します。
+
+### Android
+
+1. アプリを起動し、**Google AI API キー** を設定
+2. 端末カレンダーへの読み取り権限を許可し、参照するカレンダーを選択
+3. 興味キーワードと RSS フィード URL を登録
+4. 通知やギャラリー保存に必要な許可を付与
+5. 「今すぐ生成」で壁紙を生成し、ホーム画面へ適用
+
+Android では端末に同期済みのカレンダー予定を Calendar Provider / `CalendarContract` から取得します。初期版では Google Calendar API や Google OAuth による予定取得は行いません。
 
 ## 機能
 
