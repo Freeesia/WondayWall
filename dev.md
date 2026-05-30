@@ -1,4 +1,4 @@
-﻿# WPF 壁紙生成アプリ 実装指針
+# WPF 壁紙生成アプリ 実装指針
 
 ## 概要
 
@@ -55,12 +55,13 @@
 `GenerationCoordinator` が GUI・CLI 両方から呼ばれる。処理本体はここに集約する。
 
 ```
-GenerationCoordinator（SemaphoreSlim で多重実行防止）
+GenerationCoordinator（OS 全体共有 Mutex で多重実行防止: Local\WondayWall.Generation）
   ├─ ContextService.BuildContextAsync()
   │   ├─ Google Calendar API → カレンダーイベント
   │   └─ RSS フィード + OGP 解析 → ニューストピック
   ├─ GoogleAiService.GenerateWallpaperAsync()（2 ステップ生成）
   │   ├─ Step 1: Gemini Flash でテキストプロンプト詳細化（Google Search グラウンディング）
+  │   │   └─ Flex ティア失敗時は Standard にフォールバック
   │   └─ Step 2: Gemini Flash Image で画像生成
   │       └─ Flex ティア失敗時は Standard にフォールバック
   ├─ WallpaperService.SetWallpaperAsync()
@@ -83,7 +84,7 @@ GenerationCoordinator（SemaphoreSlim で多重実行防止）
 
 定期実行は **Windows Task Scheduler** に委ねる。GUI の「スケジューラ有効化」ボタンから `TaskSchedulerService` 経由でタスクを登録・削除する。
 
-* 1 日あたりの実行回数（1 / 2 / 3 / 4 / 6 / 8 / 12 / 24 回）を UI で設定
+* 実行頻度（週1回 / 週2回 / 週3回 / 1日1回 / 1日3回）を UI で設定
 * スロット時刻の計算は `ScheduleHelper` が担う
 * 常駐タイマーやトレイからの定期実行管理は行わない
 

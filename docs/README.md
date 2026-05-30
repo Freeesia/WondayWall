@@ -52,7 +52,7 @@ WondayWall は Gemini API を使って、その日の予定や関心に合わせ
 6. 興味キーワードと RSS フィード URL を登録
 7. 「今すぐ生成」で動作確認
 
-定期実行するには、アプリの設定画面で **1日あたりの更新回数** を選び、Windows Task Scheduler に下記コマンドを登録します。
+定期実行するには、アプリの設定画面で **実行頻度** を選び、Windows Task Scheduler に下記コマンドを登録します。
 
 ```powershell
 WondayWall.exe run-once
@@ -84,8 +84,8 @@ Android では端末に同期済みのカレンダー予定を Calendar Provider
 |------|---------|-----|---------|
 | Gemini による壁紙生成 | 対応 | 対応 | 対応 |
 | 手動生成 | GUI から即時生成 | アプリから即時生成 | アプリから即時生成 |
-| 定期生成 | Task Scheduler + CLI | `BGProcessingTask` + 起動/復帰時補完 | WorkManager + 起動/復帰時補完 |
-| カレンダー取得 | Google Calendar API | iOS カレンダー | Calendar Provider / `CalendarContract` |
+| 定期生成 | 対応 | 対応 | 対応 |
+| カレンダー取得 | Google カレンダー | カレンダー | カレンダー |
 | RSS ニュース取得 | 対応 | 対応 | 対応 |
 | 壁紙適用 | デスクトップ壁紙、設定によりロック画面 | 自動適用不可。写真保存・共有・設定手順表示 | ホーム画面、設定によりロック画面にも追加適用 |
 | 生成履歴 | 対応 | 対応 | 対応 |
@@ -94,30 +94,25 @@ Android では端末に同期済みのカレンダー予定を Calendar Provider
 ## CLI コマンド（Windows）
 
 ```powershell
-WondayWall.exe run-once          # 設定した更新回数に応じた現在の定刻枠が未処理なら1回生成して終了（Task Scheduler 向け）
+WondayWall.exe run-once          # 設定した実行頻度に応じた現在のスケジュール枠が未処理なら1回生成して終了（Task Scheduler 向け）
 WondayWall.exe generate          # 即時生成
 WondayWall.exe check-calendar    # Google Calendar 取得のみ確認
 WondayWall.exe check-news        # ニュース取得のみ確認
 WondayWall.exe check-google-ai   # Gemini API 接続確認
 ```
 
-## 保存先・保存方法
+## 保存データ
 
-| OS | 保存される情報 |
-|----|----------------|
-| Windows | 設定、生成履歴、生成画像、Google Calendar OAuth トークンを `%LocalAppData%\StudioFreesia\WondayWall\` 配下に保存。Google AI API キーは Windows 資格情報に保存 |
-| iOS | アプリ内設定、生成履歴、生成画像をアプリ領域に保存。Google AI API キーは Keychain に保存。写真保存を有効にした場合は写真ライブラリの WondayWall アルバムにも保存 |
-| Android | アプリ設定を DataStore、生成履歴と生成画像をアプリ領域に保存。Google AI API キーは Tink と Android Keystore を使って暗号化保存。必要に応じて写真/ギャラリーへ保存 |
+設定、生成履歴、生成画像、およびカレンダー連携の認証情報は、各OSのセキュアなローカル領域に保存されます。
+
+- **API キー**: 各OSのセキュアな保管機能（Windows 資格情報マネージャー、iOS Keychain、Android 暗号化 DataStore 相当）で暗号化されて保管されます。
+- **写真ライブラリ**: モバイルOS（iOS/Android）では、設定を有効にすることで生成された画像を端末の写真ライブラリやギャラリーにも保存できます。
 
 ## スケジュール
 
-| OS | 方式 |
-|----|------|
-| Windows | 1日あたりの更新回数 `1 / 2 / 3 / 4 / 6 / 8 / 12 / 24` を選び、Task Scheduler から `run-once` を実行 |
-| iOS | 週次・日次のスケジュールを `BGProcessingTask` に登録し、起動時やフォアグラウンド復帰時にも未処理分を確認 |
-| Android | 1日あたりの生成回数をスロットとして扱い、WorkManager と起動/復帰時確認で未処理分を補完 |
+全プラットフォーム共通で、自動更新の頻度（週1回 / 週2回 / 週3回 / 1日1回 / 1日3回）を設定できます。
 
-iOS と Android のバックグラウンド実行は OS の制御を受けるため、指定時刻での実行を保証するものではありません。
+※モバイルOS（iOS/Android）のバックグラウンド実行はOSによる制御を受けるため、指定時刻での実行は保証されません。未処理分はアプリ起動時やフォアグラウンド復帰時に補完されます。
 
 ## 開発者向け
 
