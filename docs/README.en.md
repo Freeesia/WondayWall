@@ -52,7 +52,7 @@ The following screenshots show the Windows app.
 6. Register your interest keywords and RSS feed URLs
 7. Use "Generate now" to verify that wallpaper generation works
 
-For scheduled updates, select **runs per day** in the app settings and register the following command in Windows Task Scheduler.
+For scheduled updates, select the **update frequency** in the app settings and register the following command in Windows Task Scheduler.
 
 ```powershell
 WondayWall.exe run-once
@@ -113,7 +113,7 @@ WondayWall.exe check-google-ai   # Check Gemini API access
 
 | OS | Method |
 |----|--------|
-| Windows | Select runs per day from `1 / 2 / 3 / 4 / 6 / 8 / 12 / 24`, then run `run-once` from Task Scheduler |
+| Windows | Select the update frequency (`Once a Week / Twice a Week / Three Times a Week / Once a Day / Three Times a Day`), then run `run-once` from Task Scheduler |
 | iOS | Register weekly or daily schedules with `BGProcessingTask`, and check for missed slots on app launch and foreground return |
 | Android | Treat runs per day as schedule slots, then use WorkManager plus launch/foreground checks to catch up missed slots |
 

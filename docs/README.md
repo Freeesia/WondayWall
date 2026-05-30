@@ -52,7 +52,7 @@ WondayWall は Gemini API を使って、その日の予定や関心に合わせ
 6. 興味キーワードと RSS フィード URL を登録
 7. 「今すぐ生成」で動作確認
 
-定期実行するには、アプリの設定画面で **1日あたりの更新回数** を選び、Windows Task Scheduler に下記コマンドを登録します。
+定期実行するには、アプリの設定画面で **実行頻度** を選び、Windows Task Scheduler に下記コマンドを登録します。
 
 ```powershell
 WondayWall.exe run-once
@@ -94,7 +94,7 @@ Android では端末に同期済みのカレンダー予定を Calendar Provider
 ## CLI コマンド（Windows）
 
 ```powershell
-WondayWall.exe run-once          # 設定した更新回数に応じた現在の定刻枠が未処理なら1回生成して終了（Task Scheduler 向け）
+WondayWall.exe run-once          # 設定した実行頻度に応じた現在のスケジュール枠が未処理なら1回生成して終了（Task Scheduler 向け）
 WondayWall.exe generate          # 即時生成
 WondayWall.exe check-calendar    # Google Calendar 取得のみ確認
 WondayWall.exe check-news        # ニュース取得のみ確認
@@ -113,7 +113,7 @@ WondayWall.exe check-google-ai   # Gemini API 接続確認
 
 | OS | 方式 |
 |----|------|
-| Windows | 1日あたりの更新回数 `1 / 2 / 3 / 4 / 6 / 8 / 12 / 24` を選び、Task Scheduler から `run-once` を実行 |
+| Windows | 実行頻度 `週1回 / 週2回 / 週3回 / 1日1回 / 1日3回` を選び、Task Scheduler から `run-once` を実行 |
 | iOS | 週次・日次のスケジュールを `BGProcessingTask` に登録し、起動時やフォアグラウンド復帰時にも未処理分を確認 |
 | Android | 1日あたりの生成回数をスロットとして扱い、WorkManager と起動/復帰時確認で未処理分を補完 |
 
