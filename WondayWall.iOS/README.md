@@ -75,7 +75,7 @@ WondayWall.iOS/
 
 | サービス | 役割 |
 |---------|------|
-| `AppConfigService` | 設定の読み書き（`Application Support/WondayWall/config.json`） |
+| `AppConfigService` | 設定の読み書き（`UserDefaults`） |
 | `HistoryService` | 生成履歴の読み書き（`history.json`） |
 | `ContextService` | iOS カレンダー + RSS からプロンプトコンテキストを構築 |
 | `GoogleAiService` | Gemini API で壁紙画像を生成 |
