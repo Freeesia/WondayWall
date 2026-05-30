@@ -34,49 +34,26 @@ The following screenshots show the Windows app.
 
 ## Requirements
 
-| OS | Requirements |
-|----|--------------|
-| Windows | Windows 10 / 11, [.NET 10 Runtime](https://dotnet.microsoft.com/download/dotnet/10.0), Google AI API key, Google Calendar integration |
-| iOS | iOS 17.0 or later, Google AI API key, Calendar, Photos, and notification permissions |
-| Android | Android 8.0 or later, Google AI API key, calendar, notification, and wallpaper permissions |
+- **All platforms**: Google AI API key (Gemini API)
+- **Windows**: Windows 10 / 11, [.NET 10 Runtime](https://dotnet.microsoft.com/download/dotnet/10.0), Google account (for Calendar integration)
+- **iOS**: iOS 17.0 or later, Calendar, Photos library, and notification permissions
+- **Android**: Android 8.0 or later, calendar, notification, and wallpaper settings permissions
 
-## Setup
+## Setup & Usage
 
-### Windows
+After launching the app on your platform, follow the on-screen setup wizard.
 
-1. Download `WondayWall-(version).msi` from the [releases page](https://github.com/Freeesia/WondayWall/releases/latest)
-2. Run the downloaded MSI and follow the installer prompts
-3. Launch the installed WondayWall app to open the setup screen
-4. Configure your **Google AI API key**
-5. Authorize **Google Calendar**
-6. Register your interest keywords and RSS feed URLs
-7. Use "Generate now" to verify that wallpaper generation works
+1. **Google AI API Key**: Enter the API key obtained from [Google AI Studio](https://aistudio.google.com).
+2. **Calendar Integration**: Select the calendar the app will reference (Google Calendar for Windows, or the device calendar for mobile).
+3. **Keywords & News**: Add your interest keywords and RSS feed URLs.
+4. **Verify Generation**: Click "Generate now" to test that a wallpaper can be created successfully.
 
-For scheduled updates, select the **update frequency** in the app settings and register the following command in Windows Task Scheduler.
+#### Scheduled Updates
+- **Windows**: Select the update frequency in the app settings and register the command `WondayWall.exe run-once` in Windows Task Scheduler.
+- **iOS / Android**: Enable automatic updates in the app settings to allow the app to generate and update wallpapers in the background.
 
-```powershell
-WondayWall.exe run-once
-```
-
-### iOS
-
-1. Launch the app and configure your **Google AI API key**
-2. Allow access to iOS Calendar and select the calendars to use
-3. Register your interest keywords and RSS feed URLs
-4. Grant Photos and notification permissions if you use those features
-5. Use "Generate now" to create a wallpaper candidate
-
-On iOS, normal apps cannot directly change the home screen or lock screen wallpaper. WondayWall saves generated images to Photos and lets you use sharing or the in-app setup guidance to set the wallpaper manually.
-
-### Android
-
-1. Launch the app and configure your **Google AI API key**
-2. Allow read access to the device calendar and select the calendars to use
-3. Register your interest keywords and RSS feed URLs
-4. Grant notification and gallery-saving permissions as needed
-5. Use "Generate now" to generate a wallpaper and apply it to the home screen
-
-On Android, WondayWall retrieves events from calendars synced to the device through Calendar Provider / `CalendarContract`. The initial Android version does not retrieve events through the Google Calendar API or Google OAuth.
+* Note: On Windows, download and install `WondayWall-(version).msi` from the [releases page](https://github.com/Freeesia/WondayWall/releases/latest).
+* Note: Due to iOS limitations, the app cannot apply wallpapers directly. Generated wallpapers are saved to your Photos library, and you can apply them manually using sharing or the in-app setup steps.
 
 ## Features
 
@@ -101,13 +78,12 @@ WondayWall.exe check-news        # Check news feed access
 WondayWall.exe check-google-ai   # Check Gemini API access
 ```
 
-## Data Storage
+## Stored Data
 
-| OS | Stored data |
-|----|-------------|
-| Windows | Settings, generation history, generated images, and calendar authentication tokens are stored locally and securely |
-| iOS | Settings, generation history, and generated images are stored securely in the app (saving to the Photos library is also supported) |
-| Android | Settings, generation history, and generated images are stored securely in the app (saving to Photos/Gallery is also supported) |
+Settings, generation history, generated images, and calendar integration credentials are saved in a secure local storage area on each platform.
+
+- **API Key**: Encrypted and stored securely using platform-native security APIs (Windows Credential Manager, iOS Keychain, or Android encrypted DataStore equivalents).
+- **Photos Library**: On mobile operating systems (iOS/Android), you can enable automatic saving of generated wallpapers to your device's Photos library or Gallery.
 
 ## Schedule
 
