@@ -1,6 +1,11 @@
 package com.studiofreesia.wondaywall.services
 
+import android.app.AlarmManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
+import android.os.Build
+import android.util.Log
 import androidx.work.Constraints
 import androidx.work.Data
 import androidx.work.ExistingWorkPolicy
@@ -13,22 +18,23 @@ import com.studiofreesia.wondaywall.models.GenerationProgress
 import com.studiofreesia.wondaywall.models.GenerationTrigger
 import com.studiofreesia.wondaywall.models.HistoryItem
 import com.studiofreesia.wondaywall.models.UpdateSchedule
+import com.studiofreesia.wondaywall.workers.ScheduledGenerationAlarmReceiver
 import com.studiofreesia.wondaywall.workers.GenerationWorker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.util.Calendar
 import java.util.UUID
-import java.util.concurrent.TimeUnit
 
 // バックグラウンド定期生成の登録・解除・スロット判定を担当するサービス
-// 内部では WorkManager の OneTimeWorkRequest を使う
+// 定時起点は AlarmManager、生成実行は WorkManager の即時 OneTimeWorkRequest を使う
 class TaskSchedulerService(
     private val context: Context,
     private val appConfigService: AppConfigService,
     private val historyService: HistoryService,
 ) {
     companion object {
+        private const val TAG = "TaskSchedulerService"
         // WorkManager のユニークワーク名
         const val WORK_NAME = "WondayWall.BackgroundGeneration"
         const val KEY_TRIGGER = "trigger"
@@ -38,6 +44,7 @@ class TaskSchedulerService(
         const val KEY_PROGRESS_HISTORY_ID = "progress_history_id"
         const val KEY_RESULT_HISTORY_ID = "result_history_id"
         const val KEY_RESULT_STATUS = "result_status"
+        private const val SCHEDULED_ALARM_REQUEST_CODE = 4001
 
         // すべてのスケジュールで1日の最初の更新は4:00に揃える（Windows版 ScheduleHelper.FirstDailySlot と同じ）
         private const val FIRST_DAILY_SLOT_HOUR = 4
@@ -112,6 +119,36 @@ class TaskSchedulerService(
     suspend fun enqueueStartupRecoveryGeneration(): Boolean =
         enqueueImmediateGeneration(GenerationTrigger.StartupRecovery)
 
+    // 定時アラームから、未処理スロットの scheduled work を即時登録する
+    suspend fun enqueueScheduledGenerationDueNow(): Boolean {
+        val config = appConfigService.getConfig()
+        if (!config.autoGenerationEnabled) {
+            cancelScheduledAlarm()
+            Log.i(TAG, "定時アラームを無視しました: autoGenerationEnabled=false")
+            return false
+        }
+        if (isGenerationWorkRunning()) {
+            Log.i(TAG, "定時アラームを保留しました: 生成中")
+            scheduleNext(allowWhileRunning = true)
+            return false
+        }
+        if (isCurrentSlotProcessed()) {
+            Log.i(TAG, "定時アラームをスキップしました: 現在スロットは処理済み")
+            scheduleNext()
+            return false
+        }
+
+        val workRequest = buildImmediateGenerationRequest(GenerationTrigger.Scheduled)
+        WorkManager.getInstance(context).enqueueUniqueWork(
+            WORK_NAME,
+            ExistingWorkPolicy.REPLACE,
+            workRequest,
+        )
+        Log.i(TAG, "定時アラームから scheduled work を即時登録しました id=${workRequest.id}")
+        scheduleNext(allowWhileRunning = true)
+        return true
+    }
+
     private suspend fun enqueueImmediateGeneration(trigger: GenerationTrigger): Boolean {
         if (isGenerationWorkRunning()) return false
         val workRequest = buildImmediateGenerationRequest(trigger)
@@ -130,42 +167,54 @@ class TaskSchedulerService(
             .setConstraints(buildConstraints())
             .build()
 
-    // 次回スケジュールスロットを計算して WorkManager に登録する
+    // 次回スケジュールスロットを計算して AlarmManager に登録する
     suspend fun scheduleNext(allowWhileRunning: Boolean = false) {
         val config = appConfigService.getConfig()
-        if (!config.autoGenerationEnabled) return
+        if (!config.autoGenerationEnabled) {
+            cancelScheduledAlarm()
+            return
+        }
         val isRunning = isGenerationWorkRunning()
         if (isRunning && !allowWhileRunning) return
 
         val now = System.currentTimeMillis()
         val nextSlotMs = getNextScheduledSlotAfter(now, config.schedule)
-        val delayMs = (nextSlotMs - now).coerceAtLeast(0L)
-
-        val workRequest = OneTimeWorkRequestBuilder<GenerationWorker>()
-            .setInitialDelay(delayMs, TimeUnit.MILLISECONDS)
-            .setInputData(inputDataFor(GenerationTrigger.Scheduled))
-            .setConstraints(buildConstraints())
-            .build()
-
-        WorkManager.getInstance(context).enqueueUniqueWork(
-            WORK_NAME,
-            if (isRunning) ExistingWorkPolicy.APPEND_OR_REPLACE else ExistingWorkPolicy.REPLACE,
-            workRequest,
-        )
+        scheduleScheduledAlarm(nextSlotMs)
+        Log.i(TAG, "次回定時生成アラームを登録しました nextSlotMs=$nextSlotMs")
     }
 
     // 自動生成を無効化し、登録済みの WorkManager タスクをキャンセルする
     fun cancelScheduled() {
         WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
+        cancelScheduledAlarm()
+        Log.i(TAG, "定時生成をキャンセルしました")
+    }
+
+    // 旧実装で残った WorkManager の delayed 予約を消し、AlarmManager だけに張り直す
+    suspend fun rescheduleAlarmAfterSystemEvent() {
+        WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
+        Log.i(TAG, "旧 WorkManager 定時予約をキャンセルしました")
+        scheduleNext()
     }
 
     // WorkManager のユニークワークが実行中か確認する
     suspend fun isGenerationWorkRunning(): Boolean =
         getWorkInfos().any { it.state == WorkInfo.State.RUNNING }
 
-    // WorkManager のユニークワークが次回予約として存在するか確認する
+    // AlarmManager の次回予約が存在するか確認する
     suspend fun hasScheduledWork(): Boolean =
-        getWorkInfos().any { it.state == WorkInfo.State.ENQUEUED }
+        hasScheduledAlarm()
+
+    // AlarmManager の次回予約が存在するか確認する（デバッグ表示用）
+    suspend fun hasScheduledAlarmRegistered(): Boolean =
+        hasScheduledAlarm()
+
+    // 現在の設定から次回スケジュールスロットを計算する（デバッグ表示用）
+    suspend fun getExpectedNextScheduledAlarmTimeMillis(): Long? {
+        val config = appConfigService.getConfig()
+        if (!config.autoGenerationEnabled) return null
+        return getNextScheduledSlotAfter(System.currentTimeMillis(), config.schedule)
+    }
 
     // 実行中 Work の最新 progress を取得する
     suspend fun getCurrentProgress(): GenerationProgress? =
@@ -189,6 +238,39 @@ class TaskSchedulerService(
         val latestSlotMs = getLatestScheduledSlotAtOrBefore(now, config.schedule)
         val lastCompletedMs = historyService.getLastCompletedRunTimeMillis() ?: return false
         return lastCompletedMs >= latestSlotMs
+    }
+
+    private fun scheduleScheduledAlarm(nextSlotMs: Long) {
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val pendingIntent = scheduledAlarmPendingIntent(PendingIntent.FLAG_UPDATE_CURRENT) ?: return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nextSlotMs, pendingIntent)
+        } else {
+            alarmManager.set(AlarmManager.RTC_WAKEUP, nextSlotMs, pendingIntent)
+        }
+    }
+
+    private fun cancelScheduledAlarm() {
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val pendingIntent = scheduledAlarmPendingIntent(PendingIntent.FLAG_NO_CREATE) ?: return
+        alarmManager.cancel(pendingIntent)
+        pendingIntent.cancel()
+    }
+
+    private fun hasScheduledAlarm(): Boolean =
+        scheduledAlarmPendingIntent(PendingIntent.FLAG_NO_CREATE) != null
+
+    private fun scheduledAlarmPendingIntent(flags: Int): PendingIntent? {
+        val intent = Intent(context, ScheduledGenerationAlarmReceiver::class.java).apply {
+            action = ScheduledGenerationAlarmReceiver.ACTION_SCHEDULED_GENERATION_ALARM
+            setPackage(context.packageName)
+        }
+        return PendingIntent.getBroadcast(
+            context,
+            SCHEDULED_ALARM_REQUEST_CODE,
+            intent,
+            flags or PendingIntent.FLAG_IMMUTABLE,
+        )
     }
 
     private suspend fun getWorkInfos(): List<WorkInfo> = withContext(Dispatchers.IO) {
@@ -273,8 +355,8 @@ class TaskSchedulerService(
     private fun getNextScheduledSlotAfter(nowMs: Long, schedule: UpdateSchedule): Long {
         if (isWeeklySchedule(schedule)) {
             val weekDays = getWeekDays(schedule)
-            // 最大14日先まで走査して次の対象日を探す
-            for (i in 1..14) {
+            // 今日の対象スロットがまだ先なら今日を返す
+            for (i in 0..14) {
                 val cal = calendarAtStartOfDay(nowMs).apply {
                     add(Calendar.DAY_OF_YEAR, i)
                     set(Calendar.HOUR_OF_DAY, FIRST_DAILY_SLOT_HOUR)
@@ -282,7 +364,7 @@ class TaskSchedulerService(
                     set(Calendar.SECOND, 0)
                     set(Calendar.MILLISECOND, 0)
                 }
-                if (weekDays.contains(cal.get(Calendar.DAY_OF_WEEK))) {
+                if (cal.timeInMillis > nowMs && weekDays.contains(cal.get(Calendar.DAY_OF_WEEK))) {
                     return cal.timeInMillis
                 }
             }

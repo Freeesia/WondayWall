@@ -3,4 +3,6 @@
 <paths>
     <!-- context.filesDir/wallpapers/ 以下の生成画像を共有可能にする -->
     <files-path name="wallpapers" path="wallpapers/" />
+    <!-- Android 9 以下で写真領域に保存した画像を共有可能にする -->
+    <external-path name="wondaywall_pictures" path="Pictures/WondayWall/" />
 </paths>

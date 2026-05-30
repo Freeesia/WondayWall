@@ -5,9 +5,11 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.studiofreesia.wondaywall.models.AppConfig
 import com.studiofreesia.wondaywall.models.CalendarSourceItem
+import com.studiofreesia.wondaywall.models.GenerationProgress
 import com.studiofreesia.wondaywall.models.UpdateSchedule
 import com.studiofreesia.wondaywall.services.AppConfigService
 import com.studiofreesia.wondaywall.services.ContextService
+import com.studiofreesia.wondaywall.services.GenerationCoordinator
 import com.studiofreesia.wondaywall.services.TaskSchedulerService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,16 +27,20 @@ data class WizardUiState(
     val hasCalendarPermission: Boolean = false,
     val calendarSources: List<CalendarSourceItem> = emptyList(),
     val selectedCalendarIds: Set<String> = emptySet(),
-    val rssSources: List<String> = emptyList(),
+    val rssSourceUrl: String = "",
+    val resolvedRssSourceUrl: String? = null,
     val userPrompt: String = "",
     val schedule: UpdateSchedule = UpdateSchedule.OnceADay,
     val wifiOnly: Boolean = false,
     val skipOnBatterySaver: Boolean = true,
     val showNotification: Boolean = true,
     val updateLockScreen: Boolean = false,
+    val isResolvingRssSource: Boolean = false,
     val isTestGenerating: Boolean = false,
     val isCompleting: Boolean = false,
-    val testGenerationImagePath: String? = null,
+    val generationProgress: GenerationProgress? = null,
+    val testGenerationImageReference: String? = null,
+    val topToastMessage: String? = null,
     val errorMessage: String? = null,
 )
 
@@ -51,13 +57,23 @@ class WizardViewModel(
     private val appConfigService: AppConfigService,
     private val contextService: ContextService,
     private val taskSchedulerService: TaskSchedulerService,
+    private val generationCoordinator: GenerationCoordinator,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(WizardUiState())
     val uiState: StateFlow<WizardUiState> = _uiState.asStateFlow()
 
+    init {
+        viewModelScope.launch {
+            generationCoordinator.progress.collect { progress ->
+                _uiState.value = _uiState.value.copy(generationProgress = progress)
+            }
+        }
+    }
+
     // 次のステップに進む
     fun nextStep() {
+        if (_uiState.value.isResolvingRssSource) return
         val current = _uiState.value.currentStep
         if (current == 1 && _uiState.value.apiKey.isBlank()) {
             _uiState.value = _uiState.value.copy(
@@ -65,6 +81,15 @@ class WizardViewModel(
             )
             return
         }
+        if (current == 3) {
+            resolveRssSourceAndAdvance()
+            return
+        }
+        advanceToNextStep(current)
+    }
+
+    // 次のステップへ進める
+    private fun advanceToNextStep(current: Int) {
         if (current < WIZARD_TOTAL_STEPS - 1) {
             _uiState.value = _uiState.value.copy(currentStep = current + 1)
         }
@@ -130,32 +155,47 @@ class WizardViewModel(
         _uiState.value = _uiState.value.copy(selectedCalendarIds = updated)
     }
 
-    // RSS ソースを追加する
-    fun addRssSource(url: String, onAdded: () -> Unit = {}) {
-        if (url.isBlank()) return
+    // RSS ソース URL を更新する
+    fun updateRssSourceUrl(url: String) {
+        _uiState.value = _uiState.value.copy(
+            rssSourceUrl = url,
+            resolvedRssSourceUrl = null,
+        )
+    }
+
+    // RSS ソースを解決してから次のステップに進む
+    private fun resolveRssSourceAndAdvance() {
+        val state = _uiState.value
+        val sourceUrl = state.rssSourceUrl.trim()
+        if (sourceUrl.isBlank()) {
+            _uiState.value = state.copy(
+                rssSourceUrl = "",
+                resolvedRssSourceUrl = null,
+                currentStep = state.currentStep + 1,
+            )
+            return
+        }
+
         viewModelScope.launch {
-            val sourceUrl = url.trim()
+            _uiState.value = _uiState.value.copy(isResolvingRssSource = true)
             val resolvedRssUrl = contextService.resolveRssSourceUrl(sourceUrl)
             if (resolvedRssUrl == null) {
                 _uiState.value = _uiState.value.copy(
-                    errorMessage = "指定のサイトからニュース情報を得られませんでした。"
+                    isResolvingRssSource = false,
+                    resolvedRssSourceUrl = null,
+                    topToastMessage = "指定の URL から RSS フィードを見つけられませんでした。",
                 )
                 return@launch
             }
 
-            val sources = _uiState.value.rssSources
-            if (!sources.contains(resolvedRssUrl)) {
-                _uiState.value = _uiState.value.copy(rssSources = sources + resolvedRssUrl)
-                onAdded()
-            }
+            val current = _uiState.value.currentStep
+            _uiState.value = _uiState.value.copy(
+                rssSourceUrl = sourceUrl,
+                resolvedRssSourceUrl = resolvedRssUrl,
+                isResolvingRssSource = false,
+                currentStep = current + 1,
+            )
         }
-    }
-
-    // RSS ソースを削除する
-    fun removeRssSource(url: String) {
-        _uiState.value = _uiState.value.copy(
-            rssSources = _uiState.value.rssSources - url
-        )
     }
 
     // ユーザープロンプトを更新する
@@ -183,6 +223,18 @@ class WizardViewModel(
         _uiState.value = _uiState.value.copy(showNotification = enabled)
     }
 
+    // 通知権限の結果をウィザード設定へ反映する
+    fun onNotificationPermissionResult(granted: Boolean) {
+        _uiState.value = if (granted) {
+            _uiState.value.copy(showNotification = true)
+        } else {
+            _uiState.value.copy(
+                showNotification = false,
+                errorMessage = "通知権限が許可されていないため、通知はオフにしました。",
+            )
+        }
+    }
+
     // ロック画面更新設定を切り替える
     fun toggleUpdateLockScreen(enabled: Boolean) {
         _uiState.value = _uiState.value.copy(updateLockScreen = enabled)
@@ -193,7 +245,7 @@ class WizardViewModel(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(
                 isTestGenerating = true,
-                testGenerationImagePath = null,
+                testGenerationImageReference = null,
                 errorMessage = null,
             )
             // ウィザード設定を一時的に保存してから生成する
@@ -203,7 +255,7 @@ class WizardViewModel(
                 val errorMessage = generationErrorMessage(result)
                 _uiState.value = _uiState.value.copy(
                     isTestGenerating = false,
-                    testGenerationImagePath = result?.appliedImagePath,
+                    testGenerationImageReference = result?.appliedImageUri,
                     errorMessage = errorMessage,
                 )
             } catch (e: Exception) {
@@ -231,7 +283,7 @@ class WizardViewModel(
                 saveCurrentConfig(enableAutoGeneration = true)
                 taskSchedulerService.scheduleNext()
                 // テスト生成がまだ実行されていない場合は自動で生成する
-                if (_uiState.value.testGenerationImagePath == null) {
+                if (_uiState.value.testGenerationImageReference == null) {
                     _uiState.value = _uiState.value.copy(isTestGenerating = true)
                     val result = taskSchedulerService.enqueueManualGenerationAndWait()
                     val errorMessage = generationErrorMessage(result)
@@ -243,9 +295,9 @@ class WizardViewModel(
                         return@launch
                     }
                     _uiState.value = _uiState.value.copy(
-                        testGenerationImagePath = result?.appliedImagePath,
+                        testGenerationImageReference = result?.appliedImageUri,
                     )
-                    if (_uiState.value.testGenerationImagePath == null) {
+                    if (_uiState.value.testGenerationImageReference == null) {
                         _uiState.value = _uiState.value.copy(isTestGenerating = false)
                         return@launch
                     }
@@ -269,6 +321,13 @@ class WizardViewModel(
         return result.errorSummary ?: if (result.isSkipped) "生成がスキップされました" else "生成に失敗しました"
     }
 
+    // 写真領域への保存権限が拒否されたときに初回生成を止める
+    fun onStoragePermissionDenied() {
+        _uiState.value = _uiState.value.copy(
+            errorMessage = "写真領域に保存する権限がないため、画像生成を開始できません。"
+        )
+    }
+
     // 現在の ViewModel 状態を AppConfig として保存する
     private suspend fun saveCurrentConfig(enableAutoGeneration: Boolean) {
         val state = _uiState.value
@@ -276,7 +335,7 @@ class WizardViewModel(
             it.copy(
                 googleAiApiKey = state.apiKey,
                 targetCalendarIds = state.selectedCalendarIds.toList(),
-                rssSources = state.rssSources,
+                rssSources = state.resolvedRssSourceUrl?.let { listOf(it) }.orEmpty(),
                 userPrompt = state.userPrompt,
                 autoGenerationEnabled = enableAutoGeneration,
                 schedule = state.schedule,
@@ -293,11 +352,17 @@ class WizardViewModel(
         _uiState.value = _uiState.value.copy(errorMessage = null)
     }
 
+    // 上部 Toast メッセージをクリアする
+    fun clearTopToastMessage() {
+        _uiState.value = _uiState.value.copy(topToastMessage = null)
+    }
+
     companion object {
         fun factory(
             appConfigService: AppConfigService,
             contextService: ContextService,
             taskSchedulerService: TaskSchedulerService,
+            generationCoordinator: GenerationCoordinator,
         ): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T =
@@ -305,6 +370,7 @@ class WizardViewModel(
                     appConfigService,
                     contextService,
                     taskSchedulerService,
+                    generationCoordinator,
                 ) as T
         }
     }

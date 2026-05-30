@@ -52,7 +52,12 @@ final class ContextService {
     // 取得対象カレンダーの直近 7 日間のイベントを返す
     // カレンダーが未選択の場合はイベントを取得しない
     func fetchCalendarEvents() -> [CalendarEventItem] {
-        let targetIds = Set(configService.config.targetCalendarIds)
+        fetchCalendarEvents(calendarIds: configService.config.targetCalendarIds)
+    }
+
+    // 指定したカレンダーの直近 7 日間のイベントを返す
+    func fetchCalendarEvents(calendarIds: [String]) -> [CalendarEventItem] {
+        let targetIds = Set(calendarIds)
         // カレンダーが未選択の場合はカレンダーを利用しない
         guard !targetIds.isEmpty else { return [] }
         let allCalendars = calendarService.fetchCalendars()
@@ -81,7 +86,11 @@ final class ContextService {
 
     // RSS/Atom フィードからニュースを取得し、OGP 画像 URL を付与する（1時間キャッシュ）
     func fetchNews() async -> [NewsTopicItem] {
-        let rssSources = configService.config.rssSources
+        await fetchNews(from: configService.config.rssSources)
+    }
+
+    // 指定した RSS/Atom フィードからニュースを取得し、OGP 画像 URL を付与する（1時間キャッシュ）
+    func fetchNews(from rssSources: [String]) async -> [NewsTopicItem] {
         // ファイルキャッシュが有効かつRSSソースが変わっていなければそのまま返す
         let cacheURL = Self.newsCacheURL
         if let attrs = try? FileManager.default.attributesOfItem(atPath: cacheURL.path),
@@ -231,9 +240,10 @@ final class ContextService {
         let config = configService.config
         let cal = Calendar.current
 
-        // デバイスのネイティブ解像度からアスペクト比を決定する（メインスレッドで取得）
-        let nativeSize = await MainActor.run { DisplayHelper.nativeScreenSize() }
-        let aspectRatio = DisplayHelper.closestGeminiAspectRatio(for: nativeSize)
+        let aspectRatio = DisplayHelper.closestGeminiAspectRatio(
+            screenPixelWidth: config.screenNativePixelWidth,
+            screenPixelHeight: config.screenNativePixelHeight
+        )
 
         // カレンダーイベントを最大5件取得
         onProgress?(0.05, "カレンダーの取得中")

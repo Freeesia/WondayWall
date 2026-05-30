@@ -12,10 +12,35 @@ struct ContentView: View {
     @State private var showSuccessToast = false
     @State private var startupAlertMode: StartupAlertMode?
     @State private var showStartupAlert = false
+    @State private var hasCompletedInitialSetup = false
+    @State private var hasLoadedInitialSetupState = false
     @EnvironmentObject private var environment: AppEnvironment
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
+        Group {
+            if !hasLoadedInitialSetupState {
+                ProgressView()
+            } else if isInitialSetupComplete {
+                mainTabs
+            } else {
+                InitialSetupView {
+                    completeInitialSetup()
+                }
+            }
+        }
+        .task {
+            guard !hasLoadedInitialSetupState else { return }
+            hasCompletedInitialSetup = environment.configService.config.hasCompletedInitialSetup
+            hasLoadedInitialSetupState = true
+        }
+    }
+
+    private var isInitialSetupComplete: Bool {
+        hasCompletedInitialSetup
+    }
+
+    private var mainTabs: some View {
         ZStack(alignment: .top) {
             TabView(selection: $selectedTab) {
                 HomeView()
@@ -106,6 +131,11 @@ struct ContentView: View {
         }
     }
 
+    private func completeInitialSetup() {
+        hasCompletedInitialSetup = true
+        selectedTab = 0
+    }
+
     private var startupAlertTitle: String {
         switch startupAlertMode {
         case .alreadyGenerating:
@@ -137,6 +167,7 @@ struct ContentView: View {
     }
 
     private func evaluateStartupGeneration() async {
+        guard isInitialSetupComplete else { return }
         guard environment.configService.config.autoGenerationEnabled else { return }
         guard environment.configService.hasMinimumConfigurationForStartupGeneration() else { return }
 

@@ -1,6 +1,11 @@
 package com.studiofreesia.wondaywall.ui.screens.wizard
 
 import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
+import android.view.Gravity
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
@@ -26,11 +31,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Key
@@ -48,7 +51,6 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -75,12 +77,19 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import com.studiofreesia.wondaywall.models.UpdateSchedule
-import com.studiofreesia.wondaywall.ui.components.FaviconIcon
+import com.studiofreesia.wondaywall.services.NotificationPermissionHelper
 import com.studiofreesia.wondaywall.ui.components.SquareAppIcon
-import java.io.File
+import com.studiofreesia.wondaywall.ui.util.canDisplayImageReference
+import com.studiofreesia.wondaywall.ui.util.imageReferenceModel
+
+private enum class PendingStorageGenerationAction {
+    TestGenerate,
+    CompleteWizard,
+}
 
 // ウィザード画面（セットアップ）
 @OptIn(ExperimentalMaterial3Api::class)
@@ -91,12 +100,53 @@ fun WizardScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
-    val canGoNext = uiState.currentStep != 1 || uiState.apiKey.isNotBlank()
+    val context = LocalContext.current
+    val canGoNext = (uiState.currentStep != 1 || uiState.apiKey.isNotBlank()) &&
+        !uiState.isResolvingRssSource
+    var pendingStorageAction by remember { mutableStateOf<PendingStorageGenerationAction?>(null) }
+
+    fun runGenerationAction(action: PendingStorageGenerationAction) {
+        when (action) {
+            PendingStorageGenerationAction.TestGenerate -> viewModel.testGenerate()
+            PendingStorageGenerationAction.CompleteWizard -> viewModel.completeWizard(onComplete)
+        }
+    }
+
+    val storagePermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        val action = pendingStorageAction
+        pendingStorageAction = null
+        if (granted && action != null) {
+            runGenerationAction(action)
+        } else {
+            viewModel.onStoragePermissionDenied()
+        }
+    }
+
+    fun runGenerationActionWithStoragePermission(action: PendingStorageGenerationAction) {
+        if (requiresLegacyPhotoWritePermission(context)) {
+            pendingStorageAction = action
+            storagePermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        } else {
+            runGenerationAction(action)
+        }
+    }
 
     LaunchedEffect(uiState.errorMessage) {
         uiState.errorMessage?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.clearError()
+        }
+    }
+
+    LaunchedEffect(uiState.topToastMessage) {
+        uiState.topToastMessage?.let {
+            Toast.makeText(context, it, Toast.LENGTH_LONG).apply {
+                setGravity(Gravity.TOP or Gravity.CENTER_HORIZONTAL, 0, 96)
+                show()
+            }
+            viewModel.clearTopToastMessage()
         }
     }
 
@@ -134,7 +184,14 @@ fun WizardScreen(
                         2 -> StepCalendar(uiState, viewModel)
                         3 -> StepPromptAndRss(uiState, viewModel)
                         4 -> StepSchedule(uiState, viewModel)
-                        5 -> StepTestGenerate(uiState, viewModel)
+                        5 -> StepTestGenerate(
+                            uiState = uiState,
+                            onTestGenerate = {
+                                runGenerationActionWithStoragePermission(
+                                    PendingStorageGenerationAction.TestGenerate
+                                )
+                            },
+                        )
                     }
                 }
             }
@@ -148,7 +205,10 @@ fun WizardScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (uiState.currentStep > 0) {
-                    OutlinedButton(onClick = { viewModel.prevStep() }) {
+                    OutlinedButton(
+                        onClick = { viewModel.prevStep() },
+                        enabled = !uiState.isResolvingRssSource,
+                    ) {
                         Icon(Icons.Default.ArrowBack, contentDescription = null)
                         Text("  戻る")
                     }
@@ -167,12 +227,21 @@ fun WizardScreen(
                         onClick = { viewModel.nextStep() },
                         enabled = canGoNext,
                     ) {
-                        Text("次へ  ")
-                        Icon(Icons.Default.ArrowForward, contentDescription = null)
+                        if (uiState.currentStep == 3 && uiState.isResolvingRssSource) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                            Text("  確認中…")
+                        } else {
+                            Text("次へ  ")
+                            Icon(Icons.Default.ArrowForward, contentDescription = null)
+                        }
                     }
                 } else {
                     Button(
-                        onClick = { viewModel.completeWizard(onComplete) },
+                        onClick = {
+                            runGenerationActionWithStoragePermission(
+                                PendingStorageGenerationAction.CompleteWizard
+                            )
+                        },
                         enabled = !uiState.isCompleting && !uiState.isTestGenerating,
                     ) {
                         if (uiState.isCompleting || uiState.isTestGenerating) {
@@ -374,8 +443,6 @@ private fun StepCalendar(uiState: WizardUiState, viewModel: WizardViewModel) {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun StepPromptAndRss(uiState: WizardUiState, viewModel: WizardViewModel) {
-    var newRssUrl by remember { mutableStateOf("") }
-
     // プロンプトテンプレート一覧
     val promptTemplates = listOf(
         "水彩画風で生成してください",
@@ -432,50 +499,20 @@ private fun StepPromptAndRss(uiState: WizardUiState, viewModel: WizardViewModel)
         // RSS ソース
         Text("RSS ニュースソース", style = MaterialTheme.typography.titleMedium)
         Text(
-            text = "ニュースを参考にした壁紙を生成したい場合はニュースサイト URL を追加してください。RSS URL の直接入力もできます。",
+            text = "ニュースを参考にした壁紙を生成したい場合はニュースサイト URL を入力してください。RSS URL の直接入力もできます。",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
-        Row(
+        OutlinedTextField(
+            value = uiState.rssSourceUrl,
+            onValueChange = { viewModel.updateRssSourceUrl(it) },
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            OutlinedTextField(
-                value = newRssUrl,
-                onValueChange = { newRssUrl = it },
-                modifier = Modifier.weight(1f),
-                placeholder = { Text("ニュースサイト URL") },
-                singleLine = true,
-            )
-            IconButton(onClick = {
-                viewModel.addRssSource(newRssUrl) {
-                    newRssUrl = ""
-                }
-            }) {
-                Icon(Icons.Default.Add, contentDescription = "追加")
-            }
-        }
-
-        uiState.rssSources.forEach { url ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                FaviconIcon(url = url, size = 24.dp)
-                Text(
-                    text = url,
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.bodySmall,
-                    maxLines = 1,
-                )
-                IconButton(onClick = { viewModel.removeRssSource(url) }) {
-                    Icon(Icons.Default.Close, contentDescription = "削除")
-                }
-            }
-        }
+            placeholder = { Text("https://example.com") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+            singleLine = true,
+            enabled = !uiState.isResolvingRssSource,
+        )
     }
 }
 
@@ -484,6 +521,20 @@ private fun StepPromptAndRss(uiState: WizardUiState, viewModel: WizardViewModel)
 @Composable
 private fun StepSchedule(uiState: WizardUiState, viewModel: WizardViewModel) {
     var scheduleDropdownExpanded by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        viewModel.onNotificationPermissionResult(granted)
+    }
+
+    LaunchedEffect(uiState.showNotification) {
+        if (uiState.showNotification &&
+            NotificationPermissionHelper.shouldRequestPostNotificationsPermission(context)
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -532,14 +583,28 @@ private fun StepSchedule(uiState: WizardUiState, viewModel: WizardViewModel) {
 
         WizardSwitchRow("Wi-Fi 接続時のみ生成する", uiState.wifiOnly, viewModel::toggleWifiOnly)
         WizardSwitchRow("省電力モード中はスキップ", uiState.skipOnBatterySaver, viewModel::toggleSkipOnBatterySaver)
-        WizardSwitchRow("通知を表示する", uiState.showNotification, viewModel::toggleShowNotification)
+        WizardSwitchRow(
+            "通知を表示する",
+            uiState.showNotification,
+        ) { enabled ->
+            if (enabled &&
+                NotificationPermissionHelper.shouldRequestPostNotificationsPermission(context)
+            ) {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            } else {
+                viewModel.toggleShowNotification(enabled)
+            }
+        }
         WizardSwitchRow("ロック画面も更新する", uiState.updateLockScreen, viewModel::toggleUpdateLockScreen)
     }
 }
 
 // ステップ 6: テスト生成
 @Composable
-private fun StepTestGenerate(uiState: WizardUiState, viewModel: WizardViewModel) {
+private fun StepTestGenerate(
+    uiState: WizardUiState,
+    onTestGenerate: () -> Unit,
+) {
     val context = LocalContext.current
 
     Column(
@@ -564,25 +629,61 @@ private fun StepTestGenerate(uiState: WizardUiState, viewModel: WizardViewModel)
 
         // テスト生成ボタン
         FilledTonalButton(
-            onClick = { viewModel.testGenerate() },
+            onClick = onTestGenerate,
             modifier = Modifier.fillMaxWidth(),
             enabled = !uiState.isTestGenerating,
         ) {
             if (uiState.isTestGenerating) {
-                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                Text("  生成中…（最大10分かかる場合があります）")
+                val percent = uiState.generationProgress?.percent ?: 0
+                CircularProgressIndicator(
+                    progress = { percent / 100f },
+                    modifier = Modifier.size(20.dp),
+                    strokeWidth = 2.dp,
+                )
+                Text("  生成中 $percent%")
             } else {
                 Icon(Icons.Default.Refresh, contentDescription = null)
                 Text("  テスト生成を実行")
             }
         }
 
+        if (uiState.isTestGenerating) {
+            val progress = uiState.generationProgress
+            ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Text(
+                            "生成中 ${progress?.percent ?: 0}%",
+                            style = MaterialTheme.typography.titleSmall,
+                        )
+                        Text(
+                            progress?.message ?: "生成を開始しています",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                    LinearProgressIndicator(
+                        progress = { (progress?.percent ?: 0) / 100f },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+        }
+
         // 生成結果プレビュー
-        val imagePath = uiState.testGenerationImagePath
-        if (imagePath != null && File(imagePath).exists()) {
+        val imageReference = uiState.testGenerationImageReference
+        if (imageReference != null && canDisplayImageReference(imageReference)) {
             ElevatedCard(modifier = Modifier.fillMaxWidth()) {
                 AsyncImage(
-                    model = ImageRequest.Builder(context).data(File(imagePath)).build(),
+                    model = ImageRequest.Builder(context).data(imageReferenceModel(imageReference)).build(),
                     contentDescription = "テスト生成プレビュー",
                     modifier = Modifier
                         .fillMaxWidth()
@@ -639,3 +740,10 @@ private fun WizardSwitchRow(
         Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
+
+private fun requiresLegacyPhotoWritePermission(context: Context): Boolean =
+    Build.VERSION.SDK_INT <= Build.VERSION_CODES.P &&
+        ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.WRITE_EXTERNAL_STORAGE,
+        ) != PackageManager.PERMISSION_GRANTED

@@ -30,7 +30,7 @@ project.Version = new(version);
 project.ControlPanelInfo = new()
 {
     Manufacturer = Manufacturer,
-    ProductIcon = @"..\WondayWall\Assets\AppIcon.ico",
+    ProductIcon = @"..\docs\assets\icon.ico",
     InstallLocation = "[INSTALLDIR]",
     UrlInfoAbout = "https://github.com/Freeesia/WondayWall",
     UrlUpdateInfo = "https://github.com/Freeesia/WondayWall/releases",

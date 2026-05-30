@@ -20,6 +20,11 @@ final class EventKitCalendarService {
         eventStore.calendars(for: .event)
     }
 
+    // 端末の既定カレンダー識別子を返す
+    func defaultCalendarIdentifierForNewEvents() -> String? {
+        eventStore.defaultCalendarForNewEvents?.calendarIdentifier
+    }
+
     // 指定カレンダーの今後 7 日間のイベントを取得する
     func fetchEvents(
         from start: Date = Date(),

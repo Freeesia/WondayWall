@@ -47,9 +47,10 @@ import coil3.request.ImageRequest
 import com.studiofreesia.wondaywall.models.GenerationStatus
 import com.studiofreesia.wondaywall.models.HistoryItem
 import com.studiofreesia.wondaywall.ui.components.FaviconIcon
+import com.studiofreesia.wondaywall.ui.util.canDisplayImageReference
 import com.studiofreesia.wondaywall.ui.util.formatCalendarEventDateTime
 import com.studiofreesia.wondaywall.ui.util.formatNewsPublishedAt
-import java.io.File
+import com.studiofreesia.wondaywall.ui.util.imageReferenceModel
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -87,11 +88,11 @@ fun HistoryDetailScreen(
                 .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            // 画像プレビュー（成功時のみ表示）
-            val imagePath = item.appliedImagePath
-            if (item.isSuccess && imagePath != null && File(imagePath).exists()) {
+            // 画像プレビュー（写真保存後に壁紙適用だけ失敗した場合も表示する）
+            val imageReference = item.appliedImageUri
+            if (imageReference != null && canDisplayImageReference(imageReference)) {
                 AsyncImage(
-                    model = ImageRequest.Builder(context).data(File(imagePath)).build(),
+                    model = ImageRequest.Builder(context).data(imageReferenceModel(imageReference)).build(),
                     contentDescription = "生成された壁紙",
                     modifier = Modifier
                         .fillMaxWidth()

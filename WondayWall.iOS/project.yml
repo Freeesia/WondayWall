@@ -105,9 +105,35 @@ targets:
       - package: KeychainAccess
       - package: Defaults
       - package: SwiftSoup
+    postBuildScripts:
+      - name: Copy App Icon Display Resource
+        basedOnDependencyAnalysis: false
+        inputFiles:
+          - $(SRCROOT)/WondayWall/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png
+          - $(SRCROOT)/WondayWall/Resources/Assets.xcassets/AppIconLocal.appiconset/AppIconLocal.png
+          - $(SRCROOT)/WondayWall/Resources/Assets.xcassets/AppIconPreview.appiconset/AppIconPreview.png
+        outputFiles:
+          - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/WondayWallAppIconDisplay.png
+        script: |
+          set -euo pipefail
+
+          case "${ASSETCATALOG_COMPILER_APPICON_NAME:-AppIcon}" in
+            AppIconLocal)
+              source="${SRCROOT}/WondayWall/Resources/Assets.xcassets/AppIconLocal.appiconset/AppIconLocal.png"
+              ;;
+            AppIconPreview)
+              source="${SRCROOT}/WondayWall/Resources/Assets.xcassets/AppIconPreview.appiconset/AppIconPreview.png"
+              ;;
+            *)
+              source="${SRCROOT}/WondayWall/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png"
+              ;;
+          esac
+
+          destination="${SCRIPT_OUTPUT_FILE_0}"
+          mkdir -p "$(dirname "$destination")"
+          cp "$source" "$destination"
     settings:
       base:
-        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_ASSET_PATHS: ""
@@ -116,18 +142,21 @@ targets:
         LD_RUNPATH_SEARCH_PATHS:
           - $(inherited)
           - "@executable_path/Frameworks"
-        PRODUCT_BUNDLE_IDENTIFIER: com.studiofreesia.wondaywall
         PRODUCT_NAME: $(TARGET_NAME)
         SWIFT_EMIT_LOC_STRINGS: "YES"
         SWIFT_VERSION: "5.0"
         TARGETED_DEVICE_FAMILY: "1"
       configs:
         Debug:
+          ASSETCATALOG_COMPILER_APPICON_NAME: AppIconLocal
           CURRENT_PROJECT_VERSION: "0"
           MARKETING_VERSION: 0.0.0
+          PRODUCT_BUNDLE_IDENTIFIER: com.studiofreesia.wondaywall.local
         Release:
+          ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
           CURRENT_PROJECT_VERSION: "1"
           MARKETING_VERSION: "1.0"
+          PRODUCT_BUNDLE_IDENTIFIER: com.studiofreesia.wondaywall
 schemes:
   WondayWall:
     build:
