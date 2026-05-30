@@ -111,11 +111,13 @@ WondayWall.exe check-google-ai   # Check Gemini API access
 
 ## Schedule
 
+All platforms share the same update frequency options (Once a Week / Twice a Week / Three Times a Week / Once a Day / Three Times a Day) for automatic updates.
+
 | OS | Method |
 |----|--------|
-| Windows | Select the update frequency (`Once a Week / Twice a Week / Three Times a Week / Once a Day / Three Times a Day`), then run `run-once` from Task Scheduler |
-| iOS | Register weekly or daily schedules with `BGProcessingTask`, and check for missed slots on app launch and foreground return |
-| Android | Treat runs per day as schedule slots, then use WorkManager plus launch/foreground checks to catch up missed slots |
+| Windows | Runs `run-once` from Task Scheduler based on the scheduled slots to generate wallpapers |
+| iOS | Registers the scheduled slots with `BGProcessingTask`, and checks for missed slots on app launch and foreground return |
+| Android | Registers the scheduled slots with `WorkManager`, and checks for missed slots on app launch and foreground return |
 
 iOS and Android background execution is controlled by the OS, so scheduled times are not guaranteed.
 
