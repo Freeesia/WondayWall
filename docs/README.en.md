@@ -84,8 +84,8 @@ On Android, WondayWall retrieves events from calendars synced to the device thro
 |---------|---------|-----|---------|
 | Gemini wallpaper generation | Supported | Supported | Supported |
 | Manual generation | Immediate generation from the GUI | Immediate generation from the app | Immediate generation from the app |
-| Scheduled generation | Task Scheduler + CLI | `BGProcessingTask` + launch/foreground catch-up | WorkManager + launch/foreground catch-up |
-| Calendar source | Google Calendar API | iOS Calendar | Calendar Provider / `CalendarContract` |
+| Scheduled generation | Supported | Supported | Supported |
+| Calendar source | Google Calendar | Calendar | Calendar |
 | RSS news | Supported | Supported | Supported |
 | Wallpaper application | Desktop wallpaper, and lock screen when enabled | Direct application is not available. Photos saving, sharing, and setup guidance are provided | Home screen, and lock screen as an additional target when enabled |
 | Generation history | Supported | Supported | Supported |
@@ -105,21 +105,15 @@ WondayWall.exe check-google-ai   # Check Gemini API access
 
 | OS | Stored data |
 |----|-------------|
-| Windows | Settings, generation history, generated images, and Google Calendar OAuth tokens are stored under `%LocalAppData%\StudioFreesia\WondayWall\`. The Google AI API key is stored in Windows Credential Manager |
-| iOS | App settings, generation history, and generated images are stored in the app container. The Google AI API key is stored in Keychain. If Photos saving is enabled, images are also saved to the WondayWall album in Photos |
-| Android | App settings are stored in DataStore, and generation history and generated images are stored in app storage. The Google AI API key is encrypted with Tink and Android Keystore. Images may also be saved to Photos/Gallery when requested |
+| Windows | Settings, generation history, generated images, and calendar authentication tokens are stored locally and securely |
+| iOS | Settings, generation history, and generated images are stored securely in the app (saving to the Photos library is also supported) |
+| Android | Settings, generation history, and generated images are stored securely in the app (saving to Photos/Gallery is also supported) |
 
 ## Schedule
 
-All platforms share the same update frequency options (Once a Week / Twice a Week / Three Times a Week / Once a Day / Three Times a Day) for automatic updates.
+All platforms share the same automatic update frequency options (Once a Week / Twice a Week / Three Times a Week / Once a Day / Three Times a Day).
 
-| OS | Method |
-|----|--------|
-| Windows | Runs `run-once` from Task Scheduler based on the scheduled slots to generate wallpapers |
-| iOS | Registers the scheduled slots with `BGProcessingTask`, and checks for missed slots on app launch and foreground return |
-| Android | Registers the scheduled slots with `WorkManager`, and checks for missed slots on app launch and foreground return |
-
-iOS and Android background execution is controlled by the OS, so scheduled times are not guaranteed.
+* Note: Background execution on mobile operating systems (iOS/Android) is subject to OS limitations, so exact execution times are not guaranteed. Any missed runs will be processed upon app launch or returning to the foreground.
 
 ## Development
 
