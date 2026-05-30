@@ -68,13 +68,13 @@ class App : Application() {
 
     // Debug / Preview ビルドでは起動時設定に応じて実サービスとダミーAIサービスを切り替える
     private fun createAiService(): AiService {
-        val useDummy = BuildConfig.DEBUG && runBlocking {
+        val useDummy = BuildConfig.DEBUG_FEATURES_ENABLED && runBlocking {
             appConfigService.getDebugConfig().useDummyAiService
         }
         return if (useDummy) {
-            DummyAiService(appConfigService, filesDir)
+            DummyAiService(appConfigService, cacheDir)
         } else {
-            GoogleAiService(appConfigService, filesDir)
+            GoogleAiService(appConfigService, cacheDir)
         }
     }
 

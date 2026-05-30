@@ -58,13 +58,15 @@ actor GenerationCoordinator {
     // 手動生成を実行する
     // バックグラウンド移行に備えて BGContinuedProcessingTask を開始する
     func runManual() async -> HistoryItem {
+        // バックグラウンド移行時の BGContinuedProcessingTask を開始する
+        await MainActor.run {
+            fgBgTaskService.beginTask { [weak self] in
+                Task { await self?.handleBackgroundExpiration() }
+            }
+        }
+
         await setIsGenerating(true)
         defer { Task { await self.setIsGenerating(false) } }
-
-        // バックグラウンド移行時の BGContinuedProcessingTask を開始する
-        fgBgTaskService.beginTask { [weak self] in
-            Task { await self?.handleBackgroundExpiration() }
-        }
 
         // 手動生成は変化がなくても必ず実行し、自動生成の枠も消費する
         let tier: GoogleAiServiceTier = configService.config.forceFlexTier ? .flex : .standard
@@ -78,13 +80,18 @@ actor GenerationCoordinator {
             return false
         }
 
+        let config = configService.config
+        guard config.hasCompletedInitialSetup else {
+            logger.notice("isScheduledGenerationNeeded: 初回セットアップ未完了 → スキップ")
+            return false
+        }
+
         // 前回の生成が中断されている場合は、設定に関わらずなるはやで再実行する
         if historyService.getPendingGeneratingItem() != nil || historyService.getGeneratingWithPrompt() != nil {
             logger.notice("isScheduledGenerationNeeded: 中断中の生成あり → 再実行")
             return true
         }
 
-        let config = configService.config
         guard config.autoGenerationEnabled else {
             logger.notice("isScheduledGenerationNeeded: autoGenerationEnabled=false → スキップ")
             return false
@@ -287,16 +294,24 @@ actor GenerationCoordinator {
                 logger.notice("runCore ステップ2: 画像生成 完了 elapsed=\(String(format: "%.1f", Date().timeIntervalSince(step2Start)), privacy: .public)s")
                 usedEvents = resumable?.usedCalendarEvents ?? contextResult.calendarEvents
                 usedNews = adoptedNews
-                status = .success
 
                 // 前回生成のアセット識別子を取得する
                 let previousAssetId = historyService.getLastSuccessfulGenerated()?.photoAssetId
                 // 写真ライブラリの WondayWall アルバムに保存し、前回アセットをアルバムから外す
-                photoAssetId = try? await wallpaperService.saveToPhotosAlbum(
+                let savedPhotoAssetId = try await wallpaperService.saveToPhotosAlbum(
                     imagePath: imageResult.filePath,
                     previousAssetId: previousAssetId,
                     maxCount: configService.config.albumMaxCount
                 )
+                guard !savedPhotoAssetId.isEmpty else {
+                    throw NSError(
+                        domain: "WondayWall",
+                        code: 500,
+                        userInfo: [NSLocalizedDescriptionKey: "写真ライブラリへの保存結果を確認できませんでした。"]
+                    )
+                }
+                photoAssetId = savedPhotoAssetId
+                status = .success
 
                 // 通知には絶対パスを渡す
                 if configService.config.notificationsEnabled {

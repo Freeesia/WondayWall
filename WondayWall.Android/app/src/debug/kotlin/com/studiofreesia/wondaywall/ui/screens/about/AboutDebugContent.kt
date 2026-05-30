@@ -19,7 +19,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -38,9 +37,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.studiofreesia.wondaywall.BuildConfig
 import com.studiofreesia.wondaywall.models.AppConfig
 import com.studiofreesia.wondaywall.models.DebugConfig
 import com.studiofreesia.wondaywall.services.AppConfigService
@@ -48,8 +47,8 @@ import com.studiofreesia.wondaywall.services.DummyAiService
 import com.studiofreesia.wondaywall.services.GenerationCoordinator
 import com.studiofreesia.wondaywall.services.AiService
 import com.studiofreesia.wondaywall.services.TaskSchedulerService
-import com.studiofreesia.wondaywall.services.WorkManagerDebugReader
-import com.studiofreesia.wondaywall.services.WorkManagerDebugSnapshot
+import com.studiofreesia.wondaywall.services.ScheduleDebugReader
+import com.studiofreesia.wondaywall.services.ScheduleDebugSnapshot
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -101,14 +100,13 @@ internal fun AboutDebugScreen(
     onBack: () -> Unit,
     onClose: () -> Unit,
 ) {
-    val appContext = LocalContext.current.applicationContext
-    val workManagerDebugReader = remember(appContext) { WorkManagerDebugReader(appContext) }
+    val scheduleDebugReader = remember(taskSchedulerService) { ScheduleDebugReader(taskSchedulerService) }
     val isGenerating by generationCoordinator.isGenerating.collectAsState()
     val generationProgress by generationCoordinator.progress.collectAsState()
     val scope = rememberCoroutineScope()
     var config by remember { mutableStateOf<AppConfig?>(null) }
     var debugConfig by remember { mutableStateOf(DebugConfig()) }
-    var workSnapshot by remember { mutableStateOf<WorkManagerDebugSnapshot?>(null) }
+    var scheduleSnapshot by remember { mutableStateOf<ScheduleDebugSnapshot?>(null) }
     var loadedAt by remember { mutableLongStateOf(0L) }
 
     fun reload() {
@@ -116,7 +114,7 @@ internal fun AboutDebugScreen(
             val loadedConfig = appConfigService.getConfig()
             config = loadedConfig
             debugConfig = appConfigService.getDebugConfig()
-            workSnapshot = workManagerDebugReader.loadSnapshot()
+            scheduleSnapshot = scheduleDebugReader.loadSnapshot()
             loadedAt = System.currentTimeMillis()
         }
     }
@@ -208,7 +206,7 @@ internal fun AboutDebugScreen(
         ElevatedCard(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("アプリ状態", style = MaterialTheme.typography.titleMedium)
-                DebugInfoRow("ビルド種別", "Debug")
+                DebugInfoRow("ビルド種別", BuildConfig.BUILD_TYPE)
                 DebugInfoRow("AI サービス", if (aiService is DummyAiService) "Dummy" else "Live")
                 DebugInfoRow("次回起動時のAIサービス", if (debugConfig.useDummyAiService) "Dummy" else "Live")
                 DebugInfoRow("生成中", if (isGenerating) "YES" else "NO")
@@ -225,42 +223,21 @@ internal fun AboutDebugScreen(
             }
         }
 
-        WorkManagerDebugSection(workSnapshot)
+        ScheduleDebugSection(scheduleSnapshot)
 
         Spacer(Modifier.height(16.dp))
     }
 }
 
 @Composable
-private fun WorkManagerDebugSection(snapshot: WorkManagerDebugSnapshot?) {
+private fun ScheduleDebugSection(snapshot: ScheduleDebugSnapshot?) {
     ElevatedCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("WorkManager", style = MaterialTheme.typography.titleMedium)
-            DebugInfoRow("Work name", snapshot?.workName ?: TaskSchedulerService.WORK_NAME)
-            DebugInfoRow("WorkInfo 件数", "${snapshot?.workInfos?.size ?: 0} 件")
+            Text("定時アラーム", style = MaterialTheme.typography.titleMedium)
+            DebugInfoRow("管理方式", "AlarmManager")
+            DebugInfoRow("Alarm 登録", snapshot?.let { if (it.alarmRegistered) "YES" else "NO" } ?: "-")
+            DebugInfoRow("次回スロット", formatOptionalDebugTime(snapshot?.expectedNextAlarmTimeMillis))
             DebugInfoRow("最終取得時刻", snapshot?.let { formatDebugTime(it.loadedAtMillis) } ?: "-")
-
-            val items = snapshot?.workInfos.orEmpty()
-            if (items.isEmpty()) {
-                Text(
-                    "登録なし",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            } else {
-                items.forEachIndexed { index, item ->
-                    HorizontalDivider()
-                    Text("WorkInfo #${index + 1}", style = MaterialTheme.typography.titleSmall)
-                    DebugInfoRow("id", item.id)
-                    DebugInfoRow("state", item.state)
-                    DebugInfoRow("nextScheduleTimeMillis", formatNextScheduleTime(item.nextScheduleTimeMillis))
-                    DebugInfoRow("initialDelayMillis", formatDurationMillis(item.initialDelayMillis))
-                    DebugInfoRow("runAttemptCount", item.runAttemptCount.toString())
-                    DebugInfoRow("stopReason", item.stopReason)
-                    DebugInfoRow("requiredNetworkType", item.requiredNetworkType)
-                    DebugInfoRow("tags", item.tags.joinToString().ifEmpty { "-" })
-                }
-            }
         }
     }
 }
@@ -327,25 +304,8 @@ private fun DebugInfoRow(label: String, value: String) {
     }
 }
 
-private fun formatNextScheduleTime(epochMs: Long): String =
-    when {
-        epochMs == Long.MAX_VALUE -> "未予約"
-        epochMs <= 0L -> "-"
-        else -> formatDebugTime(epochMs)
-    }
-
-private fun formatDurationMillis(value: Long): String {
-    if (value <= 0L) return "0 秒"
-    val totalSeconds = value / 1_000L
-    val hours = totalSeconds / 3_600L
-    val minutes = (totalSeconds % 3_600L) / 60L
-    val seconds = totalSeconds % 60L
-    return when {
-        hours > 0 -> "${hours}時間 ${minutes}分 ${seconds}秒"
-        minutes > 0 -> "${minutes}分 ${seconds}秒"
-        else -> "${seconds}秒"
-    }
-}
+private fun formatOptionalDebugTime(epochMs: Long?): String =
+    epochMs?.let(::formatDebugTime) ?: "-"
 
 private fun formatDebugTime(epochMs: Long): String =
     SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.JAPAN).format(Date(epochMs))

@@ -17,7 +17,7 @@ fun SquareAppIcon(
     size: Dp = 80.dp,
 ) {
     Image(
-        painter = painterResource(R.drawable.app_icon_preview),
+        painter = painterResource(R.drawable.app_icon),
         contentDescription = "WondayWall",
         modifier = modifier
             .size(size),

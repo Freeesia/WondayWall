@@ -23,8 +23,6 @@ data class AppConfig(
     // Android固有設定
     // 自動生成を有効にするか
     val autoGenerationEnabled: Boolean = false,
-    // 生成画像をギャラリーにも保存するか
-    val saveToGallery: Boolean = false,
     // 生成時に通知するか（成功・失敗ともに同一フラグで管理）
     val showNotification: Boolean = true,
     // Wi-Fi接続時のみ生成するか

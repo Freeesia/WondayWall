@@ -101,6 +101,18 @@ class SettingsViewModel(
         updateConfigValue { it.copy(showNotification = enabled) }
     }
 
+    // 通知権限が拒否された場合は通知設定を保存しない
+    fun onNotificationPermissionDenied() {
+        viewModelScope.launch {
+            appConfigService.updateConfig { it.copy(showNotification = false) }
+            val config = appConfigService.getConfig()
+            _uiState.value = _uiState.value.copy(
+                config = config,
+                errorMessage = "通知権限が許可されていないため、通知はオフにしました。",
+            )
+        }
+    }
+
     // Flex ティア強制使用を切り替える
     fun toggleForceFlexTier(enabled: Boolean) {
         updateConfigValue { it.copy(forceFlexTier = enabled) }

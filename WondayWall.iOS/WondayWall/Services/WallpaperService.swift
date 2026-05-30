@@ -13,7 +13,14 @@ final class WallpaperService {
     }
 
     // 写真ライブラリへのフルアクセス権限が得られているかを確認する
+    func hasPhotoLibraryAccess() -> Bool {
+        let status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
+        return status == .authorized || status == .limited
+    }
+
+    // 写真ライブラリへのフルアクセス権限を要求する
     func canSaveToPhotos() async -> Bool {
+        if hasPhotoLibraryAccess() { return true }
         let status = await PHPhotoLibrary.requestAuthorization(for: .readWrite)
         return status == .authorized || status == .limited
     }

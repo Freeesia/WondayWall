@@ -2,12 +2,13 @@
 
 [日本語](README.md) | [English](README.en.md)
 
-予定や関心を反映した壁紙を生成する Windows 向けパーソナル壁紙アプリ
+予定やニュース、興味キーワードをもとに壁紙画像を生成する Windows / iOS / Android 向けパーソナル壁紙アプリです。
 
-カレンダーの予定・RSS ニュース・興味キーワードをもとに、Gemini API が毎日あなた向けの壁紙を生成します。
-単なるスライドショーではなく、**その日の自分に寄り添う景色**をデスクトップに映します。
+WondayWall は Gemini API を使って、その日の予定や関心に合わせた壁紙候補を生成します。Windows と Android では OS が許可する範囲で壁紙へ適用し、iOS では写真ライブラリ保存・共有・設定手順の表示により、ユーザーが手動で壁紙に設定できる状態にします。
 
 ## 画面イメージ
+
+以下は Windows 版の画面イメージです。
 
 <p align="center">
   <img src="assets/store_hero.png" alt="WondayWall が生成した壁紙イメージ" width="100%">
@@ -23,65 +24,100 @@
   <img src="assets/store_screenshot_wallpaper_variations.png" alt="予定やニュースに合わせた壁紙バリエーション" width="100%">
 </p>
 
+## 対応状況
+
+| OS | 対応内容 |
+|----|----------|
+| Windows | デスクトップ版。GUI と CLI を備え、Task Scheduler による定期生成に対応 |
+| iOS | iPhone 向け。iOS の制約により壁紙の直接変更は行わず、写真保存・共有・設定手順表示で対応 |
+| Android | Android 端末向け。`WallpaperManager` によるホーム画面壁紙への適用に対応 |
+
 ## 必要な環境
 
-- Windows 10 / 11
-- [.NET 10 Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)
-- Google カレンダー連携
-- Google AI API キー
+| OS | 必要なもの |
+|----|------------|
+| Windows | Windows 10 / 11、[.NET 10 Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)、Google AI API キー、Google Calendar 連携 |
+| iOS | iOS 17.0 以降、Google AI API キー、カレンダー・写真・通知への許可 |
+| Android | Android 8.0 以降、Google AI API キー、カレンダー・通知・壁紙設定への許可 |
 
 ## セットアップ
+
+### Windows
 
 1. [リリースページ](https://github.com/Freeesia/WondayWall/releases/latest)から `WondayWall-(バージョン).msi` をダウンロード
 2. ダウンロードした MSI を実行し、インストーラーの案内に従ってインストール
 3. インストールした WondayWall を起動するとセットアップ画面が表示される
 4. **Google AI API キー** を設定
-5. **Google Calendar** の認証を行う（初回起動時にブラウザが開きます）
+5. **Google Calendar** の認証を行う
 6. 興味キーワードと RSS フィード URL を登録
 7. 「今すぐ生成」で動作確認
 
-定期実行するには、アプリの設定画面で **1日あたりの更新回数** を選び、**タスクスケジューラ** に下記コマンドを登録します。
+定期実行するには、アプリの設定画面で **1日あたりの更新回数** を選び、Windows Task Scheduler に下記コマンドを登録します。
 
 ```powershell
 WondayWall.exe run-once
 ```
 
+### iOS
+
+1. アプリを起動し、**Google AI API キー** を設定
+2. iOS カレンダーへのアクセスを許可し、参照するカレンダーを選択
+3. 興味キーワードと RSS フィード URL を登録
+4. 写真ライブラリ保存や通知を使う場合は、必要な許可を付与
+5. 「今すぐ生成」で壁紙候補を生成
+
+iOS では通常のアプリからホーム画面・ロック画面の壁紙を直接変更できないため、生成画像を写真ライブラリへ保存し、共有またはアプリ内の手順表示に従って手動で壁紙に設定します。
+
+### Android
+
+1. アプリを起動し、**Google AI API キー** を設定
+2. 端末カレンダーへの読み取り権限を許可し、参照するカレンダーを選択
+3. 興味キーワードと RSS フィード URL を登録
+4. 通知やギャラリー保存に必要な許可を付与
+5. 「今すぐ生成」で壁紙を生成し、ホーム画面へ適用
+
+Android では端末に同期済みのカレンダー予定を Calendar Provider / `CalendarContract` から取得します。初期版では Google Calendar API や Google OAuth による予定取得は行いません。
+
 ## 機能
 
-| 機能 | 説明 |
-|------|------|
-| 壁紙自動生成 | カレンダー・ニュース・キーワードをもとに Gemini で壁紙を AI 生成 |
-| Google Calendar 連携 | 当日〜近日の予定を壁紙の雰囲気に反映 |
-| RSS ニュース連携 | 指定フィードの最新記事を壁紙テーマに反映 |
-| 手動生成 | GUI から即時生成可能 |
-| 生成履歴 | 過去の壁紙を一覧で確認 |
-| CLI モード | `run-once` / `generate` でタスクスケジューラや手動実行から呼び出し可能 |
+| 機能 | Windows | iOS | Android |
+|------|---------|-----|---------|
+| Gemini による壁紙生成 | 対応 | 対応 | 対応 |
+| 手動生成 | GUI から即時生成 | アプリから即時生成 | アプリから即時生成 |
+| 定期生成 | Task Scheduler + CLI | `BGProcessingTask` + 起動/復帰時補完 | WorkManager + 起動/復帰時補完 |
+| カレンダー取得 | Google Calendar API | iOS カレンダー | Calendar Provider / `CalendarContract` |
+| RSS ニュース取得 | 対応 | 対応 | 対応 |
+| 壁紙適用 | デスクトップ壁紙、設定によりロック画面 | 自動適用不可。写真保存・共有・設定手順表示 | ホーム画面、設定によりロック画面にも追加適用 |
+| 生成履歴 | 対応 | 対応 | 対応 |
+| CLI | `run-once` / `generate` / `check-*` | 非対応 | 非対応 |
 
-## CLI コマンド
+## CLI コマンド（Windows）
 
 ```powershell
-WondayWall.exe run-once          # 設定した更新回数に応じた現在の定刻枠が未処理なら1回生成して終了（タスクスケジューラ向け）
+WondayWall.exe run-once          # 設定した更新回数に応じた現在の定刻枠が未処理なら1回生成して終了（Task Scheduler 向け）
 WondayWall.exe generate          # 即時生成
-WondayWall.exe check-calendar    # カレンダー取得のみ確認
+WondayWall.exe check-calendar    # Google Calendar 取得のみ確認
 WondayWall.exe check-news        # ニュース取得のみ確認
 WondayWall.exe check-google-ai   # Gemini API 接続確認
 ```
 
-## データ保存先
+## 保存先・保存方法
 
-| 種別 | パス |
-|------|------|
-| 設定ファイル | `%LocalAppData%\StudioFreesia\WondayWall\config.json` |
-| 生成履歴 | `%LocalAppData%\StudioFreesia\WondayWall\history.json` |
-| 生成画像 | `%LocalAppData%\StudioFreesia\WondayWall\wallpapers\` |
-| OAuth トークン | `%LocalAppData%\StudioFreesia\WondayWall\calendar-token\` |
+| OS | 保存される情報 |
+|----|----------------|
+| Windows | 設定、生成履歴、生成画像、Google Calendar OAuth トークンを `%LocalAppData%\StudioFreesia\WondayWall\` 配下に保存。Google AI API キーは Windows 資格情報に保存 |
+| iOS | アプリ内設定、生成履歴、生成画像をアプリ領域に保存。Google AI API キーは Keychain に保存。写真保存を有効にした場合は写真ライブラリの WondayWall アルバムにも保存 |
+| Android | アプリ設定を DataStore、生成履歴と生成画像をアプリ領域に保存。Google AI API キーは Tink と Android Keystore を使って暗号化保存。必要に応じて写真/ギャラリーへ保存 |
 
 ## スケジュール
 
-- 1日あたりの更新回数は `1 / 2 / 3 / 4 / 6 / 8 / 12 / 24` 回から選択できます
-- 実行時刻は 24 時間を等分した固定時刻になります
-- 例: `1回` は `0:00`、`2回` は `0:00 / 12:00`、`4回` は `0:00 / 6:00 / 12:00 / 18:00`
-- 定刻を逃した場合だけ、次回ログオン時に `run-once` が未処理枠を補完実行します
+| OS | 方式 |
+|----|------|
+| Windows | 1日あたりの更新回数 `1 / 2 / 3 / 4 / 6 / 8 / 12 / 24` を選び、Task Scheduler から `run-once` を実行 |
+| iOS | 週次・日次のスケジュールを `BGProcessingTask` に登録し、起動時やフォアグラウンド復帰時にも未処理分を確認 |
+| Android | 1日あたりの生成回数をスロットとして扱い、WorkManager と起動/復帰時確認で未処理分を補完 |
+
+iOS と Android のバックグラウンド実行は OS の制御を受けるため、指定時刻での実行を保証するものではありません。
 
 ## 開発者向け
 
@@ -91,7 +127,11 @@ cd WondayWall/WondayWall
 dotnet build
 ```
 
-詳細は [dev.md](https://github.com/Freeesia/WondayWall/blob/main/dev.md) を参照してください。
+プラットフォーム別の詳細は次のドキュメントを参照してください。
+
+- [.NET / Windows: dev.md](https://github.com/Freeesia/WondayWall/blob/main/dev.md)
+- [iOS: dev_ios.md](https://github.com/Freeesia/WondayWall/blob/main/dev_ios.md)
+- [Android: dev_android.md](https://github.com/Freeesia/WondayWall/blob/main/dev_android.md)
 
 ## 法的情報
 

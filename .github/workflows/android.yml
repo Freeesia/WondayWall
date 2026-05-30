@@ -91,7 +91,7 @@ jobs:
           echo "version-name=${{ steps.gitversion.outputs.fullSemVer }}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Install Android SDK packages
         run: sdkmanager "platforms;android-37.0"
@@ -111,7 +111,42 @@ jobs:
         with:
           gradle-version: ${{ steps.gradle-version.outputs.version }}
 
+      - name: Build preview APK
+        if: ${{ github.ref_type != 'tag' }}
+        run: |
+          gradle --no-daemon \
+            -PwondaywallVersionCode=${{ steps.android-version.outputs.version-code }} \
+            "-PwondaywallVersionName=${{ steps.android-version.outputs.version-name }}" \
+            :app:assemblePreview
+
+      - name: Verify preview APK
+        if: ${{ github.ref_type != 'tag' }}
+        run: |
+          apk_path="app/build/outputs/apk/preview/app-preview.apk"
+          if [ ! -f "$apk_path" ]; then
+            echo "::error::Preview APK was not found: $apk_path"
+            exit 1
+          fi
+
+          aapt=$(find "$ANDROID_HOME/build-tools" -name aapt -type f | sort -V | tail -n 1)
+          apksigner=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)
+          if [ -z "$aapt" ] || [ -z "$apksigner" ]; then
+            echo "::error::Android build tools were not found in $ANDROID_HOME/build-tools."
+            exit 1
+          fi
+
+          "$aapt" dump badging "$apk_path" | sed -n '1p'
+          signer_output=$("$apksigner" verify --print-certs "$apk_path")
+          echo "$signer_output"
+
+          expected_digest="d70b9013cab9412278ac9ee4c18982c9b65c90cc2ce3b41dc03f87b25d50ee58"
+          if ! grep -q "$expected_digest" <<< "$signer_output"; then
+            echo "::error::Preview APK is not signed with the stable preview key."
+            exit 1
+          fi
+
       - name: Restore release signing key
+        if: ${{ github.ref_type == 'tag' }}
         id: release-signing
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -135,20 +170,8 @@ jobs:
           echo "ANDROID_KEYSTORE_FILE=$keystore_file" >> "$GITHUB_ENV"
           echo "signed=true" >> "$GITHUB_OUTPUT"
 
-      - name: Build debug APK
-        if: ${{ github.event_name == 'pull_request' }}
-        env:
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: |
-          gradle --no-daemon \
-            -PwondaywallVersionCode=${{ steps.android-version.outputs.version-code }} \
-            "-PwondaywallVersionName=${{ steps.android-version.outputs.version-name }}" \
-            :app:assemblePreview
-
       - name: Build release APK
-        if: ${{ github.event_name != 'pull_request' }}
+        if: ${{ github.ref_type == 'tag' }}
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
@@ -160,15 +183,11 @@ jobs:
             :app:assembleRelease
 
       - name: Verify signed APK
+        if: ${{ github.ref_type == 'tag' }}
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            apk_path="app/build/outputs/apk/preview/app-preview.apk"
-          else
-            apk_path="app/build/outputs/apk/release/app-release.apk"
-          fi
-
+          apk_path="app/build/outputs/apk/release/app-release.apk"
           if [ ! -f "$apk_path" ]; then
-            echo "::error::Signed APK was not found: $apk_path"
+            echo "::error::Signed release APK was not found: $apk_path"
             exit 1
           fi
 
@@ -184,36 +203,32 @@ jobs:
         id: prepare-artifacts
         run: |
           version_label="${{ steps.gitversion.outputs.fullSemVer }}"
+          build_variant="${{ github.ref_type == 'tag' && 'release' || 'preview' }}"
 
           artifact_root="build/github-artifacts"
-          release_artifact_dir="$artifact_root/release"
-          debug_artifact_dir="$artifact_root/debug"
+          artifact_dir="$artifact_root/$build_variant"
           rm -rf "$artifact_root"
+          mkdir -p "$artifact_dir"
 
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            artifact_dir="$debug_artifact_dir"
-            apk_path="app/build/outputs/apk/preview/app-preview.apk"
-            apk_name="WondayWall-Android-debug-$version_label.apk"
-            artifact_name="WondayWall-Android-debug-$version_label"
-            debug_artifact_name="$artifact_name"
-            release_artifact_name=""
-          else
-            artifact_dir="$release_artifact_dir"
-            apk_path="app/build/outputs/apk/release/app-release.apk"
-            apk_name="WondayWall-Android-release-$version_label.apk"
-            artifact_name="WondayWall-Android-release-$version_label"
-            release_artifact_name="$artifact_name"
-            debug_artifact_name=""
-          fi
-
+          apk_path="app/build/outputs/apk/$build_variant/app-$build_variant.apk"
           if [ ! -f "$apk_path" ]; then
             echo "::error::Android APK was not found: $apk_path"
             exit 1
           fi
 
-          mkdir -p "$artifact_dir"
-          cp "$apk_path" "$artifact_dir/$apk_name"
+          cp "$apk_path" \
+            "$artifact_dir/WondayWall-Android-$build_variant-$version_label.apk"
+
           (cd "$artifact_dir" && sha256sum * > SHA256SUMS.txt)
+
+          artifact_name="WondayWall-Android-$build_variant-$version_label"
+          release_artifact_name=""
+          debug_artifact_name=""
+          if [ "$build_variant" = "release" ]; then
+            release_artifact_name="$artifact_name"
+          else
+            debug_artifact_name="$artifact_name"
+          fi
 
           echo "artifact-name=$artifact_name" >> "$GITHUB_OUTPUT"
           echo "artifact-path=WondayWall.Android/$artifact_dir/" >> "$GITHUB_OUTPUT"

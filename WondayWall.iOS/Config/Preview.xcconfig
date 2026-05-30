@@ -2,6 +2,8 @@
 // Swift Packageの構成名を増やさないため、CIでは `-configuration Release -xcconfig WondayWall.iOS/Config/Preview.xcconfig` として使う。
 PRODUCT_BUNDLE_IDENTIFIER = com.studiofreesia.wondaywall.preview
 ASSETCATALOG_COMPILER_APPICON_NAME = AppIconPreview
+// Preview 配布でもデバッグ情報シートとデバッグ専用設定を有効化する。
+SWIFT_ACTIVE_COMPILATION_CONDITIONS = $(inherited) DEBUG
 MARKETING_VERSION = 0.0.0
 CURRENT_PROJECT_VERSION = 0
 DEVELOPMENT_TEAM = KDJQJM26Y7

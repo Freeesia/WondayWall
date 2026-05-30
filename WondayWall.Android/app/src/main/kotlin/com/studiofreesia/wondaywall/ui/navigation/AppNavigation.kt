@@ -110,6 +110,7 @@ fun AppNavigation(
                     appConfigService = appConfigService,
                     contextService = contextService,
                     taskSchedulerService = taskSchedulerService,
+                    generationCoordinator = generationCoordinator,
                 )
             )
             WizardScreen(

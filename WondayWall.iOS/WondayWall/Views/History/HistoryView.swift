@@ -43,7 +43,7 @@ private struct HistoryContentView: View {
                 List {
                     ForEach(vm.items) { item in
                         NavigationLink {
-                            HistoryDetailView(item: item)
+                            HistoryPhotoPagerView(items: vm.items, initialItemID: item.id)
                                 .environmentObject(environment)
                         } label: {
                             historyRow(item)
