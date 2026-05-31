@@ -30,7 +30,7 @@ The following screenshots show the Windows app.
 |----|---------|
 | Windows | Desktop app with GUI and CLI, including scheduled generation through Task Scheduler |
 | iOS | iPhone app. Because iOS does not allow normal apps to change the wallpaper directly, the app supports Photos saving, sharing, and setup guidance |
-| Android | Android app with home screen wallpaper application through `WallpaperManager` |
+| Android | Android app with home screen wallpaper application |
 
 ## Requirements
 
@@ -52,7 +52,7 @@ The following screenshots show the Windows app.
 6. Register your interest keywords and RSS feed URLs
 7. Use "Generate now" to verify that wallpaper generation works
 
-For scheduled updates, select **runs per day** in the app settings and register the following command in Windows Task Scheduler.
+For scheduled updates, select the **update frequency** in the app settings and register the following command in Windows Task Scheduler.
 
 ```powershell
 WondayWall.exe run-once
@@ -76,16 +76,14 @@ On iOS, normal apps cannot directly change the home screen or lock screen wallpa
 4. Grant notification and gallery-saving permissions as needed
 5. Use "Generate now" to generate a wallpaper and apply it to the home screen
 
-On Android, WondayWall retrieves events from calendars synced to the device through Calendar Provider / `CalendarContract`. The initial Android version does not retrieve events through the Google Calendar API or Google OAuth.
-
 ## Features
 
 | Feature | Windows | iOS | Android |
 |---------|---------|-----|---------|
 | Gemini wallpaper generation | Supported | Supported | Supported |
 | Manual generation | Immediate generation from the GUI | Immediate generation from the app | Immediate generation from the app |
-| Scheduled generation | Task Scheduler + CLI | `BGProcessingTask` + launch/foreground catch-up | WorkManager + launch/foreground catch-up |
-| Calendar source | Google Calendar API | iOS Calendar | Calendar Provider / `CalendarContract` |
+| Scheduled generation | Supported | Supported | Supported |
+| Calendar source | Google Calendar | Calendar | Calendar |
 | RSS news | Supported | Supported | Supported |
 | Wallpaper application | Desktop wallpaper, and lock screen when enabled | Direct application is not available. Photos saving, sharing, and setup guidance are provided | Home screen, and lock screen as an additional target when enabled |
 | Generation history | Supported | Supported | Supported |
@@ -101,23 +99,18 @@ WondayWall.exe check-news        # Check news feed access
 WondayWall.exe check-google-ai   # Check Gemini API access
 ```
 
-## Data Storage
+## Stored Data
 
-| OS | Stored data |
-|----|-------------|
-| Windows | Settings, generation history, generated images, and Google Calendar OAuth tokens are stored under `%LocalAppData%\StudioFreesia\WondayWall\`. The Google AI API key is stored in Windows Credential Manager |
-| iOS | App settings, generation history, and generated images are stored in the app container. The Google AI API key is stored in Keychain. If Photos saving is enabled, images are also saved to the WondayWall album in Photos |
-| Android | App settings are stored in DataStore, and generation history and generated images are stored in app storage. The Google AI API key is encrypted with Tink and Android Keystore. Images may also be saved to Photos/Gallery when requested |
+Settings, generation history, generated images, and calendar integration credentials are saved in a secure local storage area on each platform.
+
+- **API Key**: Encrypted and stored securely using platform-native security APIs (Windows Credential Manager, iOS Keychain, or Android encrypted DataStore equivalents).
+- **Photos Library**: On mobile operating systems (iOS/Android), you can enable automatic saving of generated wallpapers to your device's Photos library or Gallery.
 
 ## Schedule
 
-| OS | Method |
-|----|--------|
-| Windows | Select runs per day from `1 / 2 / 3 / 4 / 6 / 8 / 12 / 24`, then run `run-once` from Task Scheduler |
-| iOS | Register weekly or daily schedules with `BGProcessingTask`, and check for missed slots on app launch and foreground return |
-| Android | Treat runs per day as schedule slots, then use WorkManager plus launch/foreground checks to catch up missed slots |
+All platforms share the same automatic update frequency options (Once a Week / Twice a Week / Three Times a Week / Once a Day / Three Times a Day).
 
-iOS and Android background execution is controlled by the OS, so scheduled times are not guaranteed.
+* Note: Background execution on mobile operating systems (iOS/Android) is subject to OS limitations, so exact execution times are not guaranteed. Any missed runs will be processed upon app launch or returning to the foreground.
 
 ## Development
 
