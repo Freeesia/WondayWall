@@ -4,8 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.studiofreesia.wondaywall.models.AppConfig
+import com.studiofreesia.wondaywall.models.CalendarEventItem
 import com.studiofreesia.wondaywall.models.CalendarSourceItem
 import com.studiofreesia.wondaywall.models.GenerationProgress
+import com.studiofreesia.wondaywall.models.NewsTopicItem
 import com.studiofreesia.wondaywall.models.UpdateSchedule
 import com.studiofreesia.wondaywall.services.AppConfigService
 import com.studiofreesia.wondaywall.services.ContextService
@@ -36,6 +38,9 @@ data class WizardUiState(
     val showNotification: Boolean = true,
     val updateLockScreen: Boolean = false,
     val isResolvingRssSource: Boolean = false,
+    val isLoadingGenerationPreview: Boolean = false,
+    val generationPreviewEvents: List<CalendarEventItem> = emptyList(),
+    val generationPreviewNews: List<NewsTopicItem> = emptyList(),
     val isTestGenerating: Boolean = false,
     val isCompleting: Boolean = false,
     val generationProgress: GenerationProgress? = null,
@@ -73,7 +78,7 @@ class WizardViewModel(
 
     // 次のステップに進む
     fun nextStep() {
-        if (_uiState.value.isResolvingRssSource) return
+        if (_uiState.value.isResolvingRssSource || _uiState.value.isLoadingGenerationPreview) return
         val current = _uiState.value.currentStep
         if (current == 1 && _uiState.value.apiKey.isBlank()) {
             _uiState.value = _uiState.value.copy(
@@ -83,6 +88,10 @@ class WizardViewModel(
         }
         if (current == 3) {
             resolveRssSourceAndAdvance()
+            return
+        }
+        if (current == 4) {
+            loadGenerationPreviewAndAdvance()
             return
         }
         advanceToNextStep(current)
@@ -198,6 +207,38 @@ class WizardViewModel(
         }
     }
 
+    // 初回生成前に使用予定とニュースを読み込んでから最終ステップへ進む
+    private fun loadGenerationPreviewAndAdvance() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                isLoadingGenerationPreview = true,
+                generationPreviewEvents = emptyList(),
+                generationPreviewNews = emptyList(),
+                errorMessage = null,
+            )
+            try {
+                saveCurrentConfig(enableAutoGeneration = false)
+                val result = contextService.buildPromptContext()
+                val current = _uiState.value.currentStep
+                _uiState.value = _uiState.value.copy(
+                    isLoadingGenerationPreview = false,
+                    generationPreviewEvents = result.calendarEvents,
+                    generationPreviewNews = result.newsTopics,
+                    currentStep = current + 1,
+                )
+            } catch (e: Exception) {
+                val current = _uiState.value.currentStep
+                _uiState.value = _uiState.value.copy(
+                    isLoadingGenerationPreview = false,
+                    generationPreviewEvents = emptyList(),
+                    generationPreviewNews = emptyList(),
+                    currentStep = current + 1,
+                    errorMessage = e.message ?: "使用する予定とニュースを確認できませんでした",
+                )
+            }
+        }
+    }
+
     // ユーザープロンプトを更新する
     fun updateUserPrompt(prompt: String) {
         _uiState.value = _uiState.value.copy(userPrompt = prompt)
@@ -240,7 +281,7 @@ class WizardViewModel(
         _uiState.value = _uiState.value.copy(updateLockScreen = enabled)
     }
 
-    // テスト生成を実行する
+    // 初回生成を実行する
     fun testGenerate() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(
@@ -261,7 +302,7 @@ class WizardViewModel(
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isTestGenerating = false,
-                    errorMessage = e.message ?: "テスト生成に失敗しました",
+                    errorMessage = e.message ?: "初回生成に失敗しました",
                 )
             }
         }
@@ -282,7 +323,7 @@ class WizardViewModel(
             try {
                 saveCurrentConfig(enableAutoGeneration = true)
                 taskSchedulerService.scheduleNext()
-                // テスト生成がまだ実行されていない場合は自動で生成する
+                // 初回生成がまだ実行されていない場合は自動で生成する
                 if (_uiState.value.testGenerationImageReference == null) {
                     _uiState.value = _uiState.value.copy(isTestGenerating = true)
                     val result = taskSchedulerService.enqueueManualGenerationAndWait()
