@@ -2,6 +2,12 @@ import Foundation
 import Photos
 import UIKit
 
+enum WallpaperSettingsOpenResult {
+    case wallpaperSettings
+    case settingsRoot
+    case failed
+}
+
 // 生成画像を壁紙として利用できる状態にするサービス
 // iOS では通常アプリから壁紙を直接変更できないため、写真ライブラリ保存・共有・設定手順表示を行う
 final class WallpaperService {
@@ -144,6 +150,28 @@ final class WallpaperService {
         return UIActivityViewController(activityItems: [image], applicationActivities: nil)
     }
 
+    // 非公式URLスキームで壁紙設定または設定トップを開く
+    @MainActor
+    func openWallpaperSettings() async -> WallpaperSettingsOpenResult {
+        if await openSettingsURL("App-Prefs:root=Wallpaper") {
+            return .wallpaperSettings
+        }
+        if await openSettingsURL("App-Prefs:root") {
+            return .settingsRoot
+        }
+        return .failed
+    }
+
+    @MainActor
+    private func openSettingsURL(_ urlString: String) async -> Bool {
+        guard let url = URL(string: urlString) else { return false }
+        return await withCheckedContinuation { continuation in
+            UIApplication.shared.open(url, options: [:]) { success in
+                continuation.resume(returning: success)
+            }
+        }
+    }
+
     // Photos ライブラリからアセット ID で画像を読み込む
     // targetSize: サムネイル用に小さいサイズを指定可能（PHImageManagerMaximumSize でフルサイズ）
     func loadImage(assetId: String, targetSize: CGSize = PHImageManagerMaximumSize) async -> UIImage? {
@@ -175,11 +203,16 @@ final class WallpaperService {
     // 壁紙設定手順のテキストを返す
     func wallpaperInstructions() -> String {
         """
-        壁紙の設定手順:
-        1. 「写真」アプリの「WondayWall」アルバムを開きます
-        2. 最新の壁紙画像を選択します
-        3. 共有ボタン →「壁紙として使用」を選択します
-        4. ホーム画面・ロック画面に設定します
+        写真シャッフル壁紙の設定手順:
+        1. 写真アプリで「WondayWall」アルバムに画像が保存されていることを確認します
+        2. iOSの設定アプリを開きます
+        3. 「壁紙」を開きます
+        4. 「新しい壁紙を追加」を選択します
+        5. 「写真シャッフル」を選択します
+        6. 「WondayWall」アルバムを選択します
+        7. シャッフル頻度を選択します
+        8. 「アルバムを使用」を選択します
+        9. 必要に応じて「壁紙を両方に設定」を選択します
         """
     }
 }

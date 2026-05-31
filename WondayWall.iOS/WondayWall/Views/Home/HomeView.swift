@@ -78,7 +78,9 @@ private struct HomeContentView: View {
                 get: { vm.showInstructions },
                 set: { vm.showInstructions = $0 }
             )) {
-                WallpaperInstructionsView()
+                WallpaperInstructionsView(
+                    hasSavedWallpaper: vm.latestHistory?.photoAssetId != nil && vm.latestImage != nil
+                )
             }
             .sheet(isPresented: Binding(
                 get: { vm.showGenerationSheet },
@@ -372,12 +374,40 @@ struct WallpaperInstructionsView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var environment: AppEnvironment
 
+    let hasSavedWallpaper: Bool
+
+    @State private var settingsOpenResult: WallpaperSettingsOpenResult?
+    @State private var isOpeningSettings = false
+
+    private let appleSupportURL = URL(string: "https://support.apple.com/ja-jp/102638")!
+    private let instructionExamples = [
+        WallpaperInstructionExample(
+            title: "設定アプリを開く",
+            imageName: "WallpaperInstructionSettings"
+        ),
+        WallpaperInstructionExample(
+            title: "新しい壁紙を追加する",
+            imageName: "WallpaperInstructionAddWallpaper"
+        ),
+        WallpaperInstructionExample(
+            title: "写真シャッフルを選ぶ",
+            imageName: "WallpaperInstructionPhotoShuffle"
+        ),
+    ]
+
     var body: some View {
         NavigationStack {
             ScrollView {
-                Text(environment.wallpaperService.wallpaperInstructions())
-                    .padding()
-                    .font(.body)
+                VStack(alignment: .leading, spacing: 20) {
+                    if !hasSavedWallpaper {
+                        missingWallpaperNotice
+                    }
+
+                    instructionsSection
+                    settingsButtonSection
+                    exampleImagesSection
+                }
+                .padding()
             }
             .navigationTitle("壁紙の設定方法")
             .navigationBarTitleDisplayMode(.inline)
@@ -388,4 +418,124 @@ struct WallpaperInstructionsView: View {
             }
         }
     }
+
+    private var missingWallpaperNotice: some View {
+        Label {
+            Text("WondayWall アルバムに保存済みの最新画像が見つかりません。先に壁紙を生成し、写真ライブラリへの保存を完了してください。")
+        } icon: {
+            Image(systemName: "exclamationmark.triangle.fill")
+        }
+        .font(.subheadline)
+        .foregroundStyle(.orange)
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    private var instructionsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(environment.wallpaperService.wallpaperInstructions())
+                .font(.body)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Link(destination: appleSupportURL) {
+                Label("Apple 公式サポートページを開く", systemImage: "safari")
+                    .font(.subheadline.weight(.semibold))
+            }
+        }
+    }
+
+    private var settingsButtonSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Button {
+                Task { await openSettingsApp() }
+            } label: {
+                Label(isOpeningSettings ? "起動中..." : "設定アプリを開く", systemImage: "gearshape")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(isOpeningSettings)
+
+            if let settingsOpenResult {
+                Label {
+                    Text(message(for: settingsOpenResult))
+                } icon: {
+                    Image(systemName: iconName(for: settingsOpenResult))
+                }
+                .font(.footnote)
+                .foregroundStyle(color(for: settingsOpenResult))
+            }
+        }
+    }
+
+    private var exampleImagesSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("画面例")
+                .font(.headline)
+            Text("画面は iOS のバージョンや端末により異なる場合があります。")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+
+            ForEach(instructionExamples) { example in
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(example.title)
+                        .font(.subheadline.weight(.semibold))
+                    Image(example.imageName)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxWidth: .infinity, maxHeight: 260)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color(.separator), lineWidth: 1)
+                        }
+                }
+                .padding()
+                .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 8))
+            }
+        }
+    }
+
+    @MainActor
+    private func openSettingsApp() async {
+        isOpeningSettings = true
+        settingsOpenResult = await environment.wallpaperService.openWallpaperSettings()
+        isOpeningSettings = false
+    }
+
+    private func message(for result: WallpaperSettingsOpenResult) -> String {
+        switch result {
+        case .wallpaperSettings:
+            return "設定アプリを開きました。壁紙画面が開かない場合は「壁紙」を選択してください。"
+        case .settingsRoot:
+            return "設定アプリを開きました。「壁紙」を選択して手順を続けてください。"
+        case .failed:
+            return "設定アプリを開けませんでした。画面内の手順と公式リンクを確認してください。"
+        }
+    }
+
+    private func iconName(for result: WallpaperSettingsOpenResult) -> String {
+        switch result {
+        case .wallpaperSettings, .settingsRoot:
+            return "checkmark.circle.fill"
+        case .failed:
+            return "exclamationmark.circle.fill"
+        }
+    }
+
+    private func color(for result: WallpaperSettingsOpenResult) -> Color {
+        switch result {
+        case .wallpaperSettings, .settingsRoot:
+            return .green
+        case .failed:
+            return .red
+        }
+    }
+}
+
+private struct WallpaperInstructionExample: Identifiable {
+    let title: String
+    let imageName: String
+
+    var id: String { imageName }
 }
