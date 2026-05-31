@@ -30,7 +30,7 @@ The following screenshots show the Windows app.
 |----|---------|
 | Windows | Desktop app with GUI and CLI, including scheduled generation through Task Scheduler |
 | iOS | iPhone app. Because iOS does not allow normal apps to change the wallpaper directly, the app supports Photos saving, sharing, and setup guidance |
-| Android | Android app with home screen wallpaper application through `WallpaperManager` |
+| Android | Android app with home screen wallpaper application |
 
 ## Requirements
 
@@ -75,8 +75,6 @@ On iOS, normal apps cannot directly change the home screen or lock screen wallpa
 3. Register your interest keywords and RSS feed URLs
 4. Grant notification and gallery-saving permissions as needed
 5. Use "Generate now" to generate a wallpaper and apply it to the home screen
-
-On Android, WondayWall retrieves events from calendars synced to the device through Calendar Provider / `CalendarContract`. The initial Android version does not retrieve events through the Google Calendar API or Google OAuth.
 
 ## Features
 
