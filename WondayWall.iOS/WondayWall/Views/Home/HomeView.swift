@@ -380,20 +380,6 @@ struct WallpaperInstructionsView: View {
     @State private var isOpeningSettings = false
 
     private let appleSupportURL = URL(string: "https://support.apple.com/ja-jp/102638")!
-    private let instructionExamples = [
-        WallpaperInstructionExample(
-            title: "設定アプリを開く",
-            imageName: "WallpaperInstructionSettings"
-        ),
-        WallpaperInstructionExample(
-            title: "新しい壁紙を追加する",
-            imageName: "WallpaperInstructionAddWallpaper"
-        ),
-        WallpaperInstructionExample(
-            title: "写真シャッフルを選ぶ",
-            imageName: "WallpaperInstructionPhotoShuffle"
-        ),
-    ]
 
     var body: some View {
         NavigationStack {
@@ -405,7 +391,6 @@ struct WallpaperInstructionsView: View {
 
                     instructionsSection
                     settingsButtonSection
-                    exampleImagesSection
                 }
                 .padding()
             }
@@ -468,34 +453,6 @@ struct WallpaperInstructionsView: View {
         }
     }
 
-    private var exampleImagesSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("画面例")
-                .font(.headline)
-            Text("画面は iOS のバージョンや端末により異なる場合があります。")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-
-            ForEach(instructionExamples) { example in
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(example.title)
-                        .font(.subheadline.weight(.semibold))
-                    Image(example.imageName)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(maxWidth: .infinity, maxHeight: 260)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color(.separator), lineWidth: 1)
-                        }
-                }
-                .padding()
-                .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 8))
-            }
-        }
-    }
-
     @MainActor
     private func openSettingsApp() async {
         isOpeningSettings = true
@@ -529,11 +486,4 @@ struct WallpaperInstructionsView: View {
             return .red
         }
     }
-}
-
-private struct WallpaperInstructionExample: Identifiable {
-    let title: String
-    let imageName: String
-
-    var id: String { imageName }
 }
