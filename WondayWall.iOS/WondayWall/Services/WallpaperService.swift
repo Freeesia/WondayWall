@@ -3,6 +3,7 @@ import Photos
 import UIKit
 
 enum WallpaperSettingsOpenResult {
+    case addNewWallpaper
     case wallpaperSettings
     case settingsRoot
     case failed
@@ -150,13 +151,16 @@ final class WallpaperService {
         return UIActivityViewController(activityItems: [image], applicationActivities: nil)
     }
 
-    // 非公式URLスキームで壁紙設定または設定トップを開く
+    // 非公式URLスキームで壁紙設定または新規壁紙追加画面を開く
     @MainActor
     func openWallpaperSettings() async -> WallpaperSettingsOpenResult {
-        if await openSettingsURL("App-Prefs:root=Wallpaper") {
+        if await openSettingsURL("settings-navigation://com.apple.Settings.Wallpaper/addNewWallpaper") {
+            return .addNewWallpaper
+        }
+        if await openSettingsURL("settings-navigation://com.apple.Settings.Wallpaper") {
             return .wallpaperSettings
         }
-        if await openSettingsURL("App-Prefs:root") {
+        if await openSettingsURL("com.apple.preferences://") {
             return .settingsRoot
         }
         return .failed
