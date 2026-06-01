@@ -5,7 +5,6 @@ import UIKit
 enum WallpaperSettingsOpenResult {
     case addNewWallpaper
     case wallpaperSettings
-    case settingsRoot
     case failed
 }
 
@@ -159,9 +158,6 @@ final class WallpaperService {
         }
         if await openSettingsURL("settings-navigation://com.apple.Settings.Wallpaper") {
             return .wallpaperSettings
-        }
-        if await openSettingsURL("com.apple.preferences://") {
-            return .settingsRoot
         }
         return .failed
     }

@@ -509,16 +509,14 @@ struct WallpaperInstructionsView: View {
             return "新しい壁紙の追加画面を開きました。「写真シャッフル」を選択して手順を続けてください。"
         case .wallpaperSettings:
             return "設定アプリを開きました。壁紙画面が開かない場合は「壁紙」を選択してください。"
-        case .settingsRoot:
-            return "設定アプリを開きました。「壁紙」を選択して手順を続けてください。"
         case .failed:
-            return "設定アプリを開けませんでした。画面内の手順と公式リンクを確認してください。"
+            return "壁紙設定を直接開けませんでした。設定アプリを手動で開き、「壁紙」を選択してください。"
         }
     }
 
     private func iconName(for result: WallpaperSettingsOpenResult) -> String {
         switch result {
-        case .addNewWallpaper, .wallpaperSettings, .settingsRoot:
+        case .addNewWallpaper, .wallpaperSettings:
             return "checkmark.circle.fill"
         case .failed:
             return "exclamationmark.circle.fill"
@@ -527,7 +525,7 @@ struct WallpaperInstructionsView: View {
 
     private func color(for result: WallpaperSettingsOpenResult) -> Color {
         switch result {
-        case .addNewWallpaper, .wallpaperSettings, .settingsRoot:
+        case .addNewWallpaper, .wallpaperSettings:
             return .green
         case .failed:
             return .red
