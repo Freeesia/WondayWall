@@ -66,8 +66,6 @@ static void ConfigureCommonServices(IServiceCollection services)
     services.AddSingleton<GoogleAiService>();
     services.AddSingleton<GenerationCoordinator>();
     services.AddSingleton<TaskSchedulerService>();
-    services.AddSingleton<AppDistributionService>();
-    services.AddSingleton<StoreUpdateService>();
 }
 
 static void ConfigureGuiServices(IServiceCollection services)

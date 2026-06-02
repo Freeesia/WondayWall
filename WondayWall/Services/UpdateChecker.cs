@@ -2,12 +2,17 @@ using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Reflection;
+using System.Windows;
+using System.Windows.Interop;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Toolkit.Uwp.Notifications;
 using Nito.AsyncEx;
 using Octokit;
+using Windows.ApplicationModel;
+using Windows.Services.Store;
 using Windows.UI.Notifications;
+using WinRT.Interop;
 using WondayWall.Models;
 using WondayWall.Utils;
 using AppResources = WondayWall.Properties.Resources;
@@ -35,6 +40,7 @@ public class UpdateChecker : BackgroundService
 
     public event EventHandler? UpdateAvailable;
 
+    public AppDistributionKind DistributionKind { get; }
     public bool IsInstalled { get; }
     public bool HasUpdate { get; private set; }
     public string? LatestVersion { get; private set; }
@@ -42,7 +48,6 @@ public class UpdateChecker : BackgroundService
     public UpdateChecker(
         IHttpClientFactory httpClientFactory,
         IGitHubClient gitHubClient,
-        AppDistributionService distributionService,
         ILogger<UpdateChecker> logger)
     {
         _httpClientFactory = httpClientFactory;
@@ -51,7 +56,8 @@ public class UpdateChecker : BackgroundService
 
         var assemblyName = Assembly.GetExecutingAssembly().GetName();
         _currentVersion = GetCurrentVersion(assemblyName);
-        IsInstalled = distributionService.Detect() == AppDistributionKind.MsiInstalled;
+        DistributionKind = AppDistributionUtility.Detect();
+        IsInstalled = DistributionKind == AppDistributionKind.MsiInstalled;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -103,6 +109,58 @@ public class UpdateChecker : BackgroundService
         }
 
         return CheckCoreAsync(forceRefresh: true, ct);
+    }
+
+    public async Task<StoreUpdateCheckResult> CheckStoreUpdateAsync(Window ownerWindow, CancellationToken ct = default)
+    {
+        if (DistributionKind != AppDistributionKind.MicrosoftStoreMsix)
+            return StoreUpdateCheckResult.NotSupported(DistributionKind);
+
+        ct.ThrowIfCancellationRequested();
+
+        var storeContext = StoreContext.GetDefault();
+        var hwnd = new WindowInteropHelper(ownerWindow).Handle;
+        InitializeWithWindow.Initialize(storeContext, hwnd);
+
+        var updates = await storeContext.GetAppAndOptionalStorePackageUpdatesAsync();
+
+        if (updates.Count == 0)
+        {
+            return new StoreUpdateCheckResult(
+                IsSupported: true,
+                HasUpdate: false,
+                CurrentVersion: ToVersionString(Windows.ApplicationModel.Package.Current.Id.Version),
+                LatestVersion: null,
+                IsMandatory: false,
+                DistributionKind: AppDistributionKind.MicrosoftStoreMsix);
+        }
+
+        var appUpdate = updates[0];
+        return new StoreUpdateCheckResult(
+            IsSupported: true,
+            HasUpdate: true,
+            CurrentVersion: ToVersionString(Windows.ApplicationModel.Package.Current.Id.Version),
+            LatestVersion: ToVersionString(appUpdate.Package.Id.Version),
+            IsMandatory: updates.Any(x => x.Mandatory),
+            DistributionKind: AppDistributionKind.MicrosoftStoreMsix);
+    }
+
+    public async Task RequestStoreUpdateAsync(Window ownerWindow, CancellationToken ct = default)
+    {
+        if (DistributionKind != AppDistributionKind.MicrosoftStoreMsix)
+            return;
+
+        ct.ThrowIfCancellationRequested();
+
+        var storeContext = StoreContext.GetDefault();
+        var hwnd = new WindowInteropHelper(ownerWindow).Handle;
+        InitializeWithWindow.Initialize(storeContext, hwnd);
+
+        var updates = await storeContext.GetAppAndOptionalStorePackageUpdatesAsync();
+        if (updates.Count == 0)
+            return;
+
+        await storeContext.RequestDownloadAndInstallStorePackageUpdatesAsync(updates);
     }
 
     public void InstallUpdate()
@@ -385,5 +443,8 @@ public class UpdateChecker : BackgroundService
         version = parsedVersion;
         return true;
     }
+
+    private static string ToVersionString(Windows.ApplicationModel.PackageVersion version)
+        => $"{version.Major}.{version.Minor}.{version.Build}.{version.Revision}";
 
 }

@@ -28,7 +28,6 @@ public partial class MainWindowViewModel : ObservableObject
     private readonly GenerationCoordinator _coordinator;
     private readonly TaskSchedulerService _taskSchedulerService;
     private readonly UpdateChecker _updateChecker;
-    private readonly StoreUpdateService _storeUpdateService;
     private readonly ILogger<MainWindowViewModel> _logger;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly AppDistributionKind _distributionKind;
@@ -122,8 +121,6 @@ public partial class MainWindowViewModel : ObservableObject
         ContextService contextService,
         GenerationCoordinator coordinator,
         TaskSchedulerService taskSchedulerService,
-        AppDistributionService distributionService,
-        StoreUpdateService storeUpdateService,
         UpdateChecker updateChecker,
         IHttpClientFactory httpClientFactory,
         ILogger<MainWindowViewModel> logger)
@@ -133,11 +130,10 @@ public partial class MainWindowViewModel : ObservableObject
         _contextService = contextService;
         _coordinator = coordinator;
         _taskSchedulerService = taskSchedulerService;
-        _storeUpdateService = storeUpdateService;
         _updateChecker = updateChecker;
         _httpClientFactory = httpClientFactory;
         _logger = logger;
-        _distributionKind = distributionService.Detect();
+        _distributionKind = _updateChecker.DistributionKind;
 
         ShowUpdateControls = _distributionKind is not AppDistributionKind.Portable;
         if (_distributionKind == AppDistributionKind.MsiInstalled)
@@ -266,7 +262,7 @@ public partial class MainWindowViewModel : ObservableObject
                 if (ownerWindow is null)
                     return;
 
-                var result = await _storeUpdateService.CheckForUpdateAsync(ownerWindow);
+                var result = await _updateChecker.CheckStoreUpdateAsync(ownerWindow, ct);
                 HasUpdate = result.HasUpdate;
                 LatestVersion = result.LatestVersion;
                 LastResultMessage = result.HasUpdate
@@ -288,7 +284,7 @@ public partial class MainWindowViewModel : ObservableObject
                         MessageBoxButton.YesNo,
                         MessageBoxImage.Information);
                     if (choice == MessageBoxResult.Yes)
-                        await _storeUpdateService.RequestUpdateAsync(ownerWindow);
+                        await _updateChecker.RequestStoreUpdateAsync(ownerWindow, ct);
                 }
 
                 return;
@@ -319,7 +315,7 @@ public partial class MainWindowViewModel : ObservableObject
             {
                 var ownerWindow = Application.Current?.MainWindow;
                 if (ownerWindow is not null)
-                    await _storeUpdateService.RequestUpdateAsync(ownerWindow);
+                    await _updateChecker.RequestStoreUpdateAsync(ownerWindow);
                 return;
             }
 

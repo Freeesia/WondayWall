@@ -4,15 +4,14 @@ using Windows.ApplicationModel;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using WondayWall.Models;
-using WondayWall.Utils;
 
-namespace WondayWall.Services;
+namespace WondayWall.Utils;
 
-public sealed class AppDistributionService
+public static class AppDistributionUtility
 {
     private const int AppModelErrorNoPackage = 15700;
 
-    public AppDistributionKind Detect()
+    public static AppDistributionKind Detect()
     {
         if (IsRunningAsMicrosoftStoreMsix())
             return AppDistributionKind.MicrosoftStoreMsix;
@@ -22,19 +21,16 @@ public sealed class AppDistributionService
             : AppDistributionKind.Portable;
     }
 
-    public bool IsRunningAsMicrosoftStoreMsix()
+    public static bool HasPackageIdentity()
+        => TryGetPackageFullName(out _);
+
+    public static bool IsRunningAsMicrosoftStoreMsix()
     {
         if (!TryGetPackageFullName(out _))
             return false;
 
         return Package.Current.SignatureKind == PackageSignatureKind.Store;
     }
-
-    public bool HasPackageIdentity()
-        => TryGetPackageFullName(out _);
-
-    public bool CanCheckStoreUpdate()
-        => IsRunningAsMicrosoftStoreMsix();
 
     private static bool TryGetPackageFullName(out string? packageFullName)
     {
@@ -70,11 +66,9 @@ public sealed class AppDistributionService
         if (string.IsNullOrWhiteSpace(processDirectory))
             return false;
 
-        var installDirectory = PathUtility.AppDataDirectory;
-
         return string.Equals(
             Path.GetFullPath(processDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
-            Path.GetFullPath(installDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+            Path.GetFullPath(PathUtility.AppDataDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
             StringComparison.OrdinalIgnoreCase);
     }
 }
