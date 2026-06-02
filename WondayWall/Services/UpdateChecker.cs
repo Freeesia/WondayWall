@@ -42,6 +42,7 @@ public class UpdateChecker : BackgroundService
     public UpdateChecker(
         IHttpClientFactory httpClientFactory,
         IGitHubClient gitHubClient,
+        AppDistributionService distributionService,
         ILogger<UpdateChecker> logger)
     {
         _httpClientFactory = httpClientFactory;
@@ -50,7 +51,7 @@ public class UpdateChecker : BackgroundService
 
         var assemblyName = Assembly.GetExecutingAssembly().GetName();
         _currentVersion = GetCurrentVersion(assemblyName);
-        IsInstalled = CheckInstalled();
+        IsInstalled = distributionService.Detect() == AppDistributionKind.MsiInstalled;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -385,21 +386,4 @@ public class UpdateChecker : BackgroundService
         return true;
     }
 
-    private static bool CheckInstalled()
-    {
-        var processPath = Environment.ProcessPath;
-        if (string.IsNullOrWhiteSpace(processPath))
-            return false;
-
-        var processDirectory = Path.GetDirectoryName(processPath);
-        if (string.IsNullOrWhiteSpace(processDirectory))
-            return false;
-
-        var installDirectory = PathUtility.AppDataDirectory;
-
-        return string.Equals(
-            Path.GetFullPath(processDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
-            Path.GetFullPath(installDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
-            StringComparison.OrdinalIgnoreCase);
-    }
 }

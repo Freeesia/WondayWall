@@ -28,8 +28,10 @@ public partial class MainWindowViewModel : ObservableObject
     private readonly GenerationCoordinator _coordinator;
     private readonly TaskSchedulerService _taskSchedulerService;
     private readonly UpdateChecker _updateChecker;
+    private readonly StoreUpdateService _storeUpdateService;
     private readonly ILogger<MainWindowViewModel> _logger;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly AppDistributionKind _distributionKind;
 
     [ObservableProperty]
     public partial AppConfig AppConfig { get; set; } = new();
@@ -120,6 +122,8 @@ public partial class MainWindowViewModel : ObservableObject
         ContextService contextService,
         GenerationCoordinator coordinator,
         TaskSchedulerService taskSchedulerService,
+        AppDistributionService distributionService,
+        StoreUpdateService storeUpdateService,
         UpdateChecker updateChecker,
         IHttpClientFactory httpClientFactory,
         ILogger<MainWindowViewModel> logger)
@@ -129,13 +133,18 @@ public partial class MainWindowViewModel : ObservableObject
         _contextService = contextService;
         _coordinator = coordinator;
         _taskSchedulerService = taskSchedulerService;
+        _storeUpdateService = storeUpdateService;
         _updateChecker = updateChecker;
         _httpClientFactory = httpClientFactory;
         _logger = logger;
+        _distributionKind = distributionService.Detect();
 
-        ShowUpdateControls = _updateChecker.IsInstalled;
-        _updateChecker.UpdateAvailable += UpdateChecker_UpdateAvailable;
-        SyncUpdateInfo();
+        ShowUpdateControls = _distributionKind is not AppDistributionKind.Portable;
+        if (_distributionKind == AppDistributionKind.MsiInstalled)
+        {
+            _updateChecker.UpdateAvailable += UpdateChecker_UpdateAvailable;
+            SyncUpdateInfo();
+        }
         AppConfig = configService.Load();
         ShowSetupWizard = !configService.HasSavedConfig;
         SelectedSchedule = AppConfig.Schedule;
@@ -251,6 +260,38 @@ public partial class MainWindowViewModel : ObservableObject
         IsCheckingUpdate = true;
         try
         {
+            if (_distributionKind == AppDistributionKind.MicrosoftStoreMsix)
+            {
+                var ownerWindow = Application.Current?.MainWindow;
+                if (ownerWindow is null)
+                    return;
+
+                var result = await _storeUpdateService.CheckForUpdateAsync(ownerWindow);
+                HasUpdate = result.HasUpdate;
+                LatestVersion = result.LatestVersion;
+                LastResultMessage = result.HasUpdate
+                    ? AppResources.Format(AppResources.UpdateAvailableMessage, result.LatestVersion)
+                    : AppResources.UpdateNotAvailable;
+
+                if (result.HasUpdate)
+                {
+                    var prompt = $"A new version is available.{Environment.NewLine}"
+                                 + $"Current: {result.CurrentVersion ?? AppVersion}{Environment.NewLine}"
+                                 + $"Latest: {result.LatestVersion ?? AppVersion}{Environment.NewLine}{Environment.NewLine}"
+                                 + AppResources.UpdateNotificationMessage;
+                    var choice = MessageBox.Show(
+                        ownerWindow,
+                        prompt,
+                        AppResources.Format(AppResources.UpdateNotificationTitle, result.LatestVersion),
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Information);
+                    if (choice == MessageBoxResult.Yes)
+                        await _storeUpdateService.RequestUpdateAsync(ownerWindow);
+                }
+
+                return;
+            }
+
             await _updateChecker.CheckAsync(ct);
             SyncUpdateInfo();
             LastResultMessage = HasUpdate
@@ -268,10 +309,18 @@ public partial class MainWindowViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void InstallUpdate()
+    private async Task InstallUpdate()
     {
         try
         {
+            if (_distributionKind == AppDistributionKind.MicrosoftStoreMsix)
+            {
+                var ownerWindow = Application.Current?.MainWindow;
+                if (ownerWindow is not null)
+                    await _storeUpdateService.RequestUpdateAsync(ownerWindow);
+                return;
+            }
+
             _updateChecker.InstallUpdate();
         }
         catch (Exception ex)
@@ -283,6 +332,9 @@ public partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private void OpenReleaseNotes()
     {
+        if (_distributionKind != AppDistributionKind.MsiInstalled)
+            return;
+
         try
         {
             _updateChecker.OpenReleaseNotes();
