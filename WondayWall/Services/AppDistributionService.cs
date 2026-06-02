@@ -55,7 +55,8 @@ public sealed class AppDistributionService
         if (result != WIN32_ERROR.ERROR_SUCCESS)
             throw new Win32Exception((int)result);
 
-        packageFullName = new string(buffer).TrimEnd('\0');
+        var characterCount = length > 0 ? checked((int)length - 1) : 0;
+        packageFullName = new string(buffer, 0, characterCount);
         return true;
     }
 

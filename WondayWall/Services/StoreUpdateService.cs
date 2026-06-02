@@ -40,6 +40,7 @@ public sealed class StoreUpdateService
                 DistributionKind: AppDistributionKind.MicrosoftStoreMsix);
         }
 
+        // Count == 0 は上で除外済みのため先頭要素は必ず存在する。
         var appUpdate = updates[0];
 
         return new StoreUpdateCheckResult(

@@ -275,9 +275,11 @@ public partial class MainWindowViewModel : ObservableObject
 
                 if (result.HasUpdate)
                 {
-                    var prompt = $"A new version is available.{Environment.NewLine}"
-                                 + $"Current: {result.CurrentVersion ?? AppVersion}{Environment.NewLine}"
-                                 + $"Latest: {result.LatestVersion ?? AppVersion}{Environment.NewLine}{Environment.NewLine}"
+                    var currentVersion = result.CurrentVersion ?? string.Empty;
+                    var latestVersion = result.LatestVersion ?? string.Empty;
+                    var prompt = AppResources.Format(AppResources.UpdateAvailableMessage, latestVersion) + Environment.NewLine
+                                 + $"Current: {currentVersion}{Environment.NewLine}"
+                                 + $"Latest: {latestVersion}{Environment.NewLine}{Environment.NewLine}"
                                  + AppResources.UpdateNotificationMessage;
                     var choice = MessageBox.Show(
                         ownerWindow,
@@ -329,12 +331,12 @@ public partial class MainWindowViewModel : ObservableObject
         }
     }
 
-    [RelayCommand]
+    private bool CanOpenReleaseNotes()
+        => _distributionKind == AppDistributionKind.MsiInstalled;
+
+    [RelayCommand(CanExecute = nameof(CanOpenReleaseNotes))]
     private void OpenReleaseNotes()
     {
-        if (_distributionKind != AppDistributionKind.MsiInstalled)
-            return;
-
         try
         {
             _updateChecker.OpenReleaseNotes();
