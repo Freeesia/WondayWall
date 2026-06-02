@@ -307,7 +307,7 @@ public partial class MainWindowViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task InstallUpdate()
+    private async Task InstallUpdate(CancellationToken ct = default)
     {
         try
         {
@@ -315,7 +315,7 @@ public partial class MainWindowViewModel : ObservableObject
             {
                 var ownerWindow = Application.Current?.MainWindow;
                 if (ownerWindow is not null)
-                    await _updateChecker.RequestStoreUpdateAsync(ownerWindow);
+                    await _updateChecker.RequestStoreUpdateAsync(ownerWindow, ct);
                 return;
             }
 

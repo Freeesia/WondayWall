@@ -9,13 +9,14 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Toolkit.Uwp.Notifications;
 using Nito.AsyncEx;
 using Octokit;
-using Windows.ApplicationModel;
 using Windows.Services.Store;
 using Windows.UI.Notifications;
 using WinRT.Interop;
 using WondayWall.Models;
 using WondayWall.Utils;
 using AppResources = WondayWall.Properties.Resources;
+using AppPackage = Windows.ApplicationModel.Package;
+using AppPackageVersion = Windows.ApplicationModel.PackageVersion;
 
 namespace WondayWall.Services;
 
@@ -129,7 +130,7 @@ public class UpdateChecker : BackgroundService
             return new StoreUpdateCheckResult(
                 IsSupported: true,
                 HasUpdate: false,
-                CurrentVersion: ToVersionString(Windows.ApplicationModel.Package.Current.Id.Version),
+                CurrentVersion: ToVersionString(AppPackage.Current.Id.Version),
                 LatestVersion: null,
                 IsMandatory: false,
                 DistributionKind: AppDistributionKind.MicrosoftStoreMsix);
@@ -139,16 +140,16 @@ public class UpdateChecker : BackgroundService
         return new StoreUpdateCheckResult(
             IsSupported: true,
             HasUpdate: true,
-            CurrentVersion: ToVersionString(Windows.ApplicationModel.Package.Current.Id.Version),
+            CurrentVersion: ToVersionString(AppPackage.Current.Id.Version),
             LatestVersion: ToVersionString(appUpdate.Package.Id.Version),
             IsMandatory: updates.Any(x => x.Mandatory),
             DistributionKind: AppDistributionKind.MicrosoftStoreMsix);
     }
 
-    public async Task RequestStoreUpdateAsync(Window ownerWindow, CancellationToken ct = default)
+    public async Task<StorePackageUpdateResult?> RequestStoreUpdateAsync(Window ownerWindow, CancellationToken ct = default)
     {
         if (DistributionKind != AppDistributionKind.MicrosoftStoreMsix)
-            return;
+            return null;
 
         ct.ThrowIfCancellationRequested();
 
@@ -158,9 +159,9 @@ public class UpdateChecker : BackgroundService
 
         var updates = await storeContext.GetAppAndOptionalStorePackageUpdatesAsync();
         if (updates.Count == 0)
-            return;
+            return null;
 
-        await storeContext.RequestDownloadAndInstallStorePackageUpdatesAsync(updates);
+        return await storeContext.RequestDownloadAndInstallStorePackageUpdatesAsync(updates);
     }
 
     public void InstallUpdate()
@@ -444,7 +445,7 @@ public class UpdateChecker : BackgroundService
         return true;
     }
 
-    private static string ToVersionString(Windows.ApplicationModel.PackageVersion version)
+    private static string ToVersionString(AppPackageVersion version)
         => $"{version.Major}.{version.Minor}.{version.Build}.{version.Revision}";
 
 }
