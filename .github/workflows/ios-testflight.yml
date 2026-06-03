@@ -8,6 +8,12 @@ on:
     paths:
       - "WondayWall.iOS/**"
       - ".github/workflows/ios-testflight.yml"
+  pull_request_target:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "WondayWall.iOS/**"
+      - ".github/workflows/ios-testflight.yml"
 
 concurrency:
   group: ios-testflight-${{ github.event.pull_request.number || github.ref }}
@@ -16,7 +22,7 @@ concurrency:
 jobs:
   testflight:
     name: Build and upload preview
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository }}
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.actor != 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository) || (github.event_name == 'pull_request_target' && github.actor == 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository) }}
     runs-on: macos-26
     timeout-minutes: 90
     environment: testflight-pr
@@ -39,6 +45,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.sha }}
 
       - name: Show Xcode version
         run: xcodebuild -version
@@ -121,7 +129,7 @@ jobs:
           {
             echo "## iOS Preview build uploaded to TestFlight"
             echo
-            if [ "${{ github.event_name }}" = "pull_request" ]; then
+            if [ "${{ github.event_name }}" = "pull_request" ] || [ "${{ github.event_name }}" = "pull_request_target" ]; then
               echo "- PR: #${{ github.event.pull_request.number }}"
             else
               echo "- Trigger: workflow_dispatch"
