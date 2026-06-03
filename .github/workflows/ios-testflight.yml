@@ -80,9 +80,26 @@ jobs:
             -showBuildSettings \
             | grep -E "PRODUCT_BUNDLE_IDENTIFIER|ASSETCATALOG_COMPILER_APPICON_NAME|SWIFT_ACTIVE_COMPILATION_CONDITIONS|MARKETING_VERSION|CURRENT_PROJECT_VERSION|DEVELOPMENT_TEAM"
 
+      - name: Check TestFlight secrets availability
+        id: testflight_secrets
+        env:
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          APPSTORE_CERTIFICATE_BASE64: ${{ secrets.APPSTORE_CERTIFICATE_BASE64 }}
+          APPSTORE_CERTIFICATE_PASSWORD: ${{ secrets.APPSTORE_CERTIFICATE_PASSWORD }}
+          APPSTORE_PROVISIONING_PROFILE_BASE64: ${{ secrets.APPSTORE_PROVISIONING_PROFILE_BASE64 }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          if [ -n "${ASC_ISSUER_ID}" ] && [ -n "${ASC_KEY_ID}" ] && [ -n "${ASC_KEY_P8}" ] && [ -n "${APPSTORE_CERTIFICATE_BASE64}" ] && [ -n "${APPSTORE_CERTIFICATE_PASSWORD}" ] && [ -n "${APPSTORE_PROVISIONING_PROFILE_BASE64}" ] && [ -n "${KEYCHAIN_PASSWORD}" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Build and upload to TestFlight
         id: upload_testflight
-        if: ${{ secrets.ASC_ISSUER_ID != '' && secrets.ASC_KEY_ID != '' && secrets.ASC_KEY_P8 != '' && secrets.APPSTORE_CERTIFICATE_BASE64 != '' && secrets.APPSTORE_CERTIFICATE_PASSWORD != '' && secrets.APPSTORE_PROVISIONING_PROFILE_BASE64 != '' && secrets.KEYCHAIN_PASSWORD != '' }}
+        if: ${{ steps.testflight_secrets.outputs.available == 'true' }}
         env:
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
