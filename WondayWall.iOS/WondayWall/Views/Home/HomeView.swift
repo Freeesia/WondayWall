@@ -380,6 +380,7 @@ struct WallpaperInstructionsView: View {
     @State private var isOpeningSettings = false
 
     private let appleSupportURL = URL(string: "https://support.apple.com/ja-jp/102638")!
+    private let youtubeShortsURL = URL(string: "https://youtube.com/shorts/oM0G2Uk1Hjw?feature=share")!
 
     var body: some View {
         NavigationStack {
@@ -425,6 +426,11 @@ struct WallpaperInstructionsView: View {
 
             Link(destination: appleSupportURL) {
                 Label("Apple 公式サポートページを開く", systemImage: "safari")
+                    .font(.subheadline.weight(.semibold))
+            }
+
+            Link(destination: youtubeShortsURL) {
+                Label("手順動画を開く", systemImage: "play.rectangle")
                     .font(.subheadline.weight(.semibold))
             }
         }
