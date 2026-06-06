@@ -1,0 +1,10 @@
+{
+  "listings": {
+    "en-us": {
+      "releaseNotes": "Bug fixes and improvements."
+    },
+    "ja-jp": {
+      "releaseNotes": "バグ修正と改善。"
+    }
+  }
+}

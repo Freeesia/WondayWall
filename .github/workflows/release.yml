@@ -52,7 +52,6 @@ jobs:
           done
 
           cp release-artifacts/WondayWall-*.msi/*.msi release-files/
-          cp release-artifacts/WondayWall-*.msix/*.msix release-files/
           cp release-artifacts/WondayWall-Android-release-*/* release-files/
 
       - uses: softprops/action-gh-release@v3.0.0
@@ -61,3 +60,51 @@ jobs:
           draft: true
           prerelease: false
           files: release-files/*
+
+  store-upload:
+    name: Upload to Microsoft Store
+    needs: desktop
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: WondayWall-*.msix
+          path: msix-artifacts
+          merge-multiple: true
+
+      - uses: microsoft/microsoft-store-apppublisher@v1
+
+      - name: Configure Partner Center authentication
+        run: |
+          msstore reconfigure `
+            --tenantId "${{ secrets.AZURE_AD_TENANT_ID }}" `
+            --clientId "${{ secrets.AZURE_AD_APPLICATION_CLIENT_ID }}" `
+            --clientSecret "${{ secrets.AZURE_AD_APPLICATION_SECRET }}" `
+            --sellerId "${{ secrets.SELLER_ID }}"
+
+      - name: Publish MSIX to Partner Center
+        run: |
+          $msixPath = (Get-ChildItem -Path msix-artifacts -Filter "*.msix" | Select-Object -First 1 -ExpandProperty FullName)
+          if (-not $msixPath) {
+            throw "No MSIX file found in msix-artifacts. Ensure the desktop job produced a WondayWall-*.msix artifact."
+          }
+          msstore publish `
+            -f "$msixPath" `
+            -id "${{ vars.MSSTORE_PRODUCT_ID }}" `
+            --noCommit
+
+      - name: Update Store metadata
+        run: |
+          msstore submission updateMetadata `
+            -id "${{ vars.MSSTORE_PRODUCT_ID }}" `
+            -m "eng/store/metadata.json"
+
+      - name: Publish submission
+        if: vars.MSSTORE_SUBMIT_ON_TAG == 'true'
+        run: |
+          msstore submission publish `
+            -id "${{ vars.MSSTORE_PRODUCT_ID }}"
