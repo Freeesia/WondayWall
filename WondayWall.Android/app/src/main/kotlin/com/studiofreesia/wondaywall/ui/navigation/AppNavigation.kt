@@ -52,6 +52,7 @@ import com.studiofreesia.wondaywall.ui.screens.settings.SettingsScreen
 import com.studiofreesia.wondaywall.ui.screens.settings.SettingsViewModel
 import com.studiofreesia.wondaywall.ui.screens.wizard.WizardScreen
 import com.studiofreesia.wondaywall.ui.screens.wizard.WizardViewModel
+import com.studiofreesia.wondaywall.widgets.WidgetLaunchRequest
 
 // ナビゲーションルート定数
 private object Routes {
@@ -82,6 +83,8 @@ fun AppNavigation(
     contextService: ContextService,
     taskSchedulerService: TaskSchedulerService,
     aiService: AiService,
+    widgetLaunchRequest: WidgetLaunchRequest? = null,
+    onWidgetLaunchRequestConsumed: () -> Unit = {},
 ) {
     val rootNavController = rememberNavController()
 
@@ -97,6 +100,12 @@ fun AppNavigation(
             CircularProgressIndicator()
         }
         return
+    }
+
+    LaunchedEffect(startDestination, widgetLaunchRequest) {
+        if (startDestination == Routes.WIZARD && widgetLaunchRequest != null) {
+            onWidgetLaunchRequestConsumed()
+        }
     }
 
     NavHost(
@@ -133,6 +142,8 @@ fun AppNavigation(
                 contextService = contextService,
                 taskSchedulerService = taskSchedulerService,
                 aiService = aiService,
+                widgetLaunchRequest = widgetLaunchRequest,
+                onWidgetLaunchRequestConsumed = onWidgetLaunchRequestConsumed,
             )
         }
     }
@@ -149,6 +160,8 @@ private fun MainScreen(
     contextService: ContextService,
     taskSchedulerService: TaskSchedulerService,
     aiService: AiService,
+    widgetLaunchRequest: WidgetLaunchRequest?,
+    onWidgetLaunchRequestConsumed: () -> Unit,
 ) {
     val navController = rememberNavController()
     var showAboutSheet by remember { mutableStateOf(false) }
@@ -160,6 +173,18 @@ private fun MainScreen(
         BottomNavItem(Routes.HISTORY, "履歴", Icons.Default.History),
         BottomNavItem(Routes.SETTINGS, "設定", Icons.Default.Settings),
     )
+
+    LaunchedEffect(widgetLaunchRequest) {
+        if (widgetLaunchRequest != null) {
+            navController.navigate(Routes.HOME) {
+                popUpTo(navController.graph.findStartDestination().id) {
+                    saveState = true
+                }
+                launchSingleTop = true
+                restoreState = true
+            }
+        }
+    }
 
     Scaffold(
         bottomBar = {
@@ -202,7 +227,11 @@ private fun MainScreen(
                         contextService = contextService,
                     )
                 )
-                HomeScreen(viewModel = vm)
+                HomeScreen(
+                    viewModel = vm,
+                    widgetLaunchRequest = widgetLaunchRequest,
+                    onWidgetLaunchRequestConsumed = onWidgetLaunchRequestConsumed,
+                )
             }
             composable(Routes.DATA) {
                 val vm: DataViewModel = viewModel(

@@ -111,6 +111,35 @@ class HomeViewModel(
         }
     }
 
+    // ウィジェット起動要求から、現在も生成可能な場合だけ確認シートを開く
+    fun openGenerationSheetIfStillAllowed(slotStartedAtMillis: Long) {
+        viewModelScope.launch {
+            if (_uiState.value.isGenerating || taskSchedulerService.isGenerationWorkRunning()) {
+                refreshData()
+                return@launch
+            }
+
+            val config = appConfigService.getConfig()
+            if (config.googleAiApiKey.isBlank()) {
+                refreshData()
+                return@launch
+            }
+
+            val currentSlotStartedAtMillis = taskSchedulerService.getCurrentSlotStartedAtMillis()
+            if (currentSlotStartedAtMillis != slotStartedAtMillis) {
+                refreshData()
+                return@launch
+            }
+
+            if (taskSchedulerService.isCurrentSlotProcessed()) {
+                refreshData()
+                return@launch
+            }
+
+            openGenerationSheet()
+        }
+    }
+
     // 壁紙生成確認シートを閉じる
     fun dismissGenerationSheet() {
         _uiState.value = _uiState.value.copy(showGenerationSheet = false)

@@ -16,6 +16,7 @@ okhttp = "5.3.2"
 rssParser = "6.1.5"
 jsoup = "1.22.2"
 coil = "3.4.0"
+glance = "1.1.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -43,6 +44,8 @@ rssparser = { group = "com.prof18.rssparser", name = "rssparser", version.ref = 
 jsoup = { group = "org.jsoup", name = "jsoup", version.ref = "jsoup" }
 coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
 coil-network-okhttp = { group = "io.coil-kt.coil3", name = "coil-network-okhttp", version.ref = "coil" }
+androidx-glance = { group = "androidx.glance", name = "glance", version.ref = "glance" }
+androidx-glance-appwidget = { group = "androidx.glance", name = "glance-appwidget", version.ref = "glance" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

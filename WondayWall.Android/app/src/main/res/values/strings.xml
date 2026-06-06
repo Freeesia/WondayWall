@@ -50,6 +50,9 @@
     <string name="connection_test">接続確認</string>
     <string name="connection_test_success">接続確認が完了しました</string>
     <string name="connection_test_failed">接続確認に失敗しました</string>
+    <string name="widget_name">WondayWall</string>
+    <string name="widget_description">現在の生成スロットと壁紙履歴を表示します</string>
+    <string name="widget_loading">WondayWall</string>
     <string name="calendar_permission_required">カレンダー権限が必要です</string>
     <string name="request_permission">権限を要求する</string>
     <string name="runs_per_day_label">1日あたりの自動生成回数</string>

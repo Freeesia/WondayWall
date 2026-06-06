@@ -18,6 +18,9 @@ final class AppEnvironment: ObservableObject {
     // 生成進捗（0-100）。nil は非生成中を表す
     @Published var generationProgress: Int? = nil
 
+    // ウィジェットから生成確認シートを開く要求。HomeView が消費する。
+    @Published var pendingWidgetGenerationSlotStartedAt: Date? = nil
+
     // 生成中かどうか（手動・起動時補完・バックグラウンド両方を含む）
     var isGenerating: Bool { generationProgress != nil }
 
@@ -76,6 +79,7 @@ final class AppEnvironment: ObservableObject {
                 } else {
                     self.generationProgress = nil
                 }
+                Task { await WidgetStateService.refresh(environment: self) }
             }
         }
 
@@ -87,7 +91,9 @@ final class AppEnvironment: ObservableObject {
         ) { [weak self] notification in
             guard let progress = notification.userInfo?["progress"] as? Int else { return }
             Task { @MainActor [weak self] in
-                self?.generationProgress = max(0, min(100, progress))
+                guard let self else { return }
+                self.generationProgress = max(0, min(100, progress))
+                Task { await WidgetStateService.refresh(environment: self) }
             }
         }
 
@@ -97,8 +103,18 @@ final class AppEnvironment: ObservableObject {
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
-                self?.generationProgress = nil
+                guard let self else { return }
+                self.generationProgress = nil
+                Task { await WidgetStateService.refresh(environment: self) }
             }
         }
+    }
+
+    func requestWidgetGenerationConfirmation(slotStartedAt: Date) {
+        pendingWidgetGenerationSlotStartedAt = slotStartedAt
+    }
+
+    func clearWidgetGenerationConfirmationRequest() {
+        pendingWidgetGenerationSlotStartedAt = nil
     }
 }

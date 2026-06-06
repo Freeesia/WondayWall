@@ -18,9 +18,24 @@
         <string>$(MARKETING_VERSION)</string>
         <key>CFBundleVersion</key>
         <string>$(CURRENT_PROJECT_VERSION)</string>
+        <!-- ウィジェットからアプリ本体の生成確認シートを開くためのURLスキーム -->
+        <key>CFBundleURLTypes</key>
+        <array>
+            <dict>
+                <key>CFBundleURLName</key>
+                <string>com.studiofreesia.wondaywall.deeplink</string>
+                <key>CFBundleURLSchemes</key>
+                <array>
+                    <string>wondaywall</string>
+                </array>
+            </dict>
+        </array>
         <!-- Welcome 画面などで現在のビルド設定に対応した appiconset を参照する -->
         <key>WondayWallAppIconAssetName</key>
         <string>$(ASSETCATALOG_COMPILER_APPICON_NAME)</string>
+        <!-- App Group コンテナ識別子（アプリ本体とWidget Extensionで共有） -->
+        <key>WondayWallAppGroupIdentifier</key>
+        <string>$(WONDAYWALL_APP_GROUP_IDENTIFIER)</string>
         <!-- 標準的なHTTPS通信のみを使うため、TestFlightアップロード後の暗号化確認を自動化する -->
         <key>ITSAppUsesNonExemptEncryption</key>
         <false />

@@ -33,6 +33,10 @@ struct ContentView: View {
             guard !hasLoadedInitialSetupState else { return }
             hasCompletedInitialSetup = environment.configService.config.hasCompletedInitialSetup
             hasLoadedInitialSetupState = true
+            await WidgetStateService.refresh(environment: environment)
+        }
+        .onOpenURL { url in
+            handleOpenURL(url)
         }
     }
 
@@ -107,6 +111,7 @@ struct ContentView: View {
             NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)
         ) { _ in
             Task {
+                await WidgetStateService.refresh(environment: environment)
                 await evaluateStartupGeneration()
             }
         }
@@ -168,6 +173,7 @@ struct ContentView: View {
 
     private func evaluateStartupGeneration() async {
         guard isInitialSetupComplete else { return }
+        guard environment.pendingWidgetGenerationSlotStartedAt == nil else { return }
         guard environment.configService.config.autoGenerationEnabled else { return }
         guard environment.configService.hasMinimumConfigurationForStartupGeneration() else { return }
 
@@ -188,6 +194,21 @@ struct ContentView: View {
             startupAlertMode = .confirmStart
             showStartupAlert = true
         }
+    }
+
+    private func handleOpenURL(_ url: URL) {
+        guard url.scheme == "wondaywall",
+              url.host == "widget",
+              url.path == "/generate-confirmation",
+              let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              let slotValue = components.queryItems?.first(where: { $0.name == "slotStartedAt" })?.value,
+              let slotStartedAt = ISO8601DateFormatter().date(from: slotValue)
+        else { return }
+
+        selectedTab = 0
+        startupAlertMode = nil
+        showStartupAlert = false
+        environment.requestWidgetGenerationConfirmation(slotStartedAt: slotStartedAt)
     }
 }
 

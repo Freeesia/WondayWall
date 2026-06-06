@@ -15,10 +15,16 @@ import com.studiofreesia.wondaywall.services.HistoryService
 import com.studiofreesia.wondaywall.services.NotificationHelper
 import com.studiofreesia.wondaywall.services.TaskSchedulerService
 import com.studiofreesia.wondaywall.services.WallpaperService
+import com.studiofreesia.wondaywall.widgets.WondayWallWidgetUpdater
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
 // アプリケーションクラス：手動 DI でサービスを初期化する
 class App : Application() {
+    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     lateinit var appConfigService: AppConfigService
         private set
@@ -43,6 +49,7 @@ class App : Application() {
         AeadConfig.register()
         createNotificationChannels()
         initServices()
+        startWidgetUpdateObservers()
     }
 
     // サービスを依存関係順に初期化する
@@ -64,6 +71,25 @@ class App : Application() {
             taskSchedulerService = taskSchedulerService,
             notificationHelper = notificationHelper,
         )
+    }
+
+    fun requestWidgetUpdate() {
+        applicationScope.launch {
+            WondayWallWidgetUpdater.update(this@App)
+        }
+    }
+
+    private fun startWidgetUpdateObservers() {
+        applicationScope.launch {
+            historyService.historyChanges.collect {
+                WondayWallWidgetUpdater.update(this@App)
+            }
+        }
+        applicationScope.launch {
+            generationCoordinator.progress.collect {
+                WondayWallWidgetUpdater.update(this@App)
+            }
+        }
     }
 
     // Debug / Preview ビルドでは起動時設定に応じて実サービスとダミーAIサービスを切り替える

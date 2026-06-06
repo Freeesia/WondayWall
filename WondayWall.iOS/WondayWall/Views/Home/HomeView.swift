@@ -29,7 +29,23 @@ struct HomeView: View {
             if viewModel == nil {
                 viewModel = HomeViewModel(environment: environment)
             }
+            if let slotStartedAt = environment.pendingWidgetGenerationSlotStartedAt {
+                await handleWidgetGenerationRequest(slotStartedAt)
+            }
         }
+        .onReceive(environment.$pendingWidgetGenerationSlotStartedAt) { slotStartedAt in
+            guard let slotStartedAt else { return }
+            Task {
+                await handleWidgetGenerationRequest(slotStartedAt)
+            }
+        }
+    }
+
+    @MainActor
+    private func handleWidgetGenerationRequest(_ slotStartedAt: Date) async {
+        guard let viewModel else { return }
+        await viewModel.openGenerationSheetIfStillAllowed(slotStartedAt: slotStartedAt)
+        environment.clearWidgetGenerationConfirmationRequest()
     }
 }
 

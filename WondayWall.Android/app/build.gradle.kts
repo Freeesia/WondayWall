@@ -149,6 +149,8 @@ dependencies {
     // 画像表示
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
+    implementation(libs.androidx.glance)
+    implementation(libs.androidx.glance.appwidget)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
     add("previewImplementation", libs.androidx.compose.ui.tooling)

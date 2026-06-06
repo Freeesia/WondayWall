@@ -193,6 +193,8 @@ actor GenerationCoordinator {
                 )
             {
                 status = .skipped
+                usedEvents = contextResult.calendarEvents
+                usedNews = contextResult.newsTopics
             } else {
                 // ステップ 1: プロンプト生成 or 保存済みプロンプト再利用
                 let promptResult: PromptGenerationResult
