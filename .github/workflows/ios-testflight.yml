@@ -27,6 +27,7 @@ jobs:
       run:
         working-directory: WondayWall.iOS
     env:
+      APP_GROUP_IDENTIFIER: group.com.studiofreesia.wondaywall.preview
       APP_IDENTIFIER: com.studiofreesia.wondaywall.preview
       FASTLANE_HIDE_CHANGELOG: "1"
       FASTLANE_OPT_OUT_USAGE: "1"
@@ -36,6 +37,7 @@ jobs:
       PREVIEW_PR_NUMBER: ${{ github.event.pull_request.number || '' }}
       PREVIEW_TESTER_GROUP: PR Preview Testers
       TEAM_ID: KDJQJM26Y7
+      WIDGET_APP_IDENTIFIER: com.studiofreesia.wondaywall.preview.widget
 
     steps:
       - uses: actions/checkout@v6
@@ -78,7 +80,7 @@ jobs:
             -configuration Release \
             -xcconfig "${PREVIEW_XCCONFIG_PATH}" \
             -showBuildSettings \
-            | grep -E "PRODUCT_BUNDLE_IDENTIFIER|ASSETCATALOG_COMPILER_APPICON_NAME|SWIFT_ACTIVE_COMPILATION_CONDITIONS|MARKETING_VERSION|CURRENT_PROJECT_VERSION|DEVELOPMENT_TEAM"
+            | grep -E "PRODUCT_BUNDLE_IDENTIFIER|WONDAYWALL_APP_GROUP_IDENTIFIER|ASSETCATALOG_COMPILER_APPICON_NAME|SWIFT_ACTIVE_COMPILATION_CONDITIONS|MARKETING_VERSION|CURRENT_PROJECT_VERSION|DEVELOPMENT_TEAM"
 
       - name: Build and upload to TestFlight
         env:
@@ -88,6 +90,7 @@ jobs:
           APPSTORE_CERTIFICATE_BASE64: ${{ secrets.APPSTORE_CERTIFICATE_BASE64 }}
           APPSTORE_CERTIFICATE_PASSWORD: ${{ secrets.APPSTORE_CERTIFICATE_PASSWORD }}
           APPSTORE_PROVISIONING_PROFILE_BASE64: ${{ secrets.APPSTORE_PROVISIONING_PROFILE_BASE64 }}
+          APPSTORE_WIDGET_PROVISIONING_PROFILE_BASE64: ${{ secrets.APPSTORE_WIDGET_PROVISIONING_PROFILE_BASE64 }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: bundle exec fastlane ios pr_testflight
 
