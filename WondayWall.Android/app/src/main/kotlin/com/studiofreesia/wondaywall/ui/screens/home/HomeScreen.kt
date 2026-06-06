@@ -60,6 +60,7 @@ import com.studiofreesia.wondaywall.models.CalendarEventItem
 import com.studiofreesia.wondaywall.models.GenerationProgress
 import com.studiofreesia.wondaywall.models.NewsTopicItem
 import com.studiofreesia.wondaywall.ui.components.FaviconIcon
+import com.studiofreesia.wondaywall.ui.components.GenerationContextPreview
 import com.studiofreesia.wondaywall.ui.util.canDisplayImageReference
 import com.studiofreesia.wondaywall.ui.util.formatCalendarEventDateTime
 import com.studiofreesia.wondaywall.ui.util.formatNewsPublishedAt
@@ -284,7 +285,11 @@ private fun GenerationConfirmSheet(
                 style = MaterialTheme.typography.titleLarge,
             )
 
-            GenerationSheetData(uiState = uiState)
+            GenerationContextPreview(
+                events = uiState.sheetEvents,
+                news = uiState.sheetNews,
+                isLoading = uiState.isLoadingSheetData,
+            )
         }
 
         // 部分表示時も画面内に入る範囲で生成ボタンを固定する
@@ -350,102 +355,6 @@ private fun GenerationProgressBanner(
                 modifier = Modifier.fillMaxWidth(),
             )
         }
-    }
-}
-
-@Composable
-private fun GenerationSheetData(uiState: HomeUiState) {
-    if (uiState.isLoadingSheetData) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(120.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            CircularProgressIndicator()
-        }
-        return
-    }
-
-    if (uiState.sheetEvents.isNotEmpty()) {
-        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(12.dp)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Icon(Icons.Default.CalendarMonth, contentDescription = null)
-                    Text("カレンダー予定", style = MaterialTheme.typography.titleSmall)
-                }
-                Spacer(Modifier.height(8.dp))
-                uiState.sheetEvents.forEachIndexed { index, event ->
-                    if (index > 0) HorizontalDivider(modifier = Modifier.padding(start = 12.dp))
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 6.dp),
-                    ) {
-                        Text(event.title, style = MaterialTheme.typography.bodyMedium)
-                        Text(
-                            formatCalendarEventDateTime(event),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    if (uiState.sheetNews.isNotEmpty()) {
-        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(12.dp)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Icon(Icons.Default.Newspaper, contentDescription = null)
-                    Text("ニュース", style = MaterialTheme.typography.titleSmall)
-                }
-                Spacer(Modifier.height(8.dp))
-                uiState.sheetNews.forEachIndexed { index, item ->
-                    if (index > 0) HorizontalDivider(modifier = Modifier.padding(start = 12.dp))
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        FaviconIcon(url = item.url)
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(2.dp),
-                        ) {
-                            Text(
-                                text = item.title,
-                                style = MaterialTheme.typography.bodyMedium,
-                                maxLines = 2,
-                            )
-                            Text(
-                                text = formatNewsPublishedAt(item.publishedAt),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    if (uiState.sheetEvents.isEmpty() && uiState.sheetNews.isEmpty()) {
-        Text(
-            "利用できるカレンダー予定・ニュースがありません",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(vertical = 8.dp),
-        )
     }
 }
 

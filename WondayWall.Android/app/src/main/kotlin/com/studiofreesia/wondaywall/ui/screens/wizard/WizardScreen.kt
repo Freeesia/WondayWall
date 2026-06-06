@@ -35,7 +35,6 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Error
-import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Refresh
@@ -82,6 +81,7 @@ import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import com.studiofreesia.wondaywall.models.UpdateSchedule
 import com.studiofreesia.wondaywall.services.NotificationPermissionHelper
+import com.studiofreesia.wondaywall.ui.components.GenerationContextPreview
 import com.studiofreesia.wondaywall.ui.components.SquareAppIcon
 import com.studiofreesia.wondaywall.ui.util.canDisplayImageReference
 import com.studiofreesia.wondaywall.ui.util.imageReferenceModel
@@ -102,7 +102,8 @@ fun WizardScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
     val canGoNext = (uiState.currentStep != 1 || uiState.apiKey.isNotBlank()) &&
-        !uiState.isResolvingRssSource
+        !uiState.isResolvingRssSource &&
+        !uiState.isLoadingGenerationPreview
     var pendingStorageAction by remember { mutableStateOf<PendingStorageGenerationAction?>(null) }
 
     fun runGenerationAction(action: PendingStorageGenerationAction) {
@@ -184,7 +185,7 @@ fun WizardScreen(
                         2 -> StepCalendar(uiState, viewModel)
                         3 -> StepPromptAndRss(uiState, viewModel)
                         4 -> StepSchedule(uiState, viewModel)
-                        5 -> StepTestGenerate(
+                        5 -> StepInitialGeneration(
                             uiState = uiState,
                             onTestGenerate = {
                                 runGenerationActionWithStoragePermission(
@@ -207,7 +208,7 @@ fun WizardScreen(
                 if (uiState.currentStep > 0) {
                     OutlinedButton(
                         onClick = { viewModel.prevStep() },
-                        enabled = !uiState.isResolvingRssSource,
+                        enabled = !uiState.isResolvingRssSource && !uiState.isLoadingGenerationPreview,
                     ) {
                         Icon(Icons.Default.ArrowBack, contentDescription = null)
                         Text("  戻る")
@@ -228,6 +229,9 @@ fun WizardScreen(
                         enabled = canGoNext,
                     ) {
                         if (uiState.currentStep == 3 && uiState.isResolvingRssSource) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                            Text("  確認中…")
+                        } else if (uiState.currentStep == 4 && uiState.isLoadingGenerationPreview) {
                             CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                             Text("  確認中…")
                         } else {
@@ -599,9 +603,9 @@ private fun StepSchedule(uiState: WizardUiState, viewModel: WizardViewModel) {
     }
 }
 
-// ステップ 6: テスト生成
+// ステップ 6: 初回生成
 @Composable
-private fun StepTestGenerate(
+private fun StepInitialGeneration(
     uiState: WizardUiState,
     onTestGenerate: () -> Unit,
 ) {
@@ -616,18 +620,28 @@ private fun StepTestGenerate(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = "テスト生成",
+            text = "準備ができました",
             style = MaterialTheme.typography.headlineSmall,
             modifier = Modifier.fillMaxWidth(),
         )
         Text(
-            text = "設定が完了しました。\nテスト生成を実行して壁紙プレビューを確認できます。",
+            text = "次の内容をもとに最初の壁紙を作成します。\n生成前に予定とニュースを確認しましょう。",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.fillMaxWidth(),
         )
 
-        // テスト生成ボタン
+        GenerationContextPreview(
+            events = uiState.generationPreviewEvents,
+            news = uiState.generationPreviewNews,
+            isLoading = uiState.isLoadingGenerationPreview,
+            showEmptySections = true,
+            eventsTitle = "使用する予定",
+            newsTitle = "使用するニュース",
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        // 初回生成ボタン
         FilledTonalButton(
             onClick = onTestGenerate,
             modifier = Modifier.fillMaxWidth(),
@@ -643,7 +657,7 @@ private fun StepTestGenerate(
                 Text("  生成中 $percent%")
             } else {
                 Icon(Icons.Default.Refresh, contentDescription = null)
-                Text("  テスト生成を実行")
+                Text("  初回生成を開始")
             }
         }
 
@@ -684,35 +698,12 @@ private fun StepTestGenerate(
             ElevatedCard(modifier = Modifier.fillMaxWidth()) {
                 AsyncImage(
                     model = ImageRequest.Builder(context).data(imageReferenceModel(imageReference)).build(),
-                    contentDescription = "テスト生成プレビュー",
+                    contentDescription = "初回生成プレビュー",
                     modifier = Modifier
                         .fillMaxWidth()
                         .aspectRatio(9f / 16f),
                     contentScale = ContentScale.Crop,
                 )
-            }
-        } else if (!uiState.isTestGenerating) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(9f / 16f),
-                contentAlignment = Alignment.Center,
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        Icons.Default.Image,
-                        contentDescription = null,
-                        modifier = Modifier.size(48.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        text = "「テスト生成を実行」を押すと\nプレビューが表示されます",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                    )
-                }
             }
         }
 
