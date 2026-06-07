@@ -1,3 +1,4 @@
+import Photos
 import SwiftUI
 import UIKit
 import WidgetKit
@@ -5,18 +6,22 @@ import WidgetKit
 struct WondayWallWidgetEntry: TimelineEntry {
     let date: Date
     let state: WidgetSharedState
+    let image: UIImage?
 }
 
 struct WondayWallWidgetProvider: TimelineProvider {
+    private static let imageTargetSize = CGSize(width: 720, height: 720)
+
     func placeholder(in context: Context) -> WondayWallWidgetEntry {
-        WondayWallWidgetEntry(date: Date(), state: .placeholder)
+        WondayWallWidgetEntry(date: Date(), state: .placeholder, image: nil)
     }
 
     func getSnapshot(
         in context: Context,
         completion: @escaping (WondayWallWidgetEntry) -> Void
     ) {
-        completion(WondayWallWidgetEntry(date: Date(), state: loadState() ?? .placeholder))
+        let state = loadState() ?? .placeholder
+        completion(WondayWallWidgetEntry(date: Date(), state: state, image: loadImage(for: state)))
     }
 
     func getTimeline(
@@ -24,7 +29,7 @@ struct WondayWallWidgetProvider: TimelineProvider {
         completion: @escaping (Timeline<WondayWallWidgetEntry>) -> Void
     ) {
         let state = loadState() ?? .placeholder
-        let entry = WondayWallWidgetEntry(date: Date(), state: state)
+        let entry = WondayWallWidgetEntry(date: Date(), state: state, image: loadImage(for: state))
         let refreshDate = state.nextSlotStartsAt ?? Date().addingTimeInterval(30 * 60)
         completion(Timeline(entries: [entry], policy: .after(refreshDate)))
     }
@@ -35,7 +40,78 @@ struct WondayWallWidgetProvider: TimelineProvider {
         else { return nil }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        return try? decoder.decode(WidgetSharedState.self, from: data)
+        guard let state = try? decoder.decode(WidgetSharedState.self, from: data) else {
+            return nil
+        }
+        return makeDisplayState(from: state)
+    }
+
+    private func makeDisplayState(from sharedState: WidgetSharedState) -> WidgetSharedState {
+        let historyService = HistoryService(repairInterruptedGeneration: false)
+        var state = sharedState
+        let isCurrentSlotProcessed = historyService.isSlotProcessed(
+            startedAt: state.currentSlotStartedAt
+        )
+
+        state.isCurrentSlotProcessed = isCurrentSlotProcessed
+        if state.status != .unconfigured && state.status != .generating {
+            state.status = isCurrentSlotProcessed ? .processed : .pending
+            state.canOpenGenerationConfirmation = state.canOpenGenerationConfirmation
+                && !isCurrentSlotProcessed
+        }
+
+        if let item = historyService.getLatestDisplayCandidate(since: state.currentSlotStartedAt) {
+            state.latestDisplayHistory = WidgetDisplayHistory(
+                id: item.id,
+                executedAt: item.executedAt,
+                status: item.status.rawValue,
+                photoAssetId: item.photoAssetId
+            )
+        } else {
+            state.latestDisplayHistory = nil
+        }
+
+        state.usedNewsTopics = historyService.getDisplayNewsTopics(
+            since: state.currentSlotStartedAt
+        )
+        .prefix(3)
+        .map {
+            WidgetNewsTopic(
+                id: $0.id,
+                title: $0.title,
+                url: $0.url,
+                publishedAt: $0.publishedAt
+            )
+        }
+        return state
+    }
+
+    private func loadImage(for state: WidgetSharedState) -> UIImage? {
+        guard let assetId = state.latestDisplayHistory?.photoAssetId else { return nil }
+        let authorizationStatus = PHPhotoLibrary.authorizationStatus(for: .readWrite)
+        guard authorizationStatus == .authorized || authorizationStatus == .limited else {
+            return nil
+        }
+
+        let assets = PHAsset.fetchAssets(withLocalIdentifiers: [assetId], options: nil)
+        guard let asset = assets.firstObject else { return nil }
+
+        let options = PHImageRequestOptions()
+        options.deliveryMode = .highQualityFormat
+        options.resizeMode = .fast
+        options.isNetworkAccessAllowed = false
+        options.isSynchronous = true
+
+        var result: UIImage?
+        PHImageManager.default().requestImage(
+            for: asset,
+            targetSize: Self.imageTargetSize,
+            contentMode: .aspectFill,
+            options: options
+        ) { image, _ in
+            result = image
+        }
+        return result
     }
 }
 
@@ -48,6 +124,7 @@ struct WondayWallWidgetView: View {
             wallpaperBackground
             overlayContent
         }
+        .widgetURL(entry.state.canOpenGenerationConfirmation ? generationURL : nil)
         .containerBackground(for: .widget) {
             Color(.secondarySystemBackground)
         }
@@ -55,7 +132,7 @@ struct WondayWallWidgetView: View {
 
     @ViewBuilder
     private var wallpaperBackground: some View {
-        if let image = thumbnailImage {
+        if let image = entry.image {
             Image(uiImage: image)
                 .resizable()
                 .scaledToFill()
@@ -259,13 +336,6 @@ struct WondayWallWidgetView: View {
         return components.url ?? URL(string: "wondaywall://widget/generate-confirmation")!
     }
 
-    private var thumbnailImage: UIImage? {
-        guard let fileName = entry.state.latestDisplayHistory?.thumbnailFileName,
-              let url = WidgetSharedConstants.thumbnailURL(fileName: fileName)
-        else { return nil }
-        return UIImage(contentsOfFile: url.path)
-    }
-
     private var bottomScrim: LinearGradient {
         LinearGradient(
             colors: [.clear, Color.black.opacity(0.68)],
@@ -301,5 +371,5 @@ struct WondayWallWidget: Widget {
 #Preview(as: .systemMedium) {
     WondayWallWidget()
 } timeline: {
-    WondayWallWidgetEntry(date: Date(), state: .placeholder)
+    WondayWallWidgetEntry(date: Date(), state: .placeholder, image: nil)
 }

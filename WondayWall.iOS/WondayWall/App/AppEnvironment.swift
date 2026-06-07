@@ -15,6 +15,8 @@ final class AppEnvironment: ObservableObject {
     let coordinator: GenerationCoordinator
     let backgroundTaskService: BackgroundTaskService
 
+    private var widgetRefreshTask: Task<Void, Never>?
+
     // 生成進捗（0-100）。nil は非生成中を表す
     @Published var generationProgress: Int? = nil
 
@@ -68,6 +70,17 @@ final class AppEnvironment: ObservableObject {
         self.coordinator = coord
         self.backgroundTaskService = bgTask
 
+        config.onConfigurationChanged = { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.refreshWidgetState()
+            }
+        }
+        history.onHistoryChanged = { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.refreshWidgetState()
+            }
+        }
+
         // 全プロパティ初期化後にコールバックを設定する
         Task {
             await coord.setIsGeneratingHandler { [weak self] value in
@@ -79,7 +92,7 @@ final class AppEnvironment: ObservableObject {
                 } else {
                     self.generationProgress = nil
                 }
-                Task { await WidgetStateService.refresh(environment: self) }
+                self.refreshWidgetState()
             }
         }
 
@@ -93,7 +106,7 @@ final class AppEnvironment: ObservableObject {
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 self.generationProgress = max(0, min(100, progress))
-                Task { await WidgetStateService.refresh(environment: self) }
+                self.refreshWidgetState()
             }
         }
 
@@ -105,9 +118,23 @@ final class AppEnvironment: ObservableObject {
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 self.generationProgress = nil
-                Task { await WidgetStateService.refresh(environment: self) }
+                self.refreshWidgetState()
             }
         }
+    }
+
+    func refreshWidgetState() {
+        widgetRefreshTask?.cancel()
+        widgetRefreshTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(250))
+            guard !Task.isCancelled, let self else { return }
+            await WidgetStateService.refresh(environment: self)
+        }
+    }
+
+    func refreshWidgetStateNow() async {
+        widgetRefreshTask?.cancel()
+        await WidgetStateService.refresh(environment: self)
     }
 
     func requestWidgetGenerationConfirmation(slotStartedAt: Date) {

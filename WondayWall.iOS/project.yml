@@ -170,6 +170,11 @@ targets:
     sources:
       - path: WondayWallWidget
       - path: WondayWall/WidgetSupport
+      - path: WondayWall/Models/CalendarEventItem.swift
+      - path: WondayWall/Models/HistoryItem.swift
+      - path: WondayWall/Models/NewsTopicItem.swift
+      - path: WondayWall/Services/HistoryService.swift
+      - path: WondayWall/Utils/FileHelper.swift
     settings:
       base:
         CODE_SIGN_ENTITLEMENTS: WondayWallWidget/WondayWallWidget.entitlements

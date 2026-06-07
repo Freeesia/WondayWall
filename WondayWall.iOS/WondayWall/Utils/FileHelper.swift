@@ -16,6 +16,52 @@ enum FileHelper {
         return dir
     }
 
+    // App Group 共有ディレクトリ（アプリ本体と Widget Extension で共有するデータ保存先）
+    static var sharedDataDirectory: URL {
+        let dir: URL
+        if let appGroupIdentifier = Bundle.main.object(
+            forInfoDictionaryKey: "WondayWallAppGroupIdentifier"
+        ) as? String,
+           let containerURL = FileManager.default.containerURL(
+            forSecurityApplicationGroupIdentifier: appGroupIdentifier
+           ) {
+            dir = containerURL
+                .appendingPathComponent("Library", isDirectory: true)
+                .appendingPathComponent("Application Support", isDirectory: true)
+                .appendingPathComponent("WondayWall", isDirectory: true)
+        } else {
+            dir = appDataDirectory
+        }
+        try? FileManager.default.createDirectory(
+            at: dir,
+            withIntermediateDirectories: true
+        )
+        return dir
+    }
+
+    static var historyFileURL: URL {
+        sharedDataDirectory.appendingPathComponent("history.json")
+    }
+
+    static var legacyHistoryFileURL: URL {
+        appDataDirectory.appendingPathComponent("history.json")
+    }
+
+    static func migrateHistoryToSharedContainerIfNeeded() {
+        let sourceURL = legacyHistoryFileURL
+        let destinationURL = historyFileURL
+        guard sourceURL != destinationURL,
+              FileManager.default.fileExists(atPath: sourceURL.path),
+              !FileManager.default.fileExists(atPath: destinationURL.path)
+        else { return }
+
+        try? FileManager.default.createDirectory(
+            at: destinationURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try? FileManager.default.copyItem(at: sourceURL, to: destinationURL)
+    }
+
     // 壁紙画像の保存ディレクトリ
     static var wallpaperDirectory: URL {
         let dir = appDataDirectory.appendingPathComponent("wallpapers")

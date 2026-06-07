@@ -40,7 +40,7 @@ struct WidgetDisplayHistory: Codable, Identifiable {
     var id: UUID
     var executedAt: Date
     var status: String
-    var thumbnailFileName: String?
+    var photoAssetId: String?
 }
 
 struct WidgetNewsTopic: Codable, Identifiable {
@@ -65,9 +65,5 @@ enum WidgetSharedConstants {
 
     static func stateFileURL() -> URL? {
         sharedContainerURL()?.appendingPathComponent(stateFileName)
-    }
-
-    static func thumbnailURL(fileName: String) -> URL? {
-        sharedContainerURL()?.appendingPathComponent(fileName)
     }
 }

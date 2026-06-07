@@ -17,6 +17,9 @@ final class AppConfigService {
     private static let keychain = Keychain(service: "com.studiofreesia.wondaywall")
     private static let apiKeyKeychainKey = "google_ai_api_key"
 
+    // 設定変更時に UI や Widget へ反映するための通知フック
+    var onConfigurationChanged: (() -> Void)?
+
     // 現在の設定（監視可能）
     private(set) var config: AppConfig
 
@@ -25,6 +28,7 @@ final class AppConfigService {
         didSet {
             // 空文字は Keychain から削除し、秘密情報を残さない
             Self.keychain[Self.apiKeyKeychainKey] = googleAiApiKey.isEmpty ? nil : googleAiApiKey
+            onConfigurationChanged?()
         }
     }
 
@@ -46,6 +50,7 @@ final class AppConfigService {
     // 設定を保存する
     func save() {
         Defaults[.appConfig] = config
+        onConfigurationChanged?()
     }
 
     // クロージャで設定を変更してから保存する

@@ -25,6 +25,8 @@
             <key>NSExtensionPointIdentifier</key>
             <string>com.apple.widgetkit-extension</string>
         </dict>
+        <key>NSPhotoLibraryUsageDescription</key>
+        <string>保存済みの壁紙画像をウィジェットに表示するために写真ライブラリを読み取ります。</string>
         <key>WondayWallAppGroupIdentifier</key>
         <string>$(WONDAYWALL_APP_GROUP_IDENTIFIER)</string>
     </dict>
