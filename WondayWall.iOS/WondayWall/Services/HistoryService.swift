@@ -121,6 +121,16 @@ final class HistoryService {
         return getLastSuccessfulGenerated()?.usedNewsTopics ?? []
     }
 
+    // Widget などの表示に使う予定を返す
+    // スキップ履歴に予定がない場合は直近成功履歴の予定へフォールバックする。
+    func getDisplayCalendarEvents(since slotStartedAt: Date) -> [CalendarEventItem] {
+        if let slotEvents = getCompletedRun(since: slotStartedAt)?.usedCalendarEvents,
+           !slotEvents.isEmpty {
+            return slotEvents
+        }
+        return getLastSuccessfulGenerated()?.usedCalendarEvents ?? []
+    }
+
     // プロンプト生成済み・画像 API 未呼び出しの再開可能な履歴を返す
     // generatingPromptReady: 画像 API を呼ぶ前に kill されたため再開可能
     func getGeneratingWithPrompt() -> HistoryItem? {

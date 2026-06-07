@@ -62,6 +62,7 @@ enum WidgetStateService {
             nextSlotStartsAt: nextSlotStartsAt,
             latestDisplayHistory: nil,
             canOpenGenerationConfirmation: isConfigured && !isGenerating && !isCurrentSlotProcessed,
+            usedCalendarEvents: [],
             usedNewsTopics: [],
             updatedAt: now
         )

@@ -10,6 +10,7 @@ struct WidgetSharedState: Codable {
     var nextSlotStartsAt: Date?
     var latestDisplayHistory: WidgetDisplayHistory?
     var canOpenGenerationConfirmation: Bool
+    var usedCalendarEvents: [WidgetCalendarEvent]?
     var usedNewsTopics: [WidgetNewsTopic]
     var updatedAt: Date
 
@@ -23,6 +24,7 @@ struct WidgetSharedState: Codable {
             nextSlotStartsAt: nil,
             latestDisplayHistory: nil,
             canOpenGenerationConfirmation: false,
+            usedCalendarEvents: [],
             usedNewsTopics: [],
             updatedAt: Date()
         )
@@ -41,6 +43,15 @@ struct WidgetDisplayHistory: Codable, Identifiable {
     var executedAt: Date
     var status: String
     var photoAssetId: String?
+}
+
+struct WidgetCalendarEvent: Codable, Identifiable {
+    var id: String
+    var title: String
+    var startTime: Date
+    var endTime: Date?
+    var isAllDay: Bool
+    var location: String?
 }
 
 struct WidgetNewsTopic: Codable, Identifiable {

@@ -1,7 +1,69 @@
+import AppIntents
 import Photos
 import SwiftUI
 import UIKit
 import WidgetKit
+
+enum WidgetInfoPage: String {
+    case calendar
+    case news
+}
+
+enum WidgetInfoPageIntentValue: String, AppEnum {
+    case calendar
+    case news
+
+    static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "表示ページ")
+    static var caseDisplayRepresentations: [Self: DisplayRepresentation] = [
+        .calendar: DisplayRepresentation(title: "予定"),
+        .news: DisplayRepresentation(title: "ニュース")
+    ]
+
+    var page: WidgetInfoPage {
+        switch self {
+        case .calendar: return .calendar
+        case .news: return .news
+        }
+    }
+}
+
+enum WidgetInfoPageStore {
+    private static let key = "wondaywall.widget.infoPage"
+
+    static func current() -> WidgetInfoPage? {
+        guard let value = UserDefaults(suiteName: WidgetSharedConstants.appGroupIdentifier)?
+            .string(forKey: key)
+        else { return nil }
+        return WidgetInfoPage(rawValue: value)
+    }
+
+    static func set(_ page: WidgetInfoPage) {
+        UserDefaults(suiteName: WidgetSharedConstants.appGroupIdentifier)?
+            .set(page.rawValue, forKey: key)
+    }
+}
+
+struct SelectWidgetInfoPageIntent: AppIntent {
+    static var title: LocalizedStringResource = "ウィジェット表示を切り替え"
+    static var description = IntentDescription("ウィジェットに表示する予定またはニュースを切り替えます。")
+
+    @Parameter(title: "ページ")
+    var page: WidgetInfoPageIntentValue
+
+    init() {
+        page = .calendar
+    }
+
+    init(page: WidgetInfoPageIntentValue) {
+        self.page = page
+    }
+
+    func perform() async throws -> some IntentResult {
+        WidgetInfoPageStore.set(page.page)
+        WidgetCenter.shared.reloadTimelines(ofKind: WidgetSharedConstants.kind)
+        return .result()
+    }
+}
 
 struct WondayWallWidgetEntry: TimelineEntry {
     let date: Date
@@ -81,6 +143,21 @@ struct WondayWallWidgetProvider: TimelineProvider {
                 title: $0.title,
                 url: $0.url,
                 publishedAt: $0.publishedAt
+            )
+        }
+
+        state.usedCalendarEvents = historyService.getDisplayCalendarEvents(
+            since: state.currentSlotStartedAt
+        )
+        .prefix(3)
+        .map {
+            WidgetCalendarEvent(
+                id: $0.id,
+                title: $0.title,
+                startTime: $0.startTime,
+                endTime: $0.endTime,
+                isAllDay: $0.isAllDay,
+                location: $0.location
             )
         }
         return state
@@ -191,17 +268,15 @@ struct WondayWallWidgetView: View {
     }
 
     private var mediumContent: some View {
-        HStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: 8) {
             if shouldShowStatus {
-                VStack(alignment: .leading, spacing: 8) {
-                    statusLabel
-                    Spacer(minLength: 0)
-                }
-                .frame(maxWidth: 116, alignment: .leading)
+                statusLabel
             }
 
-            if shouldShowNews {
-                newsList(limit: 2)
+            Spacer(minLength: 0)
+
+            if shouldShowInfo {
+                infoContent(limit: mediumInfoLimit, compact: true)
             }
         }
         .padding(14)
@@ -224,8 +299,8 @@ struct WondayWallWidgetView: View {
 
             Spacer(minLength: 0)
 
-            if shouldShowNews {
-                newsList(limit: 3)
+            if shouldShowInfo {
+                infoContent(limit: 3, compact: false)
             }
         }
         .padding(16)
@@ -249,45 +324,134 @@ struct WondayWallWidgetView: View {
 
     private func generateLink(compact: Bool) -> some View {
         Link(destination: generationURL) {
-            HStack(spacing: 6) {
+            HStack(spacing: compact ? 8 : 10) {
                 Image(systemName: "sparkles")
                 Text(compact ? "生成" : "壁紙生成")
             }
-            .font(.caption.weight(.bold))
+            .font((compact ? Font.headline : Font.title3).weight(.bold))
             .foregroundStyle(.white)
-            .padding(.horizontal, compact ? 10 : 12)
-            .padding(.vertical, compact ? 6 : 8)
+            .padding(.horizontal, compact ? 18 : 22)
+            .padding(.vertical, compact ? 12 : 14)
             .background(Color.accentColor)
             .clipShape(Capsule())
-            .shadow(color: .black.opacity(0.32), radius: 8, x: 0, y: 3)
+            .shadow(color: .black.opacity(0.36), radius: 10, x: 0, y: 4)
         }
     }
 
-    private func newsList(limit: Int) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+    @ViewBuilder
+    private func infoContent(limit: Int, compact: Bool) -> some View {
+        let page = selectedInfoPage
+
+        VStack(alignment: .leading, spacing: compact ? 7 : 10) {
+            if shouldShowInfoPager {
+                infoPager(selected: page, compact: compact)
+            }
+
+            switch page {
+            case .calendar:
+                calendarList(limit: limit, compact: compact)
+            case .news:
+                newsList(limit: limit, compact: compact)
+            }
+        }
+    }
+
+    private func infoPager(selected: WidgetInfoPage, compact: Bool) -> some View {
+        HStack(spacing: 6) {
+            infoPageButton(
+                title: "予定",
+                page: .calendar,
+                selected: selected == .calendar,
+                compact: compact
+            )
+            infoPageButton(
+                title: "ニュース",
+                page: .news,
+                selected: selected == .news,
+                compact: compact
+            )
+        }
+    }
+
+    private func infoPageButton(
+        title: String,
+        page: WidgetInfoPageIntentValue,
+        selected: Bool,
+        compact: Bool
+    ) -> some View {
+        Button(intent: SelectWidgetInfoPageIntent(page: page)) {
+            Text(title)
+                .font((compact ? Font.caption : Font.callout).weight(.bold))
+                .foregroundStyle(selected ? Color.black : Color.white)
+                .lineLimit(1)
+                .padding(.horizontal, compact ? 10 : 12)
+                .padding(.vertical, compact ? 5 : 7)
+                .frame(maxWidth: .infinity)
+                .background(selected ? Color.white.opacity(0.92) : Color.black.opacity(0.34))
+                .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func calendarList(limit: Int, compact: Bool) -> some View {
+        VStack(alignment: .leading, spacing: compact ? 6 : 8) {
+            ForEach(Array(calendarEvents.prefix(limit))) { item in
+                calendarRow(item, compact: compact)
+            }
+        }
+    }
+
+    private func calendarRow(_ item: WidgetCalendarEvent, compact: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(item.title)
+                .font((compact ? Font.callout : Font.title3).weight(.bold))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+
+            HStack(spacing: 5) {
+                Image(systemName: item.isAllDay ? "calendar" : "clock")
+                Text(calendarTimeText(for: item))
+                    .lineLimit(1)
+                if let location = item.location, !location.isEmpty {
+                    Text("・\(location)")
+                        .lineLimit(1)
+                }
+            }
+            .font((compact ? Font.caption : Font.callout).weight(.semibold))
+            .foregroundStyle(.white.opacity(0.86))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, compact ? 10 : 12)
+        .padding(.vertical, compact ? 8 : 10)
+        .background(Color.black.opacity(0.42))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+
+    private func newsList(limit: Int, compact: Bool) -> some View {
+        VStack(alignment: .leading, spacing: compact ? 6 : 8) {
             ForEach(Array(entry.state.usedNewsTopics.prefix(limit))) { item in
-                if let urlString = item.url, let url = URL(string: urlString) {
+                if let url = newsURL(item.url) {
                     Link(destination: url) {
-                        newsRow(item)
+                        newsRow(item, compact: compact)
                     }
                 } else {
-                    newsRow(item)
+                    newsRow(item, compact: compact)
                 }
             }
         }
     }
 
-    private func newsRow(_ item: WidgetNewsTopic) -> some View {
+    private func newsRow(_ item: WidgetNewsTopic, compact: Bool) -> some View {
         Text(item.title)
-            .font(.caption2.weight(.medium))
+            .font((compact ? Font.callout : Font.title3).weight(.bold))
             .foregroundStyle(.white)
             .lineLimit(2)
             .multilineTextAlignment(.leading)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
-            .background(Color.black.opacity(0.32))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .padding(.horizontal, compact ? 10 : 12)
+            .padding(.vertical, compact ? 9 : 11)
+            .background(Color.black.opacity(0.42))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 
     private var statusText: String {
@@ -310,8 +474,34 @@ struct WondayWallWidgetView: View {
         entry.state.status != .processed && entry.state.status != .pending
     }
 
-    private var shouldShowNews: Bool {
-        entry.state.status == .processed && !entry.state.usedNewsTopics.isEmpty
+    private var shouldShowInfo: Bool {
+        entry.state.status == .processed && (!calendarEvents.isEmpty || !entry.state.usedNewsTopics.isEmpty)
+    }
+
+    private var shouldShowInfoPager: Bool {
+        !calendarEvents.isEmpty && !entry.state.usedNewsTopics.isEmpty
+    }
+
+    private var mediumInfoLimit: Int {
+        shouldShowInfoPager ? 1 : 2
+    }
+
+    private var calendarEvents: [WidgetCalendarEvent] {
+        entry.state.usedCalendarEvents ?? []
+    }
+
+    private var selectedInfoPage: WidgetInfoPage {
+        let storedPage = WidgetInfoPageStore.current()
+        if storedPage == .calendar, !calendarEvents.isEmpty {
+            return .calendar
+        }
+        if storedPage == .news, !entry.state.usedNewsTopics.isEmpty {
+            return .news
+        }
+        if !calendarEvents.isEmpty {
+            return .calendar
+        }
+        return .news
     }
 
     private var statusIcon: String {
@@ -337,16 +527,48 @@ struct WondayWallWidgetView: View {
         return components.url ?? URL(string: "wondaywall://widget/generate-confirmation")!
     }
 
+    private func newsURL(_ urlString: String?) -> URL? {
+        guard let urlString,
+              let url = URL(string: urlString),
+              let scheme = url.scheme?.lowercased(),
+              scheme == "http" || scheme == "https"
+        else { return nil }
+        return url
+    }
+
+    private func calendarTimeText(for item: WidgetCalendarEvent) -> String {
+        if item.isAllDay {
+            return "終日"
+        }
+
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ja_JP")
+        formatter.setLocalizedDateFormatFromTemplate("M/d HH:mm")
+        let startText = formatter.string(from: item.startTime)
+        guard let endTime = item.endTime else {
+            return startText
+        }
+
+        let calendar = Calendar.current
+        if calendar.isDate(item.startTime, inSameDayAs: endTime) {
+            let timeFormatter = DateFormatter()
+            timeFormatter.locale = Locale(identifier: "ja_JP")
+            timeFormatter.setLocalizedDateFormatFromTemplate("HH:mm")
+            return "\(startText) - \(timeFormatter.string(from: endTime))"
+        }
+        return "\(startText) - \(formatter.string(from: endTime))"
+    }
+
     @ViewBuilder
     private var overlayScrim: some View {
-        if shouldShowStatus || shouldShowNews {
+        if shouldShowStatus || shouldShowInfo {
             bottomScrim
         }
     }
 
     private var bottomScrim: LinearGradient {
         LinearGradient(
-            colors: [.clear, Color.black.opacity(shouldShowNews ? 0.42 : 0.68)],
+            colors: [.clear, Color.black.opacity(shouldShowInfo ? 0.5 : 0.68)],
             startPoint: .top,
             endPoint: .bottom
         )
