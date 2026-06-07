@@ -153,14 +153,25 @@ struct WondayWallWidgetView: View {
 
     @ViewBuilder
     private var overlayContent: some View {
-        switch family {
-        case .systemSmall:
-            smallContent
-        case .systemLarge:
-            largeContent
-        default:
-            mediumContent
+        if entry.state.canOpenGenerationConfirmation {
+            centeredGenerateContent
+        } else {
+            switch family {
+            case .systemSmall:
+                smallContent
+            case .systemLarge:
+                largeContent
+            default:
+                mediumContent
+            }
         }
+    }
+
+    private var centeredGenerateContent: some View {
+        VStack {
+            generateLink(compact: family == .systemSmall)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
     }
 
     private var smallContent: some View {
@@ -168,9 +179,6 @@ struct WondayWallWidgetView: View {
             Spacer()
             if shouldShowStatus {
                 statusLabel
-                if entry.state.canOpenGenerationConfirmation {
-                    generateLink(compact: true)
-                }
             }
         }
         .padding(12)
@@ -187,9 +195,6 @@ struct WondayWallWidgetView: View {
             if shouldShowStatus {
                 VStack(alignment: .leading, spacing: 8) {
                     statusLabel
-                    if entry.state.canOpenGenerationConfirmation {
-                        generateLink(compact: false)
-                    }
                     Spacer(minLength: 0)
                 }
                 .frame(maxWidth: 116, alignment: .leading)
@@ -212,9 +217,6 @@ struct WondayWallWidgetView: View {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 8) {
                         statusLabel
-                        if entry.state.canOpenGenerationConfirmation {
-                            generateLink(compact: false)
-                        }
                     }
                     Spacer()
                 }
@@ -257,6 +259,7 @@ struct WondayWallWidgetView: View {
             .padding(.vertical, compact ? 6 : 8)
             .background(Color.accentColor)
             .clipShape(Capsule())
+            .shadow(color: .black.opacity(0.32), radius: 8, x: 0, y: 3)
         }
     }
 
@@ -292,7 +295,7 @@ struct WondayWallWidgetView: View {
         case .unconfigured:
             return "初期設定が必要です"
         case .pending:
-            return "未実行スロット"
+            return ""
         case .processed:
             return "WondayWall"
         case .generating:
@@ -304,7 +307,7 @@ struct WondayWallWidgetView: View {
     }
 
     private var shouldShowStatus: Bool {
-        entry.state.status != .processed
+        entry.state.status != .processed && entry.state.status != .pending
     }
 
     private var shouldShowNews: Bool {
