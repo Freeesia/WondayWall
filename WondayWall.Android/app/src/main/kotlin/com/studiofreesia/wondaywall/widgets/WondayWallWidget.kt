@@ -32,7 +32,6 @@ import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
-import androidx.glance.layout.size
 import androidx.glance.layout.width
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
@@ -41,9 +40,6 @@ import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import com.studiofreesia.wondaywall.MainActivity
 import com.studiofreesia.wondaywall.models.NewsTopicItem
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 class WondayWallWidget : GlanceAppWidget() {
     override val sizeMode: SizeMode = SizeMode.Responsive(
@@ -86,7 +82,7 @@ private fun WondayWallWidgetContent(
             .fillMaxSize()
             .background(ColorProvider(Color(0xFF263238))),
     ) {
-        state.latestDisplayHistory?.image?.let { image ->
+        state.backgroundImage?.let { image ->
             Image(
                 provider = ImageProvider(image),
                 contentDescription = "最新の壁紙",
@@ -97,7 +93,7 @@ private fun WondayWallWidgetContent(
         Box(
             modifier = GlanceModifier
                 .fillMaxSize()
-                .background(ColorProvider(Color(0x88000000))),
+                .background(ColorProvider(scrimColor(state))),
         ) {
             when (displaySize) {
                 WidgetDisplaySize.Small -> SmallWidgetContent(context, state)
@@ -107,6 +103,13 @@ private fun WondayWallWidgetContent(
         }
     }
 }
+
+private fun scrimColor(state: WidgetDisplayState): Color =
+    if (state.status == WidgetSlotStatus.Processed) {
+        Color(0x33000000)
+    } else {
+        Color(0x88000000)
+    }
 
 @Composable
 private fun SmallWidgetContent(
@@ -119,12 +122,12 @@ private fun SmallWidgetContent(
             .padding(12.dp),
         verticalAlignment = Alignment.Vertical.Bottom,
     ) {
-        StatusLabel(state)
-        Spacer(GlanceModifier.height(8.dp))
-        if (state.canOpenGenerationConfirmation) {
-            GenerateAction(context, state, compact = true)
-        } else {
-            LastGeneratedText(state)
+        if (state.status != WidgetSlotStatus.Processed) {
+            StatusLabel(state)
+            if (state.canOpenGenerationConfirmation) {
+                Spacer(GlanceModifier.height(8.dp))
+                GenerateAction(context, state, compact = true)
+            }
         }
     }
 }
@@ -140,21 +143,20 @@ private fun MediumWidgetContent(
             .padding(14.dp),
         verticalAlignment = Alignment.Vertical.Top,
     ) {
-        Column(
-            modifier = GlanceModifier
-                .fillMaxHeight()
-                .width(116.dp),
-        ) {
-            StatusLabel(state)
-            Spacer(GlanceModifier.height(8.dp))
-            if (state.canOpenGenerationConfirmation) {
-                GenerateAction(context, state, compact = false)
-            } else {
-                LastGeneratedText(state)
+        if (state.status != WidgetSlotStatus.Processed) {
+            Column(
+                modifier = GlanceModifier
+                    .fillMaxHeight()
+                    .width(116.dp),
+            ) {
+                StatusLabel(state)
+                if (state.canOpenGenerationConfirmation) {
+                    Spacer(GlanceModifier.height(8.dp))
+                    GenerateAction(context, state, compact = false)
+                }
             }
         }
         if (state.status == WidgetSlotStatus.Processed) {
-            Spacer(GlanceModifier.width(10.dp))
             NewsList(state.usedNewsTopics.take(2))
         }
     }
@@ -170,19 +172,13 @@ private fun LargeWidgetContent(
             .fillMaxSize()
             .padding(16.dp),
     ) {
-        StatusLabel(state)
-        Spacer(GlanceModifier.height(8.dp))
-        if (state.canOpenGenerationConfirmation) {
-            GenerateAction(context, state, compact = false)
-            Spacer(GlanceModifier.height(8.dp))
-            Text(
-                text = "次回 ${formatTime(state.nextSlotStartsAtMillis)}",
-                style = captionStyle(),
-            )
-        } else {
-            LastGeneratedText(state)
+        if (state.status != WidgetSlotStatus.Processed) {
+            StatusLabel(state)
+            if (state.canOpenGenerationConfirmation) {
+                Spacer(GlanceModifier.height(8.dp))
+                GenerateAction(context, state, compact = false)
+            }
         }
-        Spacer(GlanceModifier.height(12.dp))
         if (state.status == WidgetSlotStatus.Processed) {
             NewsList(state.usedNewsTopics.take(3))
         }
@@ -199,18 +195,6 @@ private fun StatusLabel(state: WidgetDisplayState) {
             fontWeight = FontWeight.Bold,
             fontSize = 13.sp,
         ),
-    )
-}
-
-@Composable
-private fun LastGeneratedText(state: WidgetDisplayState) {
-    val text = state.latestDisplayHistory?.let {
-        "最終生成 ${formatTime(it.executedAtMillis)}"
-    } ?: "履歴はまだありません"
-    Text(
-        text = text,
-        maxLines = 1,
-        style = captionStyle(),
     )
 }
 
@@ -283,7 +267,7 @@ private fun statusText(state: WidgetDisplayState): String =
     when (state.status) {
         WidgetSlotStatus.Unconfigured -> "初期設定が必要です"
         WidgetSlotStatus.Pending -> "未実行スロット"
-        WidgetSlotStatus.Processed -> "実行済み"
+        WidgetSlotStatus.Processed -> "WondayWall"
         WidgetSlotStatus.Generating -> state.generationProgress?.let { "生成中 ${it.percent}%" } ?: "生成中"
     }
 
@@ -292,9 +276,6 @@ private fun captionStyle(): TextStyle =
         color = ColorProvider(Color.White.copy(alpha = 0.92f)),
         fontSize = 11.sp,
     )
-
-private fun formatTime(millis: Long): String =
-    SimpleDateFormat("H:mm", Locale.JAPAN).format(Date(millis))
 
 private enum class WidgetDisplaySize {
     Small,

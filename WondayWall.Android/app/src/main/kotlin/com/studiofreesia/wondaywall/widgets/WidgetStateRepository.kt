@@ -6,7 +6,6 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import com.studiofreesia.wondaywall.App
 import com.studiofreesia.wondaywall.models.GenerationProgress
-import com.studiofreesia.wondaywall.models.HistoryItem
 import com.studiofreesia.wondaywall.models.NewsTopicItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -19,7 +18,6 @@ class WidgetStateRepository(private val context: Context) {
         val config = app.appConfigService.getConfig()
         val isConfigured = config.googleAiApiKey.trim().isNotEmpty()
         val currentSlotStartedAtMillis = app.taskSchedulerService.getCurrentSlotStartedAtMillis()
-        val nextSlotStartsAtMillis = app.taskSchedulerService.getNextSlotStartedAtMillis()
         val history = app.historyService.loadHistory()
         val lastCompleted = history.firstOrNull { !it.isGenerating }
         val isCurrentSlotProcessed =
@@ -55,20 +53,11 @@ class WidgetStateRepository(private val context: Context) {
             generationProgress = progress,
             isCurrentSlotProcessed = isCurrentSlotProcessed,
             currentSlotStartedAtMillis = currentSlotStartedAtMillis,
-            nextSlotStartsAtMillis = nextSlotStartsAtMillis,
-            latestDisplayHistory = imageHistory?.toWidgetHistory(),
+            backgroundImage = imageHistory?.appliedImageUri?.let { loadWidgetBitmap(it) },
             canOpenGenerationConfirmation = isConfigured && !isGenerating && !isCurrentSlotProcessed,
             usedNewsTopics = usedNews.take(3),
         )
     }
-
-    private suspend fun HistoryItem.toWidgetHistory(): WidgetDisplayHistory =
-        WidgetDisplayHistory(
-            id = id,
-            executedAtMillis = executedAt.toEpochMilliseconds(),
-            status = status.name,
-            image = appliedImageUri?.let { loadWidgetBitmap(it) },
-        )
 
     private suspend fun loadWidgetBitmap(reference: String): Bitmap? = withContext(Dispatchers.IO) {
         runCatching {
@@ -115,15 +104,7 @@ data class WidgetDisplayState(
     val generationProgress: GenerationProgress?,
     val isCurrentSlotProcessed: Boolean,
     val currentSlotStartedAtMillis: Long,
-    val nextSlotStartsAtMillis: Long,
-    val latestDisplayHistory: WidgetDisplayHistory?,
+    val backgroundImage: Bitmap?,
     val canOpenGenerationConfirmation: Boolean,
     val usedNewsTopics: List<NewsTopicItem>,
-)
-
-data class WidgetDisplayHistory(
-    val id: String,
-    val executedAtMillis: Long,
-    val status: String,
-    val image: Bitmap?,
 )
