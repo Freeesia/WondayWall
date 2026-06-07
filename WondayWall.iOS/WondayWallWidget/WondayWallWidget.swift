@@ -120,9 +120,13 @@ struct WondayWallWidgetView: View {
     let entry: WondayWallWidgetEntry
 
     var body: some View {
-        ZStack {
-            wallpaperBackground
-            overlayContent
+        GeometryReader { proxy in
+            ZStack {
+                wallpaperBackground(size: proxy.size)
+                overlayContent
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height)
+            .clipped()
         }
         .widgetURL(entry.state.canOpenGenerationConfirmation ? generationURL : nil)
         .containerBackground(for: .widget) {
@@ -131,12 +135,12 @@ struct WondayWallWidgetView: View {
     }
 
     @ViewBuilder
-    private var wallpaperBackground: some View {
+    private func wallpaperBackground(size: CGSize) -> some View {
         if let image = entry.image {
             Image(uiImage: image)
                 .resizable()
-                .scaledToFill()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .aspectRatio(contentMode: .fill)
+                .frame(width: size.width, height: size.height)
                 .clipped()
         } else {
             LinearGradient(
@@ -162,72 +166,71 @@ struct WondayWallWidgetView: View {
     private var smallContent: some View {
         VStack(alignment: .leading, spacing: 8) {
             Spacer()
-            statusLabel
-            if entry.state.canOpenGenerationConfirmation {
-                generateLink(compact: true)
-            } else if let date = entry.state.latestDisplayHistory?.executedAt {
-                Text(date, style: .time)
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.92))
+            if shouldShowStatus {
+                statusLabel
+                if entry.state.canOpenGenerationConfirmation {
+                    generateLink(compact: true)
+                }
             }
         }
         .padding(12)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-        .background(bottomScrim)
+        .background {
+            if shouldShowStatus {
+                bottomScrim
+            }
+        }
     }
 
     private var mediumContent: some View {
         HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 8) {
-                statusLabel
-                if entry.state.canOpenGenerationConfirmation {
-                    generateLink(compact: false)
-                } else {
-                    lastGeneratedText
+            if shouldShowStatus {
+                VStack(alignment: .leading, spacing: 8) {
+                    statusLabel
+                    if entry.state.canOpenGenerationConfirmation {
+                        generateLink(compact: false)
+                    }
+                    Spacer(minLength: 0)
                 }
-                Spacer(minLength: 0)
+                .frame(maxWidth: 116, alignment: .leading)
             }
-            .frame(maxWidth: 116, alignment: .leading)
 
-            if entry.state.status == .processed {
+            if shouldShowNews {
                 newsList(limit: 2)
             }
         }
         .padding(14)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .background(sideScrim)
+        .background {
+            overlayScrim
+        }
     }
 
     private var largeContent: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 8) {
-                    statusLabel
-                    if entry.state.canOpenGenerationConfirmation {
-                        generateLink(compact: false)
-                    } else {
-                        lastGeneratedText
+            if shouldShowStatus {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        statusLabel
+                        if entry.state.canOpenGenerationConfirmation {
+                            generateLink(compact: false)
+                        }
                     }
+                    Spacer()
                 }
-                Spacer()
             }
 
             Spacer(minLength: 0)
 
-            if entry.state.status == .pending,
-               let nextSlot = entry.state.nextSlotStartsAt {
-                Text("次回 \(nextSlot.formatted(date: .omitted, time: .shortened))")
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(.white.opacity(0.9))
-            }
-
-            if entry.state.status == .processed {
+            if shouldShowNews {
                 newsList(limit: 3)
             }
         }
         .padding(16)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .background(bottomScrim)
+        .background {
+            overlayScrim
+        }
     }
 
     private var statusLabel: some View {
@@ -240,19 +243,6 @@ struct WondayWallWidgetView: View {
         }
         .foregroundStyle(.white)
         .shadow(radius: 2)
-    }
-
-    private var lastGeneratedText: some View {
-        Group {
-            if let date = entry.state.latestDisplayHistory?.executedAt {
-                Text("最終生成 \(date.formatted(date: .omitted, time: .shortened))")
-            } else {
-                Text("履歴はまだありません")
-            }
-        }
-        .font(.caption2.weight(.medium))
-        .foregroundStyle(.white.opacity(0.9))
-        .lineLimit(1)
     }
 
     private func generateLink(compact: Bool) -> some View {
@@ -304,13 +294,21 @@ struct WondayWallWidgetView: View {
         case .pending:
             return "未実行スロット"
         case .processed:
-            return "実行済み"
+            return "WondayWall"
         case .generating:
             if let progress = entry.state.generationProgress {
                 return "生成中 \(progress)%"
             }
             return "生成中"
         }
+    }
+
+    private var shouldShowStatus: Bool {
+        entry.state.status != .processed
+    }
+
+    private var shouldShowNews: Bool {
+        entry.state.status == .processed && !entry.state.usedNewsTopics.isEmpty
     }
 
     private var statusIcon: String {
@@ -336,19 +334,18 @@ struct WondayWallWidgetView: View {
         return components.url ?? URL(string: "wondaywall://widget/generate-confirmation")!
     }
 
-    private var bottomScrim: LinearGradient {
-        LinearGradient(
-            colors: [.clear, Color.black.opacity(0.68)],
-            startPoint: .top,
-            endPoint: .bottom
-        )
+    @ViewBuilder
+    private var overlayScrim: some View {
+        if shouldShowStatus || shouldShowNews {
+            bottomScrim
+        }
     }
 
-    private var sideScrim: LinearGradient {
+    private var bottomScrim: LinearGradient {
         LinearGradient(
-            colors: [Color.black.opacity(0.68), Color.black.opacity(0.18), .clear],
-            startPoint: .leading,
-            endPoint: .trailing
+            colors: [.clear, Color.black.opacity(shouldShowNews ? 0.42 : 0.68)],
+            startPoint: .top,
+            endPoint: .bottom
         )
     }
 }
@@ -365,6 +362,7 @@ struct WondayWallWidget: Widget {
         .configurationDisplayName("WondayWall")
         .description("現在の生成スロットと壁紙履歴を表示します。")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+        .contentMarginsDisabled()
     }
 }
 
