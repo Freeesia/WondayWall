@@ -69,6 +69,48 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Generate release notes
+        shell: pwsh
+        run: |
+          $currentTag = $env:GITHUB_REF_NAME
+
+          # Find the previous tag (sorted by version)
+          $allTags = git tag --sort=-version:refname
+          $idx = [Array]::IndexOf([string[]]$allTags, $currentTag)
+          $previousTag = if ($idx -ge 0 -and ($idx + 1) -lt $allTags.Count) { $allTags[$idx + 1] } else { $null }
+
+          $range = if ($previousTag) { "${previousTag}..HEAD" } else { "HEAD" }
+
+          # .NET-related paths only
+          $dotnetPaths = @(
+            'WondayWall',
+            'WondayWall.Package',
+            'WondayWall.Wix',
+            'WondayWall.sln',
+            'GitVersion.yml',
+            '.config',
+            'eng'
+          )
+
+          $commits = git log $range --oneline --no-merges -- @dotnetPaths
+          $notes = if ($commits) {
+            ($commits -split "`n" | Where-Object { $_ } | ForEach-Object { "- $_" }) -join "`n"
+          } else {
+            "Bug fixes and improvements."
+          }
+
+          Write-Host "Release notes ($range, .NET paths):"
+          Write-Host $notes
+
+          # Inject into every locale in metadata.json
+          $metadata = Get-Content 'eng/store/metadata.json' -Raw | ConvertFrom-Json
+          foreach ($lang in $metadata.listings.PSObject.Properties.Name) {
+            $metadata.listings.$lang.releaseNotes = $notes
+          }
+          $metadata | ConvertTo-Json -Depth 10 | Set-Content 'eng/store/metadata.json' -Encoding UTF8
 
       - uses: actions/download-artifact@v4
         with:
