@@ -120,7 +120,7 @@ class WondayWallWidget : GlanceAppWidget() {
     )
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val state = WidgetStateRepository(context).load()
+        val state = WidgetStateRepository(context).load(includeFaviconImages = false)
         provideContent {
             WondayWallWidgetContent(
                 context = context,

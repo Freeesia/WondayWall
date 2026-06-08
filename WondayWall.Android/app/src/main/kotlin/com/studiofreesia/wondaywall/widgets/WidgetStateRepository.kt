@@ -6,7 +6,6 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import com.studiofreesia.wondaywall.App
 import com.studiofreesia.wondaywall.models.CalendarEventItem
-import com.studiofreesia.wondaywall.models.GenerationProgress
 import com.studiofreesia.wondaywall.models.NewsTopicItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -17,7 +16,7 @@ import java.util.Locale
 
 // 既存サービスからウィジェット表示状態を組み立てるリポジトリ
 class WidgetStateRepository(private val context: Context) {
-    suspend fun load(): WidgetDisplayState {
+    suspend fun load(includeFaviconImages: Boolean = true): WidgetDisplayState {
         val app = context.applicationContext as App
         val config = app.appConfigService.getConfig()
         val isConfigured = config.googleAiApiKey.trim().isNotEmpty()
@@ -26,8 +25,6 @@ class WidgetStateRepository(private val context: Context) {
         val lastCompleted = history.firstOrNull { !it.isGenerating }
         val isCurrentSlotProcessed =
             lastCompleted?.executedAt?.toEpochMilliseconds()?.let { it >= currentSlotStartedAtMillis } == true
-        val progress = app.generationCoordinator.progress.value
-            ?: app.taskSchedulerService.getCurrentProgress()
         val isGenerating = app.generationCoordinator.isGenerating.value ||
             app.taskSchedulerService.isGenerationWorkRunning()
 
@@ -57,15 +54,16 @@ class WidgetStateRepository(private val context: Context) {
 
         return WidgetDisplayState(
             status = status,
-            isGenerating = isGenerating,
-            generationProgress = progress,
-            isCurrentSlotProcessed = isCurrentSlotProcessed,
             currentSlotStartedAtMillis = currentSlotStartedAtMillis,
             backgroundImage = imageHistory?.appliedImageUri?.let { loadWidgetBitmap(it) },
             canOpenGenerationConfirmation = isConfigured && !isGenerating && !isCurrentSlotProcessed,
             usedCalendarEvents = usedEvents.take(4),
             usedNewsTopics = displayNews,
-            faviconImages = loadFaviconImages(displayNews),
+            faviconImages = if (includeFaviconImages) {
+                loadFaviconImages(displayNews)
+            } else {
+                emptyMap()
+            },
         )
     }
 
@@ -175,9 +173,6 @@ enum class WidgetSlotStatus {
 
 data class WidgetDisplayState(
     val status: WidgetSlotStatus,
-    val isGenerating: Boolean,
-    val generationProgress: GenerationProgress?,
-    val isCurrentSlotProcessed: Boolean,
     val currentSlotStartedAtMillis: Long,
     val backgroundImage: Bitmap?,
     val canOpenGenerationConfirmation: Boolean,

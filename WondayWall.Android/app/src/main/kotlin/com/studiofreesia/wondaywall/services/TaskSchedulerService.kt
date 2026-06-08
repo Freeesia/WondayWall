@@ -222,12 +222,6 @@ class TaskSchedulerService(
         return getLatestScheduledSlotAtOrBefore(System.currentTimeMillis(), config.schedule)
     }
 
-    // 現在設定に基づく次回スケジュールスロット開始時刻を返す（ウィジェット表示用）
-    suspend fun getNextSlotStartedAtMillis(): Long {
-        val config = appConfigService.getConfig()
-        return getNextScheduledSlotAfter(System.currentTimeMillis(), config.schedule)
-    }
-
     // 実行中 Work の最新 progress を取得する
     suspend fun getCurrentProgress(): GenerationProgress? =
         getWorkInfos()
