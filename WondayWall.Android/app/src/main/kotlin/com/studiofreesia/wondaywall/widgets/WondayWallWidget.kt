@@ -64,6 +64,8 @@ private enum class WidgetInfoPage {
 private object WidgetInfoPageStore {
     private const val PREFS_NAME = "wondaywall_widget"
     private const val KEY_INFO_PAGE = "infoPage"
+    private const val KEY_CALENDAR_ITEM_PAGE = "calendarItemPage"
+    private const val KEY_NEWS_ITEM_PAGE = "newsItemPage"
 
     fun current(context: Context): WidgetInfoPage? =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -76,6 +78,23 @@ private object WidgetInfoPageStore {
             .putString(KEY_INFO_PAGE, page.name)
             .apply()
     }
+
+    fun itemPage(context: Context, page: WidgetInfoPage): Int =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getInt(itemPageKey(page), 0)
+
+    fun setItemPage(context: Context, page: WidgetInfoPage, index: Int) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putInt(itemPageKey(page), index.coerceAtLeast(0))
+            .apply()
+    }
+
+    private fun itemPageKey(page: WidgetInfoPage): String =
+        when (page) {
+            WidgetInfoPage.Calendar -> KEY_CALENDAR_ITEM_PAGE
+            WidgetInfoPage.News -> KEY_NEWS_ITEM_PAGE
+        }
 }
 
 class SelectWidgetInfoPageAction : ActionCallback {
@@ -93,6 +112,25 @@ class SelectWidgetInfoPageAction : ActionCallback {
 
     companion object {
         val PageKey = ActionParameters.Key<String>("page")
+    }
+}
+
+class SelectWidgetItemPageAction : ActionCallback {
+    override suspend fun onAction(
+        context: Context,
+        glanceId: GlanceId,
+        parameters: ActionParameters,
+    ) {
+        val page = parameters[SelectWidgetInfoPageAction.PageKey]
+            ?.let { value -> runCatching { WidgetInfoPage.valueOf(value) }.getOrNull() }
+            ?: return
+        val index = parameters[IndexKey] ?: return
+        WidgetInfoPageStore.setItemPage(context, page, index)
+        WondayWallWidget().update(context, glanceId)
+    }
+
+    companion object {
+        val IndexKey = ActionParameters.Key<Int>("index")
     }
 }
 
@@ -315,6 +353,9 @@ private fun InfoContent(
 ) {
     val page = selectedInfoPage(context, state)
     val limit = infoLimit(page, compact, shouldShowInfoPager(state))
+    val totalCount = itemCountFor(page, state)
+    val pageCount = pageCount(totalCount, limit)
+    val itemPage = itemPageIndex(context, page, totalCount, limit)
 
     Column(modifier = GlanceModifier.fillMaxWidth()) {
         if (shouldShowInfoPager(state)) {
@@ -323,8 +364,25 @@ private fun InfoContent(
         }
 
         when (page) {
-            WidgetInfoPage.Calendar -> CalendarList(state.usedCalendarEvents.take(limit), compact)
-            WidgetInfoPage.News -> NewsList(state.usedNewsTopics.take(limit), state.faviconImages, compact)
+            WidgetInfoPage.Calendar -> CalendarList(
+                state.usedCalendarEvents.pageItems(itemPage, limit),
+                compact
+            )
+            WidgetInfoPage.News -> NewsList(
+                state.usedNewsTopics.pageItems(itemPage, limit),
+                state.faviconImages,
+                compact
+            )
+        }
+
+        if (pageCount > 1) {
+            Spacer(GlanceModifier.height(if (compact) 5.dp else 8.dp))
+            ItemPager(
+                page = page,
+                pageIndex = itemPage,
+                pageCount = pageCount,
+                compact = compact,
+            )
         }
     }
 }
@@ -433,14 +491,20 @@ private fun NewsList(
     faviconImages: Map<String, Bitmap>,
     compact: Boolean,
 ) {
-    Column(modifier = GlanceModifier.fillMaxWidth()) {
-        news.forEach { item ->
+    Column(
+        modifier = GlanceModifier
+            .fillMaxWidth()
+            .background(ColorProvider(Color(0xEAF8F8F8)))
+            .cornerRadius(10.dp),
+    ) {
+        news.forEachIndexed { index, item ->
+            if (index > 0) {
+                DividerLine(start = 12.dp)
+            }
             val uri = newsUri(item.url)
             val modifier = GlanceModifier
                 .fillMaxWidth()
-                .background(ColorProvider(Color(0x66000000)))
-                .cornerRadius(8.dp)
-                .padding(horizontal = if (compact) 8.dp else 10.dp, vertical = if (compact) 6.dp else 8.dp)
+                .padding(horizontal = 12.dp, vertical = if (compact) 9.dp else 10.dp)
                 .let {
                     if (uri == null) {
                         it
@@ -451,44 +515,140 @@ private fun NewsList(
 
             Row(
                 modifier = modifier,
-                verticalAlignment = Alignment.Vertical.Top,
+                verticalAlignment = Alignment.Vertical.CenterVertically,
             ) {
                 FaviconImage(faviconImages[item.id])
                 Spacer(GlanceModifier.width(8.dp))
                 Column(modifier = GlanceModifier.fillMaxWidth()) {
                     Text(
                         text = item.title,
-                        maxLines = if (compact) 1 else 2,
+                        maxLines = 2,
                         style = TextStyle(
-                            color = ColorProvider(Color.White),
+                            color = ColorProvider(Color(0xFF1B1B1F)),
                             fontWeight = FontWeight.Medium,
-                            fontSize = 11.sp,
+                            fontSize = if (compact) 11.sp else 12.sp,
                         ),
                     )
-                    Spacer(GlanceModifier.height(3.dp))
+                    Spacer(GlanceModifier.height(2.dp))
                     Text(
                         text = formatNewsPublishedAt(item),
                         maxLines = 1,
                         style = TextStyle(
-                            color = ColorProvider(Color.White.copy(alpha = 0.76f)),
+                            color = ColorProvider(Color(0xFF5F6368)),
                             fontSize = 10.sp,
                         ),
                     )
                 }
             }
-            Spacer(GlanceModifier.height(if (compact) 6.dp else 8.dp))
         }
     }
+}
+
+@Composable
+private fun DividerLine(start: androidx.compose.ui.unit.Dp) {
+    Row(
+        modifier = GlanceModifier
+            .fillMaxWidth()
+            .height(1.dp),
+    ) {
+        Spacer(GlanceModifier.width(start))
+        Box(
+            modifier = GlanceModifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(ColorProvider(Color(0x33000000))),
+        ) {}
+    }
+}
+
+@Composable
+private fun ItemPager(
+    page: WidgetInfoPage,
+    pageIndex: Int,
+    pageCount: Int,
+    compact: Boolean,
+) {
+    Row(
+        modifier = GlanceModifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Vertical.CenterVertically,
+    ) {
+        PagerButton(
+            text = "<",
+            page = page,
+            targetIndex = (pageIndex - 1).coerceAtLeast(0),
+            enabled = pageIndex > 0,
+            compact = compact,
+        )
+        Spacer(GlanceModifier.width(6.dp))
+        Text(
+            text = "${pageIndex + 1}/$pageCount",
+            maxLines = 1,
+            style = TextStyle(
+                color = ColorProvider(Color.White),
+                fontWeight = FontWeight.Bold,
+                fontSize = if (compact) 11.sp else 12.sp,
+                textAlign = TextAlign.Center,
+            ),
+            modifier = GlanceModifier
+                .background(ColorProvider(Color(0x66000000)))
+                .cornerRadius(50.dp)
+                .padding(horizontal = 10.dp, vertical = if (compact) 4.dp else 5.dp),
+        )
+        Spacer(GlanceModifier.width(6.dp))
+        PagerButton(
+            text = ">",
+            page = page,
+            targetIndex = (pageIndex + 1).coerceAtMost(pageCount - 1),
+            enabled = pageIndex < pageCount - 1,
+            compact = compact,
+        )
+    }
+}
+
+@Composable
+private fun PagerButton(
+    text: String,
+    page: WidgetInfoPage,
+    targetIndex: Int,
+    enabled: Boolean,
+    compact: Boolean,
+) {
+    val baseModifier = GlanceModifier
+        .background(ColorProvider(if (enabled) Color(0xCCFFFFFF) else Color(0x44FFFFFF)))
+        .cornerRadius(50.dp)
+        .padding(horizontal = 10.dp, vertical = if (compact) 4.dp else 5.dp)
+    Text(
+        text = text,
+        maxLines = 1,
+        style = TextStyle(
+            color = ColorProvider(if (enabled) Color.Black else Color.White.copy(alpha = 0.42f)),
+            fontWeight = FontWeight.Bold,
+            fontSize = if (compact) 11.sp else 12.sp,
+            textAlign = TextAlign.Center,
+        ),
+        modifier = if (enabled) {
+            baseModifier.clickable(
+                actionRunCallback<SelectWidgetItemPageAction>(
+                    actionParametersOf(
+                        SelectWidgetInfoPageAction.PageKey to page.name,
+                        SelectWidgetItemPageAction.IndexKey to targetIndex,
+                    )
+                )
+            )
+        } else {
+            baseModifier
+        },
+    )
 }
 
 @Composable
 private fun FaviconImage(bitmap: Bitmap?) {
     Box(
         modifier = GlanceModifier
-            .width(16.dp)
-            .height(16.dp)
-            .background(ColorProvider(Color(0xAAFFFFFF)))
-            .cornerRadius(4.dp),
+            .width(24.dp)
+            .height(24.dp)
+            .background(ColorProvider(Color(0xFFE7E8EA)))
+            .cornerRadius(6.dp),
         contentAlignment = Alignment.Center,
     ) {
         if (bitmap != null) {
@@ -497,9 +657,9 @@ private fun FaviconImage(bitmap: Bitmap?) {
                 contentDescription = null,
                 contentScale = ContentScale.Fit,
                 modifier = GlanceModifier
-                    .width(16.dp)
-                    .height(16.dp)
-                    .padding(2.dp),
+                    .width(24.dp)
+                    .height(24.dp)
+                    .padding(4.dp),
             )
         }
     }
@@ -542,11 +702,43 @@ private fun infoLimit(
 ): Int =
     when {
         page == WidgetInfoPage.News && compact && showPager -> 2
-        page == WidgetInfoPage.News && compact -> 3
+        page == WidgetInfoPage.News && compact -> 2
         page == WidgetInfoPage.News -> 5
         page == WidgetInfoPage.Calendar && compact -> 2
         else -> 4
     }
+
+private fun itemCountFor(
+    page: WidgetInfoPage,
+    state: WidgetDisplayState,
+): Int =
+    when (page) {
+        WidgetInfoPage.Calendar -> state.usedCalendarEvents.size
+        WidgetInfoPage.News -> state.usedNewsTopics.size
+    }
+
+private fun itemPageIndex(
+    context: Context,
+    page: WidgetInfoPage,
+    totalCount: Int,
+    limit: Int,
+): Int {
+    val pageCount = pageCount(totalCount, limit)
+    if (pageCount <= 1) return 0
+    return WidgetInfoPageStore.itemPage(context, page).coerceIn(0, pageCount - 1)
+}
+
+private fun pageCount(totalCount: Int, limit: Int): Int {
+    if (totalCount <= 0 || limit <= 0) return 0
+    return (totalCount + limit - 1) / limit
+}
+
+private fun <T> List<T>.pageItems(pageIndex: Int, limit: Int): List<T> {
+    if (limit <= 0 || isEmpty()) return emptyList()
+    val start = (pageIndex * limit).coerceAtMost(size)
+    val end = (start + limit).coerceAtMost(size)
+    return subList(start, end)
+}
 
 private fun statusText(state: WidgetDisplayState): String =
     when (state.status) {
