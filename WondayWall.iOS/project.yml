@@ -170,11 +170,19 @@ targets:
     sources:
       - path: WondayWallWidget
       - path: WondayWall/WidgetSupport
+      - path: WondayWall/Models/AppConfig.swift
       - path: WondayWall/Models/CalendarEventItem.swift
+      - path: WondayWall/Models/DebugConfig.swift
       - path: WondayWall/Models/HistoryItem.swift
       - path: WondayWall/Models/NewsTopicItem.swift
+      - path: WondayWall/Models/UpdateSchedule.swift
+      - path: WondayWall/Services/AppConfigService.swift
       - path: WondayWall/Services/HistoryService.swift
       - path: WondayWall/Utils/FileHelper.swift
+      - path: WondayWall/Utils/ScheduleHelper.swift
+    dependencies:
+      - package: Defaults
+      - package: KeychainAccess
     settings:
       base:
         CODE_SIGN_ENTITLEMENTS: WondayWallWidget/WondayWallWidget.entitlements

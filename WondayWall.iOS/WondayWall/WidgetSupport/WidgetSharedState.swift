@@ -63,18 +63,8 @@ struct WidgetNewsTopic: Codable, Identifiable {
 
 enum WidgetSharedConstants {
     static let kind = "WondayWallWidget"
-    static let stateFileName = "widget-state.json"
 
     static var appGroupIdentifier: String? {
         Bundle.main.object(forInfoDictionaryKey: "WondayWallAppGroupIdentifier") as? String
-    }
-
-    static func sharedContainerURL() -> URL? {
-        guard let appGroupIdentifier else { return nil }
-        return FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier)
-    }
-
-    static func stateFileURL() -> URL? {
-        sharedContainerURL()?.appendingPathComponent(stateFileName)
     }
 }

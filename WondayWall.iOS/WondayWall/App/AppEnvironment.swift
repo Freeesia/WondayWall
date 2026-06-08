@@ -1,4 +1,5 @@
 import Foundation
+import WidgetKit
 
 // 全サービスを保持する DI コンテナ
 // SwiftUI 環境経由で各ビューに注入する
@@ -72,12 +73,12 @@ final class AppEnvironment: ObservableObject {
 
         config.onConfigurationChanged = { [weak self] in
             Task { @MainActor [weak self] in
-                self?.refreshWidgetState()
+                self?.reloadWidgetTimeline()
             }
         }
         history.onHistoryChanged = { [weak self] in
             Task { @MainActor [weak self] in
-                self?.refreshWidgetState()
+                self?.reloadWidgetTimeline()
             }
         }
 
@@ -92,7 +93,7 @@ final class AppEnvironment: ObservableObject {
                 } else {
                     self.generationProgress = nil
                 }
-                self.refreshWidgetState()
+                self.reloadWidgetTimeline()
             }
         }
 
@@ -106,7 +107,7 @@ final class AppEnvironment: ObservableObject {
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 self.generationProgress = max(0, min(100, progress))
-                self.refreshWidgetState()
+                self.reloadWidgetTimeline()
             }
         }
 
@@ -118,23 +119,23 @@ final class AppEnvironment: ObservableObject {
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 self.generationProgress = nil
-                self.refreshWidgetState()
+                self.reloadWidgetTimeline()
             }
         }
     }
 
-    func refreshWidgetState() {
+    func reloadWidgetTimeline() {
         widgetRefreshTask?.cancel()
-        widgetRefreshTask = Task { [weak self] in
+        widgetRefreshTask = Task {
             try? await Task.sleep(for: .milliseconds(250))
-            guard !Task.isCancelled, let self else { return }
-            await WidgetStateService.refresh(environment: self)
+            guard !Task.isCancelled else { return }
+            WidgetCenter.shared.reloadTimelines(ofKind: WidgetSharedConstants.kind)
         }
     }
 
-    func refreshWidgetStateNow() async {
+    func reloadWidgetTimelineNow() async {
         widgetRefreshTask?.cancel()
-        await WidgetStateService.refresh(environment: self)
+        WidgetCenter.shared.reloadTimelines(ofKind: WidgetSharedConstants.kind)
     }
 
     func requestWidgetGenerationConfirmation(slotStartedAt: Date) {

@@ -33,7 +33,7 @@ struct ContentView: View {
             guard !hasLoadedInitialSetupState else { return }
             hasCompletedInitialSetup = environment.configService.config.hasCompletedInitialSetup
             hasLoadedInitialSetupState = true
-            await environment.refreshWidgetStateNow()
+            await environment.reloadWidgetTimelineNow()
         }
         .onOpenURL { url in
             handleOpenURL(url)
@@ -111,7 +111,7 @@ struct ContentView: View {
             NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)
         ) { _ in
             Task {
-                await environment.refreshWidgetStateNow()
+                await environment.reloadWidgetTimelineNow()
                 await evaluateStartupGeneration()
             }
         }
@@ -139,7 +139,7 @@ struct ContentView: View {
     private func completeInitialSetup() {
         hasCompletedInitialSetup = true
         selectedTab = 0
-        environment.refreshWidgetState()
+        environment.reloadWidgetTimeline()
     }
 
     private var startupAlertTitle: String {

@@ -83,7 +83,7 @@ struct WondayWallWidgetProvider: TimelineProvider {
         in context: Context,
         completion: @escaping (WondayWallWidgetEntry) -> Void
     ) {
-        let state = loadState() ?? .placeholder
+        let state = makeDisplayState()
         completion(WondayWallWidgetEntry(date: Date(), state: state, image: loadImage(for: state)))
     }
 
@@ -91,39 +91,66 @@ struct WondayWallWidgetProvider: TimelineProvider {
         in context: Context,
         completion: @escaping (Timeline<WondayWallWidgetEntry>) -> Void
     ) {
-        let state = loadState() ?? .placeholder
+        let state = makeDisplayState()
         let entry = WondayWallWidgetEntry(date: Date(), state: state, image: loadImage(for: state))
-        let refreshDate = state.nextSlotStartsAt ?? Date().addingTimeInterval(30 * 60)
+        let refreshDate = nextRefreshDate(for: state)
         completion(Timeline(entries: [entry], policy: .after(refreshDate)))
     }
 
-    private func loadState() -> WidgetSharedState? {
-        guard let url = WidgetSharedConstants.stateFileURL(),
-              let data = try? Data(contentsOf: url)
-        else { return nil }
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        guard let state = try? decoder.decode(WidgetSharedState.self, from: data) else {
-            return nil
-        }
-        return makeDisplayState(from: state)
+    private func nextRefreshDate(for state: WidgetSharedState) -> Date {
+        let now = Date()
+        let hourlyRefreshDate = now.addingTimeInterval(60 * 60)
+        let candidates = [state.nextSlotStartsAt, hourlyRefreshDate]
+            .compactMap { $0 }
+            .filter { $0 > now }
+        return candidates.min() ?? hourlyRefreshDate
     }
 
-    private func makeDisplayState(from sharedState: WidgetSharedState) -> WidgetSharedState {
+    private func makeDisplayState() -> WidgetSharedState {
+        let configService = AppConfigService()
         let historyService = HistoryService(repairInterruptedGeneration: false)
-        var state = sharedState
-        let isCurrentSlotProcessed = historyService.isSlotProcessed(
-            startedAt: state.currentSlotStartedAt
+        let config = configService.config
+        let now = Date()
+        let currentSlotStartedAt = ScheduleHelper.getLatestScheduledSlotAtOrBefore(
+            now,
+            schedule: config.schedule
         )
+        let nextSlotStartsAt = ScheduleHelper.getNextScheduledSlotAfter(
+            now,
+            schedule: config.schedule
+        )
+        let isCurrentSlotProcessed = historyService.isSlotProcessed(
+            startedAt: currentSlotStartedAt
+        )
+        let isGenerating = historyService.loadNewestFirst().first?.isGenerating == true
+        let isConfigured = config.hasCompletedInitialSetup
 
-        state.isCurrentSlotProcessed = isCurrentSlotProcessed
-        if state.status != .unconfigured && state.status != .generating {
-            state.status = isCurrentSlotProcessed ? .processed : .pending
-            state.canOpenGenerationConfirmation = state.canOpenGenerationConfirmation
-                && !isCurrentSlotProcessed
+        let status: WidgetSlotStatus
+        if !isConfigured {
+            status = .unconfigured
+        } else if isGenerating {
+            status = .generating
+        } else if isCurrentSlotProcessed {
+            status = .processed
+        } else {
+            status = .pending
         }
 
-        if let item = historyService.getLatestDisplayCandidate(since: state.currentSlotStartedAt) {
+        var state = WidgetSharedState(
+            status: status,
+            isGenerating: isGenerating,
+            generationProgress: nil,
+            isCurrentSlotProcessed: isCurrentSlotProcessed,
+            currentSlotStartedAt: currentSlotStartedAt,
+            nextSlotStartsAt: nextSlotStartsAt,
+            latestDisplayHistory: nil,
+            canOpenGenerationConfirmation: isConfigured && !isGenerating && !isCurrentSlotProcessed,
+            usedCalendarEvents: [],
+            usedNewsTopics: [],
+            updatedAt: now
+        )
+
+        if let item = historyService.getLatestDisplayCandidate(since: currentSlotStartedAt) {
             state.latestDisplayHistory = WidgetDisplayHistory(
                 id: item.id,
                 executedAt: item.executedAt,
@@ -135,7 +162,7 @@ struct WondayWallWidgetProvider: TimelineProvider {
         }
 
         state.usedNewsTopics = historyService.getDisplayNewsTopics(
-            since: state.currentSlotStartedAt
+            since: currentSlotStartedAt
         )
         .prefix(8)
         .map {
@@ -148,7 +175,7 @@ struct WondayWallWidgetProvider: TimelineProvider {
         }
 
         state.usedCalendarEvents = historyService.getDisplayCalendarEvents(
-            since: state.currentSlotStartedAt
+            since: currentSlotStartedAt
         )
         .prefix(4)
         .map {
