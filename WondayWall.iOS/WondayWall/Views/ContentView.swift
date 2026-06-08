@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // タブビュー — Home / Data / History / Settings の4タブ構成
 struct ContentView: View {
@@ -198,6 +199,11 @@ struct ContentView: View {
     }
 
     private func handleOpenURL(_ url: URL) {
+        if isExternalURL(url) {
+            UIApplication.shared.open(url)
+            return
+        }
+
         guard url.scheme == "wondaywall",
               url.host == "widget"
         else { return }
@@ -220,6 +226,11 @@ struct ContentView: View {
         default:
             return
         }
+    }
+
+    private func isExternalURL(_ url: URL) -> Bool {
+        guard let scheme = url.scheme?.lowercased() else { return false }
+        return scheme == "http" || scheme == "https"
     }
 }
 

@@ -70,31 +70,48 @@ struct WondayWallWidgetEntry: TimelineEntry {
     let date: Date
     let state: WidgetSharedState
     let image: UIImage?
+    let faviconImages: [String: UIImage]
 }
 
 struct WondayWallWidgetProvider: TimelineProvider {
     private static let imageTargetSize = CGSize(width: 720, height: 720)
 
     func placeholder(in context: Context) -> WondayWallWidgetEntry {
-        WondayWallWidgetEntry(date: Date(), state: .placeholder, image: nil)
+        WondayWallWidgetEntry(date: Date(), state: .placeholder, image: nil, faviconImages: [:])
     }
 
     func getSnapshot(
         in context: Context,
         completion: @escaping (WondayWallWidgetEntry) -> Void
     ) {
-        let state = makeDisplayState()
-        completion(WondayWallWidgetEntry(date: Date(), state: state, image: loadImage(for: state)))
+        Task {
+            let state = makeDisplayState()
+            let faviconImages = await loadFaviconImages(for: state)
+            completion(WondayWallWidgetEntry(
+                date: Date(),
+                state: state,
+                image: loadImage(for: state),
+                faviconImages: faviconImages
+            ))
+        }
     }
 
     func getTimeline(
         in context: Context,
         completion: @escaping (Timeline<WondayWallWidgetEntry>) -> Void
     ) {
-        let state = makeDisplayState()
-        let entry = WondayWallWidgetEntry(date: Date(), state: state, image: loadImage(for: state))
-        let refreshDate = nextRefreshDate(for: state)
-        completion(Timeline(entries: [entry], policy: .after(refreshDate)))
+        Task {
+            let state = makeDisplayState()
+            let faviconImages = await loadFaviconImages(for: state)
+            let entry = WondayWallWidgetEntry(
+                date: Date(),
+                state: state,
+                image: loadImage(for: state),
+                faviconImages: faviconImages
+            )
+            let refreshDate = nextRefreshDate(for: state)
+            completion(Timeline(entries: [entry], policy: .after(refreshDate)))
+        }
     }
 
     private func nextRefreshDate(for state: WidgetSharedState) -> Date {
@@ -217,6 +234,57 @@ struct WondayWallWidgetProvider: TimelineProvider {
             result = image
         }
         return result
+    }
+
+    private func loadFaviconImages(for state: WidgetSharedState) async -> [String: UIImage] {
+        await withTaskGroup(of: (String, UIImage?).self) { group in
+            for item in state.usedNewsTopics {
+                guard let faviconURL = WidgetNewsURLHelper.faviconURL(for: item.url) else { continue }
+                group.addTask {
+                    let image = await Self.loadImage(from: faviconURL)
+                    return (item.id, image)
+                }
+            }
+
+            var images: [String: UIImage] = [:]
+            for await (id, image) in group {
+                if let image {
+                    images[id] = image
+                }
+            }
+            return images
+        }
+    }
+
+    private static func loadImage(from url: URL) async -> UIImage? {
+        let cacheURL = faviconCacheFileURL(for: url)
+        if let data = try? Data(contentsOf: cacheURL),
+           let image = UIImage(data: data) {
+            return image
+        }
+
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 4
+
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              let httpResponse = response as? HTTPURLResponse,
+              (200..<300).contains(httpResponse.statusCode)
+        else { return nil }
+
+        try? data.write(to: cacheURL, options: .atomic)
+        return UIImage(data: data)
+    }
+
+    private static func faviconCacheFileURL(for url: URL) -> URL {
+        let directory = FileHelper.sharedDataDirectory.appendingPathComponent(
+            "favicons",
+            isDirectory: true
+        )
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let fileName = url.absoluteString
+            .addingPercentEncoding(withAllowedCharacters: .alphanumerics)?
+            .appending(".png") ?? "favicon.png"
+        return directory.appendingPathComponent(fileName)
     }
 }
 
@@ -483,7 +551,7 @@ struct WondayWallWidgetView: View {
     private func newsList(limit: Int, compact: Bool) -> some View {
         VStack(alignment: .leading, spacing: compact ? 6 : 8) {
             ForEach(Array(newsItems.prefix(limit))) { item in
-                if let url = newsURL(item.url) {
+                if let url = WidgetNewsURLHelper.newsURL(item.url) {
                     Link(destination: url) {
                         newsRow(item, compact: compact)
                     }
@@ -496,7 +564,7 @@ struct WondayWallWidgetView: View {
 
     private func newsRow(_ item: WidgetNewsTopic, compact: Bool) -> some View {
         HStack(alignment: .top, spacing: 8) {
-            faviconImage(for: item.url)
+            faviconImage(for: item)
                 .padding(.top, 2)
 
             VStack(alignment: .leading, spacing: 3) {
@@ -522,19 +590,12 @@ struct WondayWallWidgetView: View {
     }
 
     @ViewBuilder
-    private func faviconImage(for urlString: String?) -> some View {
-        if let faviconURL = faviconURL(for: urlString) {
-            AsyncImage(url: faviconURL) { phase in
-                switch phase {
-                case .success(let image):
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                default:
-                    fallbackFavicon
-                }
-            }
-            .frame(width: 16, height: 16)
+    private func faviconImage(for item: WidgetNewsTopic) -> some View {
+        if let image = entry.faviconImages[item.id] {
+            Image(uiImage: image)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 16, height: 16)
         } else {
             fallbackFavicon
         }
@@ -655,28 +716,6 @@ struct WondayWallWidgetView: View {
         return nil
     }
 
-    private func newsURL(_ urlString: String?) -> URL? {
-        guard let urlString,
-              let url = URL(string: urlString),
-              let scheme = url.scheme?.lowercased(),
-              scheme == "http" || scheme == "https"
-        else { return nil }
-        return url
-    }
-
-    private func faviconURL(for urlString: String?) -> URL? {
-        guard let url = newsURL(urlString),
-              let host = url.host
-        else { return nil }
-
-        var components = URLComponents(string: "https://www.google.com/s2/favicons")
-        components?.queryItems = [
-            URLQueryItem(name: "domain", value: host.lowercased()),
-            URLQueryItem(name: "sz", value: "64")
-        ]
-        return components?.url
-    }
-
     private func calendarTimeText(for item: WidgetCalendarEvent) -> String {
         if item.isAllDay {
             return "終日"
@@ -716,6 +755,30 @@ struct WondayWallWidgetView: View {
     }
 }
 
+enum WidgetNewsURLHelper {
+    static func newsURL(_ urlString: String?) -> URL? {
+        guard let urlString,
+              let url = URL(string: urlString),
+              let scheme = url.scheme?.lowercased(),
+              scheme == "http" || scheme == "https"
+        else { return nil }
+        return url
+    }
+
+    static func faviconURL(for urlString: String?) -> URL? {
+        guard let url = newsURL(urlString),
+              let host = url.host
+        else { return nil }
+
+        var components = URLComponents(string: "https://www.google.com/s2/favicons")
+        components?.queryItems = [
+            URLQueryItem(name: "domain", value: host.lowercased()),
+            URLQueryItem(name: "sz", value: "64")
+        ]
+        return components?.url
+    }
+}
+
 @main
 struct WondayWallWidget: Widget {
     var body: some WidgetConfiguration {
@@ -735,5 +798,5 @@ struct WondayWallWidget: Widget {
 #Preview(as: .systemMedium) {
     WondayWallWidget()
 } timeline: {
-    WondayWallWidgetEntry(date: Date(), state: .placeholder, image: nil)
+    WondayWallWidgetEntry(date: Date(), state: .placeholder, image: nil, faviconImages: [:])
 }
