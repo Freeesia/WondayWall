@@ -74,6 +74,7 @@ private enum class WidgetInfoPage {
 private const val EXTRA_STACK_PAGE = "stackPage"
 private const val EXTRA_STACK_COMPACT = "stackCompact"
 private const val EXTRA_STACK_HEIGHT_DP = "stackHeightDp"
+private const val EXTRA_STACK_ITEM_LIMIT = "stackItemLimit"
 
 private object WidgetInfoPageStore {
     private const val PREFS_NAME = "wondaywall_widget"
@@ -169,8 +170,8 @@ private fun WondayWallWidgetContent(
             } else {
                 when (displaySize) {
                     WidgetDisplaySize.Small -> SmallWidgetContent(context, state)
-                    WidgetDisplaySize.Medium -> MediumWidgetContent(context, state)
-                    WidgetDisplaySize.Large -> LargeWidgetContent(context, state)
+                    WidgetDisplaySize.Medium -> MediumWidgetContent(context, state, size.height.value.toInt())
+                    WidgetDisplaySize.Large -> LargeWidgetContent(context, state, size.height.value.toInt())
                 }
             }
         }
@@ -230,18 +231,26 @@ private fun SmallWidgetContent(
 private fun MediumWidgetContent(
     context: Context,
     state: WidgetDisplayState,
+    widgetHeightDp: Int,
 ) {
+    val verticalPadding = 3
     Column(
         modifier = GlanceModifier
             .fillMaxSize()
-            .padding(10.dp),
+            .padding(vertical = verticalPadding.dp, horizontal = 8.dp),
     ) {
         if (shouldShowStatus(state)) {
             StatusLabel(state)
             Spacer(GlanceModifier.height(8.dp))
         }
         if (shouldShowInfo(state)) {
-            InfoContent(context, state, compact = true)
+            InfoContent(
+                context = context,
+                state = state,
+                compact = true,
+                widgetHeightDp = widgetHeightDp,
+                verticalPaddingDp = verticalPadding * 2,
+            )
         }
     }
 }
@@ -250,18 +259,26 @@ private fun MediumWidgetContent(
 private fun LargeWidgetContent(
     context: Context,
     state: WidgetDisplayState,
+    widgetHeightDp: Int,
 ) {
+    val verticalPadding = 16
     Column(
         modifier = GlanceModifier
             .fillMaxSize()
-            .padding(16.dp),
+            .padding(vertical = verticalPadding.dp, horizontal = 16.dp),
     ) {
         if (shouldShowStatus(state)) {
             StatusLabel(state)
             Spacer(GlanceModifier.height(10.dp))
         }
         if (shouldShowInfo(state)) {
-            InfoContent(context, state, compact = false)
+            InfoContent(
+                context = context,
+                state = state,
+                compact = false,
+                widgetHeightDp = widgetHeightDp,
+                verticalPaddingDp = verticalPadding * 2,
+            )
         }
     }
 }
@@ -327,22 +344,29 @@ private fun InfoContent(
     context: Context,
     state: WidgetDisplayState,
     compact: Boolean,
+    widgetHeightDp: Int,
+    verticalPaddingDp: Int,
 ) {
     val page = selectedInfoPage(context, state)
-    val showPager = shouldShowInfoPager(state)
-    val stackHeightDp = stackHeightDp(page, compact, showPager)
+    val showTypeSelector = shouldShowInfoPager(state) && shouldShowInfoTypeSelector(compact, widgetHeightDp)
+    val stackLayout = stackLayout(
+        widgetHeightDp = widgetHeightDp,
+        verticalPaddingDp = verticalPaddingDp,
+        showTypeSelector = showTypeSelector,
+        compact = compact,
+    )
 
     Column(modifier = GlanceModifier.fillMaxWidth()) {
-        if (showPager) {
+        if (showTypeSelector) {
             InfoPager(selected = page, compact = compact)
             Spacer(GlanceModifier.height(if (compact) 5.dp else 10.dp))
         }
 
         AndroidRemoteViews(
-            remoteViews = stackRemoteViews(context, page, compact, stackHeightDp),
+            remoteViews = stackRemoteViews(context, page, compact, stackLayout),
             modifier = GlanceModifier
                 .fillMaxWidth()
-                .height(stackHeightDp.dp),
+                .height(stackLayout.heightDp.dp),
         )
     }
 }
@@ -428,42 +452,57 @@ private fun selectedInfoPage(
     return WidgetInfoPage.Calendar
 }
 
-private fun infoLimit(
-    page: WidgetInfoPage,
-    compact: Boolean,
-): Int =
-    when {
-        page == WidgetInfoPage.News && compact -> 1
-        page == WidgetInfoPage.News -> 3
-        page == WidgetInfoPage.Calendar && compact -> 1
-        else -> 3
-    }
+private data class StackLayout(
+    val heightDp: Int,
+    val itemLimit: Int,
+)
 
-private fun stackHeightDp(
-    page: WidgetInfoPage,
+private fun shouldShowInfoTypeSelector(compact: Boolean, widgetHeightDp: Int): Boolean =
+    !compact || widgetHeightDp >= 150
+
+private fun stackLayout(
+    widgetHeightDp: Int,
+    verticalPaddingDp: Int,
+    showTypeSelector: Boolean,
     compact: Boolean,
-    showPager: Boolean,
-): Int =
-    when {
-        compact && showPager -> 56
-        compact -> 88
-        showPager -> 174
-        page == WidgetInfoPage.News -> 210
-        else -> 206
+): StackLayout {
+    val typeSelectorHeight = if (showTypeSelector) {
+        if (compact) 32 else 42
+    } else {
+        0
     }
+    val availableHeight = (widgetHeightDp - verticalPaddingDp - typeSelectorHeight)
+        .coerceAtLeast(96)
+    return StackLayout(
+        heightDp = availableHeight,
+        itemLimit = visibleItemLimit(availableHeight, compact),
+    )
+}
+
+private fun visibleItemLimit(stackHeightDp: Int, compact: Boolean): Int {
+    val effectiveChildHeight = (stackHeightDp * 0.9f).toInt()
+    val rowHeight = if (compact) 46 else 47
+    val count = ((effectiveChildHeight + 1) / (rowHeight + 1)).coerceAtLeast(1)
+    return if (compact) {
+        count.coerceIn(2, 4)
+    } else {
+        count.coerceIn(2, 5)
+    }
+}
 
 private fun stackRemoteViews(
     context: Context,
     page: WidgetInfoPage,
     compact: Boolean,
-    stackHeightDp: Int,
+    stackLayout: StackLayout,
 ): RemoteViews =
     RemoteViews(context.packageName, R.layout.wondaywall_widget_stack).apply {
         val adapterIntent = Intent(context, WondayWallWidgetStackService::class.java).apply {
             putExtra(EXTRA_STACK_PAGE, page.name)
             putExtra(EXTRA_STACK_COMPACT, compact)
-            putExtra(EXTRA_STACK_HEIGHT_DP, stackHeightDp)
-            data = Uri.parse("wondaywall://widget-stack/${page.name}/$compact/$stackHeightDp/${System.currentTimeMillis()}")
+            putExtra(EXTRA_STACK_HEIGHT_DP, stackLayout.heightDp)
+            putExtra(EXTRA_STACK_ITEM_LIMIT, stackLayout.itemLimit)
+            data = Uri.parse("wondaywall://widget-stack/${page.name}/$compact/${stackLayout.heightDp}/${stackLayout.itemLimit}/${System.currentTimeMillis()}")
         }
         setRemoteAdapter(R.id.wondaywall_widget_stack_view, adapterIntent)
         setPendingIntentTemplate(
@@ -491,19 +530,19 @@ private class WondayWallWidgetStackFactory(
         ?: WidgetInfoPage.News
     private val compact = intent.getBooleanExtra(EXTRA_STACK_COMPACT, false)
     private val stackHeightDp = intent.getIntExtra(EXTRA_STACK_HEIGHT_DP, if (compact) 88 else 210)
+    private val itemLimit = intent.getIntExtra(EXTRA_STACK_ITEM_LIMIT, if (compact) 2 else 3)
     private var pages: List<WidgetStackPage> = emptyList()
 
     override fun onCreate() = Unit
 
     override fun onDataSetChanged() {
         val state = runBlocking { WidgetStateRepository(context).load() }
-        val limit = infoLimit(page, compact)
         pages = when (page) {
             WidgetInfoPage.Calendar -> state.usedCalendarEvents
-                .chunked(limit)
+                .chunked(itemLimit)
                 .map { WidgetStackPage.Calendar(it) }
             WidgetInfoPage.News -> state.usedNewsTopics
-                .chunked(limit)
+                .chunked(itemLimit)
                 .map { WidgetStackPage.News(it, state.faviconImages) }
         }
     }
@@ -574,7 +613,7 @@ private class WondayWallWidgetStackFactory(
             setTextViewText(R.id.wondaywall_widget_news_date, formatNewsPublishedAt(item))
             setTextColor(R.id.wondaywall_widget_news_title, themedNewsPrimaryTextColor(context))
             setTextColor(R.id.wondaywall_widget_news_date, themedNewsSecondaryTextColor(context))
-            setTextViewTextSize(R.id.wondaywall_widget_news_title, TypedValue.COMPLEX_UNIT_SP, 12f)
+            setTextViewTextSize(R.id.wondaywall_widget_news_title, TypedValue.COMPLEX_UNIT_SP, if (compact) 11f else 12f)
             setInt(
                 R.id.wondaywall_widget_favicon_frame,
                 "setBackgroundResource",

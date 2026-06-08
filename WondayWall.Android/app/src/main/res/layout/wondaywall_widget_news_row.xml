@@ -5,17 +5,17 @@
     android:layout_height="wrap_content"
     android:clickable="true"
     android:gravity="center_vertical"
-    android:minHeight="50dp"
+    android:minHeight="46dp"
     android:orientation="horizontal"
     android:paddingHorizontal="12dp"
-    android:paddingVertical="9dp">
+    android:paddingVertical="6dp">
 
     <FrameLayout
         android:id="@+id/wondaywall_widget_favicon_frame"
-        android:layout_width="28dp"
-        android:layout_height="28dp"
+        android:layout_width="26dp"
+        android:layout_height="26dp"
         android:background="@drawable/wondaywall_widget_favicon_surface"
-        android:padding="5dp">
+        android:padding="4dp">
 
         <ImageView
             android:id="@+id/wondaywall_widget_news_favicon"
