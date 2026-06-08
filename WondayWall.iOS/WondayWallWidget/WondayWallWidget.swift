@@ -558,8 +558,12 @@ struct WondayWallWidgetView: View {
     }
 
     private func newsList(limit: Int, compact: Bool) -> some View {
-        VStack(alignment: .leading, spacing: compact ? 6 : 8) {
-            ForEach(Array(newsItems.prefix(limit))) { item in
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(newsItems.prefix(limit).enumerated()), id: \.element.id) { index, item in
+                if index > 0 {
+                    Divider()
+                        .padding(.leading, compact ? 32 : 34)
+                }
                 if let url = WidgetNewsURLHelper.newsURL(item.url) {
                     Link(destination: url) {
                         newsRow(item, compact: compact)
@@ -569,6 +573,8 @@ struct WondayWallWidgetView: View {
                 }
             }
         }
+        .background(AnyShapeStyle(.regularMaterial))
+        .cornerRadius(10)
     }
 
     private func newsRow(_ item: WidgetNewsTopic, compact: Bool) -> some View {
@@ -579,13 +585,13 @@ struct WondayWallWidgetView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(item.title)
                     .font(.caption2.weight(.medium))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(.primary)
                     .lineLimit(compact ? 1 : 2)
                     .multilineTextAlignment(.leading)
 
                 Text(item.publishedAt.formatted(date: .abbreviated, time: .shortened))
                     .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.76))
+                    .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
 
@@ -594,8 +600,6 @@ struct WondayWallWidgetView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, compact ? 8 : 10)
         .padding(.vertical, compact ? 6 : 8)
-        .background(Color.black.opacity(0.38))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
     @ViewBuilder
@@ -614,7 +618,7 @@ struct WondayWallWidgetView: View {
         Image(systemName: "globe")
             .resizable()
             .aspectRatio(contentMode: .fit)
-            .foregroundStyle(.white.opacity(0.76))
+            .foregroundStyle(.secondary)
             .frame(width: 16, height: 16)
     }
 
