@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/wondaywall_widget_calendar_row_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/wondaywall_widget_info_row_surface"
+    android:orientation="vertical"
+    android:paddingHorizontal="12dp"
+    android:paddingVertical="9dp">
+
+    <TextView
+        android:id="@+id/wondaywall_widget_calendar_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:ellipsize="end"
+        android:includeFontPadding="false"
+        android:maxLines="1"
+        android:textColor="#FF1B1B1F"
+        android:textSize="14sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/wondaywall_widget_calendar_subtitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:ellipsize="end"
+        android:includeFontPadding="false"
+        android:maxLines="1"
+        android:textColor="#FF535F70"
+        android:textSize="11sp" />
+</LinearLayout>
