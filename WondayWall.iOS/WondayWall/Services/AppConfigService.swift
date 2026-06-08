@@ -3,19 +3,20 @@ import Observation
 import Defaults
 import KeychainAccess
 
-// Defaults キー定義
-extension Defaults.Keys {
-    static let appConfig = Key<AppConfig>("appConfig", default: AppConfig())
-}
-
-// Defaults.Serializable への適合（Codable を橋渡しする）
-extension AppConfig: Defaults.Serializable {}
-
 // 設定の読み書きを担当するサービス
 @Observable
 final class AppConfigService {
     private static let keychain = Keychain(service: "com.studiofreesia.wondaywall")
     private static let apiKeyKeychainKey = "google_ai_api_key"
+    private static let appConfigDefaultsKey = "appConfig"
+
+    private static var appConfigDefaults: UserDefaults {
+        if let identifier = WidgetSharedConstants.appGroupIdentifier,
+           let defaults = UserDefaults(suiteName: identifier) {
+            return defaults
+        }
+        return .standard
+    }
 
     // 設定変更時に UI や Widget へ反映するための通知フック
     var onConfigurationChanged: (() -> Void)?
@@ -40,7 +41,7 @@ final class AppConfigService {
     #endif
 
     init() {
-        config = Defaults[.appConfig]
+        config = Self.loadConfig()
         googleAiApiKey = Self.keychain[Self.apiKeyKeychainKey] ?? ""
         #if DEBUG
         debugConfig = Defaults[.debugConfig]
@@ -49,7 +50,7 @@ final class AppConfigService {
 
     // 設定を保存する
     func save() {
-        Defaults[.appConfig] = config
+        Self.saveConfig(config)
         onConfigurationChanged?()
     }
 
@@ -69,5 +70,17 @@ final class AppConfigService {
         let hasRss = !config.rssSources.isEmpty
         let hasUserPrompt = !config.userPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         return hasCalendar || hasRss || hasUserPrompt
+    }
+
+    private static func loadConfig() -> AppConfig {
+        guard let data = appConfigDefaults.data(forKey: appConfigDefaultsKey),
+              let config = try? JSONDecoder().decode(AppConfig.self, from: data)
+        else { return AppConfig() }
+        return config
+    }
+
+    private static func saveConfig(_ config: AppConfig) {
+        guard let data = try? JSONEncoder().encode(config) else { return }
+        appConfigDefaults.set(data, forKey: appConfigDefaultsKey)
     }
 }
