@@ -65,6 +65,7 @@ import com.studiofreesia.wondaywall.ui.util.canDisplayImageReference
 import com.studiofreesia.wondaywall.ui.util.formatCalendarEventDateTime
 import com.studiofreesia.wondaywall.ui.util.formatNewsPublishedAt
 import com.studiofreesia.wondaywall.ui.util.imageReferenceModel
+import com.studiofreesia.wondaywall.widgets.WidgetLaunchContract
 import com.studiofreesia.wondaywall.widgets.WidgetLaunchRequest
 
 // ホーム画面（iOSのHomeViewと同等の構成）
@@ -90,7 +91,9 @@ fun HomeScreen(
 
     LaunchedEffect(widgetLaunchRequest) {
         widgetLaunchRequest?.let {
-            viewModel.openGenerationSheetIfStillAllowed(it.slotStartedAtMillis)
+            if (it.destination == WidgetLaunchContract.DESTINATION_GENERATE_CONFIRMATION) {
+                it.slotStartedAtMillis?.let(viewModel::openGenerationSheetIfStillAllowed)
+            }
             onWidgetLaunchRequestConsumed()
         }
     }

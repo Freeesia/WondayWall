@@ -5,11 +5,15 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import com.studiofreesia.wondaywall.App
+import com.studiofreesia.wondaywall.models.CalendarEventItem
 import com.studiofreesia.wondaywall.models.GenerationProgress
 import com.studiofreesia.wondaywall.models.NewsTopicItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.net.HttpURLConnection
+import java.net.URL
+import java.util.Locale
 
 // 既存サービスからウィジェット表示状態を組み立てるリポジトリ
 class WidgetStateRepository(private val context: Context) {
@@ -39,6 +43,10 @@ class WidgetStateRepository(private val context: Context) {
         val usedNews = slotHistory?.usedNewsTopics?.takeIf { it.isNotEmpty() }
             ?: latestSuccess?.usedNewsTopics?.takeIf { it.isNotEmpty() }
             ?: emptyList()
+        val usedEvents = slotHistory?.usedCalendarEvents?.takeIf { it.isNotEmpty() }
+            ?: latestSuccess?.usedCalendarEvents?.takeIf { it.isNotEmpty() }
+            ?: emptyList()
+        val displayNews = usedNews.take(8)
 
         val status = when {
             !isConfigured -> WidgetSlotStatus.Unconfigured
@@ -55,7 +63,9 @@ class WidgetStateRepository(private val context: Context) {
             currentSlotStartedAtMillis = currentSlotStartedAtMillis,
             backgroundImage = imageHistory?.appliedImageUri?.let { loadWidgetBitmap(it) },
             canOpenGenerationConfirmation = isConfigured && !isGenerating && !isCurrentSlotProcessed,
-            usedNewsTopics = usedNews.take(3),
+            usedCalendarEvents = usedEvents.take(4),
+            usedNewsTopics = displayNews,
+            faviconImages = loadFaviconImages(displayNews),
         )
     }
 
@@ -89,6 +99,71 @@ class WidgetStateRepository(private val context: Context) {
         }
         return sampleSize.coerceAtLeast(1)
     }
+
+    private suspend fun loadFaviconImages(news: List<NewsTopicItem>): Map<String, Bitmap> = withContext(Dispatchers.IO) {
+        news.mapNotNull { item ->
+            val bitmap = loadFaviconBitmap(item.url) ?: return@mapNotNull null
+            item.id to bitmap
+        }.toMap()
+    }
+
+    private fun loadFaviconBitmap(urlString: String?): Bitmap? {
+        val host = normalizedHost(urlString) ?: return null
+        val cacheFile = faviconCacheFile(host)
+        if (cacheFile.exists() && cacheFile.length() > 0L) {
+            BitmapFactory.decodeFile(cacheFile.path)?.let { return it }
+        }
+
+        val connection = runCatching {
+            URL(faviconUrl(host)).openConnection() as HttpURLConnection
+        }.getOrNull() ?: return null
+
+        return runCatching {
+            connection.connectTimeout = 4_000
+            connection.readTimeout = 4_000
+            connection.instanceFollowRedirects = true
+            if (connection.responseCode !in 200 until 300) return@runCatching null
+            val bytes = connection.inputStream.use { it.readBytes() }
+            val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return@runCatching null
+            cacheFile.parentFile?.mkdirs()
+            val tempFile = File(cacheFile.parentFile, "${cacheFile.name}.tmp")
+            tempFile.writeBytes(bytes)
+            if (!tempFile.renameTo(cacheFile)) {
+                tempFile.copyTo(cacheFile, overwrite = true)
+                tempFile.delete()
+            }
+            bitmap
+        }.getOrNull().also {
+            connection.disconnect()
+        }
+    }
+
+    private fun normalizedHost(urlString: String?): String? {
+        if (urlString.isNullOrBlank()) return null
+        val uri = runCatching { Uri.parse(urlString) }.getOrNull() ?: return null
+        val scheme = uri.scheme?.lowercase(Locale.US)
+        if (scheme != "http" && scheme != "https") return null
+        return uri.host?.lowercase(Locale.US)
+    }
+
+    private fun faviconUrl(host: String): String =
+        Uri.Builder()
+            .scheme("https")
+            .authority("www.google.com")
+            .path("s2/favicons")
+            .appendQueryParameter("domain", host)
+            .appendQueryParameter("sz", "64")
+            .build()
+            .toString()
+
+    private fun faviconCacheFile(host: String): File {
+        val safeName = buildString {
+            host.forEach { char ->
+                if (char.isLetterOrDigit()) append(char) else append('_')
+            }
+        }
+        return File(File(context.cacheDir, "favicons"), "$safeName.png")
+    }
 }
 
 enum class WidgetSlotStatus {
@@ -106,5 +181,7 @@ data class WidgetDisplayState(
     val currentSlotStartedAtMillis: Long,
     val backgroundImage: Bitmap?,
     val canOpenGenerationConfirmation: Boolean,
+    val usedCalendarEvents: List<CalendarEventItem>,
     val usedNewsTopics: List<NewsTopicItem>,
+    val faviconImages: Map<String, Bitmap>,
 )

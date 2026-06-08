@@ -10,17 +10,25 @@ object WidgetLaunchContract {
     const val EXTRA_SLOT_STARTED_AT_MILLIS = "slotStartedAtMillis"
     const val SOURCE_WIDGET = "widget"
     const val DESTINATION_GENERATE_CONFIRMATION = "generate-confirmation"
+    const val DESTINATION_NEWS = "news"
 
     fun parse(intent: Intent?): WidgetLaunchRequest? {
         if (intent?.action != ACTION_WIDGET_OPEN) return null
         if (intent.getStringExtra(EXTRA_SOURCE) != SOURCE_WIDGET) return null
-        if (intent.getStringExtra(EXTRA_DESTINATION) != DESTINATION_GENERATE_CONFIRMATION) return null
-        val slotStartedAtMillis = intent.getLongExtra(EXTRA_SLOT_STARTED_AT_MILLIS, -1L)
-        if (slotStartedAtMillis <= 0L) return null
-        return WidgetLaunchRequest(slotStartedAtMillis)
+        val destination = intent.getStringExtra(EXTRA_DESTINATION) ?: return null
+        return when (destination) {
+            DESTINATION_GENERATE_CONFIRMATION -> {
+                val slotStartedAtMillis = intent.getLongExtra(EXTRA_SLOT_STARTED_AT_MILLIS, -1L)
+                if (slotStartedAtMillis <= 0L) return null
+                WidgetLaunchRequest(destination, slotStartedAtMillis)
+            }
+            DESTINATION_NEWS -> WidgetLaunchRequest(destination, null)
+            else -> null
+        }
     }
 }
 
 data class WidgetLaunchRequest(
-    val slotStartedAtMillis: Long,
+    val destination: String,
+    val slotStartedAtMillis: Long?,
 )
