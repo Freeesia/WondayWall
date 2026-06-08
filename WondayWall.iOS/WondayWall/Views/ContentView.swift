@@ -199,17 +199,27 @@ struct ContentView: View {
 
     private func handleOpenURL(_ url: URL) {
         guard url.scheme == "wondaywall",
-              url.host == "widget",
-              url.path == "/generate-confirmation",
-              let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
-              let slotValue = components.queryItems?.first(where: { $0.name == "slotStartedAt" })?.value,
-              let slotStartedAt = ISO8601DateFormatter().date(from: slotValue)
+              url.host == "widget"
         else { return }
 
-        selectedTab = 0
-        startupAlertMode = nil
-        showStartupAlert = false
-        environment.requestWidgetGenerationConfirmation(slotStartedAt: slotStartedAt)
+        switch url.path {
+        case "/generate-confirmation":
+            guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+                  let slotValue = components.queryItems?.first(where: { $0.name == "slotStartedAt" })?.value,
+                  let slotStartedAt = ISO8601DateFormatter().date(from: slotValue)
+            else { return }
+
+            selectedTab = 0
+            startupAlertMode = nil
+            showStartupAlert = false
+            environment.requestWidgetGenerationConfirmation(slotStartedAt: slotStartedAt)
+        case "/news":
+            selectedTab = 0
+            startupAlertMode = nil
+            showStartupAlert = false
+        default:
+            return
+        }
     }
 }
 

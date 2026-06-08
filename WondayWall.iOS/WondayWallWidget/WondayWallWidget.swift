@@ -46,6 +46,7 @@ enum WidgetInfoPageStore {
 struct SelectWidgetInfoPageIntent: AppIntent {
     static var title: LocalizedStringResource = "ウィジェット表示を切り替え"
     static var description = IntentDescription("ウィジェットに表示する予定またはニュースを切り替えます。")
+    static var openAppWhenRun = false
 
     @Parameter(title: "ページ")
     var page: WidgetInfoPageIntentValue
@@ -136,7 +137,7 @@ struct WondayWallWidgetProvider: TimelineProvider {
         state.usedNewsTopics = historyService.getDisplayNewsTopics(
             since: state.currentSlotStartedAt
         )
-        .prefix(3)
+        .prefix(8)
         .map {
             WidgetNewsTopic(
                 id: $0.id,
@@ -149,7 +150,7 @@ struct WondayWallWidgetProvider: TimelineProvider {
         state.usedCalendarEvents = historyService.getDisplayCalendarEvents(
             since: state.currentSlotStartedAt
         )
-        .prefix(3)
+        .prefix(4)
         .map {
             WidgetCalendarEvent(
                 id: $0.id,
@@ -205,7 +206,7 @@ struct WondayWallWidgetView: View {
             .frame(width: proxy.size.width, height: proxy.size.height)
             .clipped()
         }
-        .widgetURL(entry.state.canOpenGenerationConfirmation ? generationURL : nil)
+        .widgetURL(rootWidgetURL)
         .containerBackground(for: .widget) {
             Color(.secondarySystemBackground)
         }
@@ -251,18 +252,25 @@ struct WondayWallWidgetView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
     }
 
+    @ViewBuilder
     private var smallContent: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Spacer()
-            if shouldShowStatus {
-                statusLabel
+        if shouldShowSmallNewsButton {
+            smallNewsButton
+                .padding(12)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        } else {
+            VStack(alignment: .leading, spacing: 8) {
+                Spacer()
+                if shouldShowStatus {
+                    statusLabel
+                }
             }
-        }
-        .padding(12)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-        .background {
-            if shouldShowStatus {
-                bottomScrim
+            .padding(12)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+            .background {
+                if shouldShowStatus {
+                    bottomScrim
+                }
             }
         }
     }
@@ -273,14 +281,14 @@ struct WondayWallWidgetView: View {
                 statusLabel
             }
 
-            Spacer(minLength: 0)
-
             if shouldShowInfo {
-                infoContent(limit: mediumInfoLimit, compact: true)
+                infoContent(compact: true)
             }
+
+            Spacer(minLength: 0)
         }
         .padding(14)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background {
             overlayScrim
         }
@@ -297,14 +305,14 @@ struct WondayWallWidgetView: View {
                 }
             }
 
-            Spacer(minLength: 0)
-
             if shouldShowInfo {
-                infoContent(limit: 3, compact: false)
+                infoContent(compact: false)
             }
+
+            Spacer(minLength: 0)
         }
         .padding(16)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background {
             overlayScrim
         }
@@ -320,6 +328,23 @@ struct WondayWallWidgetView: View {
         }
         .foregroundStyle(.white)
         .shadow(radius: 2)
+    }
+
+    private var smallNewsButton: some View {
+        Link(destination: widgetNewsURL) {
+            HStack(spacing: 6) {
+                Image(systemName: "newspaper.fill")
+                Text("本日のニュース")
+            }
+            .font(.caption.weight(.bold))
+            .foregroundStyle(.white)
+            .lineLimit(1)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(Color.black.opacity(0.54))
+            .clipShape(Capsule())
+            .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 3)
+        }
     }
 
     private func generateLink(compact: Bool) -> some View {
@@ -339,8 +364,9 @@ struct WondayWallWidgetView: View {
     }
 
     @ViewBuilder
-    private func infoContent(limit: Int, compact: Bool) -> some View {
+    private func infoContent(compact: Bool) -> some View {
         let page = selectedInfoPage
+        let limit = infoLimit(for: page, compact: compact)
 
         VStack(alignment: .leading, spacing: compact ? 7 : 10) {
             if shouldShowInfoPager {
@@ -429,7 +455,7 @@ struct WondayWallWidgetView: View {
 
     private func newsList(limit: Int, compact: Bool) -> some View {
         VStack(alignment: .leading, spacing: compact ? 6 : 8) {
-            ForEach(Array(entry.state.usedNewsTopics.prefix(limit))) { item in
+            ForEach(Array(newsItems.prefix(limit))) { item in
                 if let url = newsURL(item.url) {
                     Link(destination: url) {
                         newsRow(item, compact: compact)
@@ -442,16 +468,57 @@ struct WondayWallWidgetView: View {
     }
 
     private func newsRow(_ item: WidgetNewsTopic, compact: Bool) -> some View {
-        Text(item.title)
-            .font((compact ? Font.callout : Font.title3).weight(.bold))
-            .foregroundStyle(.white)
-            .lineLimit(2)
-            .multilineTextAlignment(.leading)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, compact ? 10 : 12)
-            .padding(.vertical, compact ? 9 : 11)
-            .background(Color.black.opacity(0.42))
-            .clipShape(RoundedRectangle(cornerRadius: 10))
+        HStack(alignment: .top, spacing: 8) {
+            faviconImage(for: item.url)
+                .padding(.top, 2)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(item.title)
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(.white)
+                    .lineLimit(compact ? 1 : 2)
+                    .multilineTextAlignment(.leading)
+
+                Text(item.publishedAt.formatted(date: .abbreviated, time: .shortened))
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.76))
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, compact ? 8 : 10)
+        .padding(.vertical, compact ? 6 : 8)
+        .background(Color.black.opacity(0.38))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    @ViewBuilder
+    private func faviconImage(for urlString: String?) -> some View {
+        if let faviconURL = faviconURL(for: urlString) {
+            AsyncImage(url: faviconURL) { phase in
+                switch phase {
+                case .success(let image):
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                default:
+                    fallbackFavicon
+                }
+            }
+            .frame(width: 16, height: 16)
+        } else {
+            fallbackFavicon
+        }
+    }
+
+    private var fallbackFavicon: some View {
+        Image(systemName: "globe")
+            .resizable()
+            .aspectRatio(contentMode: .fit)
+            .foregroundStyle(.white.opacity(0.76))
+            .frame(width: 16, height: 16)
     }
 
     private var statusText: String {
@@ -475,19 +542,38 @@ struct WondayWallWidgetView: View {
     }
 
     private var shouldShowInfo: Bool {
-        entry.state.status == .processed && (!calendarEvents.isEmpty || !entry.state.usedNewsTopics.isEmpty)
+        entry.state.status == .processed && (!calendarEvents.isEmpty || !newsItems.isEmpty)
     }
 
     private var shouldShowInfoPager: Bool {
-        !calendarEvents.isEmpty && !entry.state.usedNewsTopics.isEmpty
+        !calendarEvents.isEmpty && !newsItems.isEmpty
     }
 
-    private var mediumInfoLimit: Int {
-        shouldShowInfoPager ? 1 : 2
+    private var shouldShowSmallNewsButton: Bool {
+        family == .systemSmall && entry.state.status == .processed
+    }
+
+    private func infoLimit(for page: WidgetInfoPage, compact: Bool) -> Int {
+        switch (page, compact, shouldShowInfoPager) {
+        case (.news, true, true):
+            return 2
+        case (.news, true, false):
+            return 3
+        case (.news, false, _):
+            return 5
+        case (.calendar, true, _):
+            return 2
+        case (.calendar, false, _):
+            return 4
+        }
     }
 
     private var calendarEvents: [WidgetCalendarEvent] {
         entry.state.usedCalendarEvents ?? []
+    }
+
+    private var newsItems: [WidgetNewsTopic] {
+        entry.state.usedNewsTopics
     }
 
     private var selectedInfoPage: WidgetInfoPage {
@@ -495,13 +581,13 @@ struct WondayWallWidgetView: View {
         if storedPage == .calendar, !calendarEvents.isEmpty {
             return .calendar
         }
-        if storedPage == .news, !entry.state.usedNewsTopics.isEmpty {
+        if storedPage == .news, !newsItems.isEmpty {
             return .news
         }
-        if !calendarEvents.isEmpty {
-            return .calendar
+        if !newsItems.isEmpty {
+            return .news
         }
-        return .news
+        return .calendar
     }
 
     private var statusIcon: String {
@@ -527,6 +613,21 @@ struct WondayWallWidgetView: View {
         return components.url ?? URL(string: "wondaywall://widget/generate-confirmation")!
     }
 
+    private var widgetNewsURL: URL {
+        URL(string: "wondaywall://widget/news")!
+    }
+
+    private var rootWidgetURL: URL? {
+        guard family == .systemSmall else { return nil }
+        if entry.state.canOpenGenerationConfirmation {
+            return generationURL
+        }
+        if shouldShowSmallNewsButton {
+            return widgetNewsURL
+        }
+        return nil
+    }
+
     private func newsURL(_ urlString: String?) -> URL? {
         guard let urlString,
               let url = URL(string: urlString),
@@ -534,6 +635,19 @@ struct WondayWallWidgetView: View {
               scheme == "http" || scheme == "https"
         else { return nil }
         return url
+    }
+
+    private func faviconURL(for urlString: String?) -> URL? {
+        guard let url = newsURL(urlString),
+              let host = url.host
+        else { return nil }
+
+        var components = URLComponents(string: "https://www.google.com/s2/favicons")
+        components?.queryItems = [
+            URLQueryItem(name: "domain", value: host.lowercased()),
+            URLQueryItem(name: "sz", value: "64")
+        ]
+        return components?.url
     }
 
     private func calendarTimeText(for item: WidgetCalendarEvent) -> String {
