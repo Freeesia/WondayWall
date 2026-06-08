@@ -474,7 +474,7 @@ private fun stackLayout(
     val availableHeight = (widgetHeightDp - verticalPaddingDp - typeSelectorHeight)
         .coerceAtLeast(96)
     return StackLayout(
-        heightDp = availableHeight,
+        heightDp = availableHeight * 2,
         itemLimit = visibleItemLimit(availableHeight, compact),
     )
 }
