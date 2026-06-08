@@ -276,7 +276,8 @@ struct WondayWallWidgetProvider: TimelineProvider {
     }
 
     private static func faviconCacheFileURL(for url: URL) -> URL {
-        let directory = FileHelper.sharedDataDirectory.appendingPathComponent(
+        removeLegacyFaviconCacheIfNeeded()
+        let directory = FileHelper.sharedCacheDirectory.appendingPathComponent(
             "favicons",
             isDirectory: true
         )
@@ -285,6 +286,14 @@ struct WondayWallWidgetProvider: TimelineProvider {
             .addingPercentEncoding(withAllowedCharacters: .alphanumerics)?
             .appending(".png") ?? "favicon.png"
         return directory.appendingPathComponent(fileName)
+    }
+
+    private static func removeLegacyFaviconCacheIfNeeded() {
+        let legacyDirectory = FileHelper.sharedDataDirectory.appendingPathComponent(
+            "favicons",
+            isDirectory: true
+        )
+        try? FileManager.default.removeItem(at: legacyDirectory)
     }
 }
 

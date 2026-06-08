@@ -39,6 +39,33 @@ enum FileHelper {
         return dir
     }
 
+    // App Group 共有キャッシュディレクトリ（消えてもよい一時表示データ用）
+    static var sharedCacheDirectory: URL {
+        let dir: URL
+        if let appGroupIdentifier = Bundle.main.object(
+            forInfoDictionaryKey: "WondayWallAppGroupIdentifier"
+        ) as? String,
+           let containerURL = FileManager.default.containerURL(
+            forSecurityApplicationGroupIdentifier: appGroupIdentifier
+           ) {
+            dir = containerURL
+                .appendingPathComponent("Library", isDirectory: true)
+                .appendingPathComponent("Caches", isDirectory: true)
+                .appendingPathComponent("WondayWall", isDirectory: true)
+        } else {
+            let cacheDirectory = FileManager.default.urls(
+                for: .cachesDirectory,
+                in: .userDomainMask
+            ).first!
+            dir = cacheDirectory.appendingPathComponent("WondayWall", isDirectory: true)
+        }
+        try? FileManager.default.createDirectory(
+            at: dir,
+            withIntermediateDirectories: true
+        )
+        return dir
+    }
+
     static var historyFileURL: URL {
         sharedDataDirectory.appendingPathComponent("history.json")
     }
