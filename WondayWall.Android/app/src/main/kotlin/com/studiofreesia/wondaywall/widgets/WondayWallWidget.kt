@@ -340,12 +340,10 @@ private fun infoListLayout(
 }
 
 private fun visibleInfoRowCapacity(listHeightDp: Int, compact: Boolean): Int {
-    if (compact) {
-        return 3
-    }
-    val rowHeight = 42
-    val count = ((listHeightDp + 1) / (rowHeight + 1)).coerceAtLeast(3)
-    return count.coerceIn(3, 5)
+    val rowHeight = if (compact) 32 else 42
+    val maxRows = if (compact) 4 else 6
+    val count = ((listHeightDp + rowHeight - 1) / rowHeight).coerceAtLeast(3)
+    return count.coerceIn(3, maxRows)
 }
 
 private fun infoListRemoteViews(
