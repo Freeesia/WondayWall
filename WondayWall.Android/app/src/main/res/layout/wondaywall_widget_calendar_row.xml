@@ -3,7 +3,7 @@
     android:id="@+id/wondaywall_widget_calendar_row_root"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:minHeight="32dp"
+    android:minHeight="40dp"
     android:orientation="vertical"
     android:paddingHorizontal="8dp"
     android:paddingVertical="5dp">
