@@ -330,8 +330,15 @@ private fun infoListLayout(
 ): InfoListLayout {
     val availableHeight = (widgetHeightDp - verticalPaddingDp)
         .coerceAtLeast(96)
+    val renderHeight = if (compact) {
+        availableHeight
+    } else {
+        // Launcher 側の実表示領域が Glance の responsive size より高い場合があるため、
+        // Large は余裕を持った描画領域を確保してホスト側の境界で切る。
+        availableHeight * 2
+    }
     return InfoListLayout(
-        heightDp = availableHeight,
+        heightDp = renderHeight,
         rowCapacity = visibleInfoRowCapacity(availableHeight, compact),
     )
 }
@@ -352,7 +359,6 @@ private fun infoListRemoteViews(
     layout: InfoListLayout,
 ): RemoteViews =
     RemoteViews(context.packageName, R.layout.wondaywall_widget_info_list).apply {
-        applyInfoListHeight(context, this, layout.heightDp)
         removeAllViews(R.id.wondaywall_widget_info_list_container)
 
         val items = visibleInfoItems(state, layout.rowCapacity)
@@ -377,6 +383,9 @@ private fun visibleInfoItems(
 ): List<WidgetInfoListItem> {
     val allItems = orderedInfoItems(state)
     if (allItems.size <= rowCapacity) {
+        if (allItems.isNotEmpty() && allItems.size < rowCapacity) {
+            return allItems + WidgetInfoListItem.More
+        }
         return allItems
     }
     return allItems.take((rowCapacity - 1).coerceAtLeast(1)) + WidgetInfoListItem.More
@@ -499,12 +508,6 @@ private fun addInfoDivider(context: Context, parent: RemoteViews) {
         setInt(R.id.wondaywall_widget_info_divider_line, "setBackgroundColor", themedDividerColor(context))
     }
     parent.addView(R.id.wondaywall_widget_info_list_container, divider)
-}
-
-private fun applyInfoListHeight(context: Context, remoteViews: RemoteViews, heightDp: Int) {
-    val heightPx = dpToPx(context, heightDp)
-    remoteViews.setInt(R.id.wondaywall_widget_info_list_root, "setMinimumHeight", heightPx)
-    remoteViews.setInt(R.id.wondaywall_widget_info_list_container, "setMinimumHeight", heightPx)
 }
 
 private fun immutablePendingIntentFlags(): Int {
