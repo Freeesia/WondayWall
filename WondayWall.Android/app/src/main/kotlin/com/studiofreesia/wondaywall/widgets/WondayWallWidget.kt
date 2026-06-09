@@ -9,7 +9,6 @@ import android.os.Build
 import android.net.Uri
 import android.util.TypedValue
 import android.widget.RemoteViews
-import android.widget.RemoteViewsService
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.DpSize
@@ -20,16 +19,12 @@ import androidx.glance.GlanceModifier
 import androidx.glance.Image
 import androidx.glance.ImageProvider
 import androidx.glance.LocalSize
-import androidx.glance.action.ActionParameters
-import androidx.glance.action.actionParametersOf
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.AndroidRemoteViews
 import androidx.glance.appwidget.ExperimentalGlanceRemoteViewsApi
 import androidx.glance.appwidget.SizeMode
-import androidx.glance.appwidget.action.ActionCallback
-import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
@@ -38,13 +33,11 @@ import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
 import androidx.glance.layout.Column
 import androidx.glance.layout.ContentScale
-import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
-import androidx.glance.layout.width
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextAlign
@@ -54,7 +47,6 @@ import com.studiofreesia.wondaywall.R
 import com.studiofreesia.wondaywall.MainActivity
 import com.studiofreesia.wondaywall.models.CalendarEventItem
 import com.studiofreesia.wondaywall.models.NewsTopicItem
-import kotlinx.coroutines.runBlocking
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -64,51 +56,6 @@ private enum class WidgetDisplaySize {
     Small,
     Medium,
     Large,
-}
-
-private enum class WidgetInfoPage {
-    Calendar,
-    News,
-}
-
-private const val EXTRA_STACK_PAGE = "stackPage"
-private const val EXTRA_STACK_COMPACT = "stackCompact"
-private const val EXTRA_STACK_HEIGHT_DP = "stackHeightDp"
-private const val EXTRA_STACK_ITEM_LIMIT = "stackItemLimit"
-
-private object WidgetInfoPageStore {
-    private const val PREFS_NAME = "wondaywall_widget"
-    private const val KEY_INFO_PAGE = "infoPage"
-
-    fun current(context: Context): WidgetInfoPage? =
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getString(KEY_INFO_PAGE, null)
-            ?.let { value -> runCatching { WidgetInfoPage.valueOf(value) }.getOrNull() }
-
-    fun set(context: Context, page: WidgetInfoPage) {
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .putString(KEY_INFO_PAGE, page.name)
-            .apply()
-    }
-}
-
-class SelectWidgetInfoPageAction : ActionCallback {
-    override suspend fun onAction(
-        context: Context,
-        glanceId: GlanceId,
-        parameters: ActionParameters,
-    ) {
-        val page = parameters[PageKey]
-            ?.let { value -> runCatching { WidgetInfoPage.valueOf(value) }.getOrNull() }
-            ?: return
-        WidgetInfoPageStore.set(context, page)
-        WondayWallWidget().update(context, glanceId)
-    }
-
-    companion object {
-        val PageKey = ActionParameters.Key<String>("page")
-    }
 }
 
 class WondayWallWidget : GlanceAppWidget() {
@@ -121,7 +68,7 @@ class WondayWallWidget : GlanceAppWidget() {
     )
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val state = WidgetStateRepository(context).load(includeFaviconImages = false)
+        val state = WidgetStateRepository(context).load(includeFaviconImages = true)
         provideContent {
             WondayWallWidgetContent(
                 context = context,
@@ -347,78 +294,17 @@ private fun InfoContent(
     widgetHeightDp: Int,
     verticalPaddingDp: Int,
 ) {
-    val page = selectedInfoPage(context, state)
-    val showTypeSelector = shouldShowInfoPager(state) && shouldShowInfoTypeSelector(compact, widgetHeightDp)
-    val stackLayout = stackLayout(
+    val listLayout = infoListLayout(
         widgetHeightDp = widgetHeightDp,
         verticalPaddingDp = verticalPaddingDp,
-        showTypeSelector = showTypeSelector,
         compact = compact,
     )
 
-    Column(modifier = GlanceModifier.fillMaxWidth()) {
-        if (showTypeSelector) {
-            InfoPager(selected = page, compact = compact)
-            Spacer(GlanceModifier.height(if (compact) 5.dp else 10.dp))
-        }
-
-        AndroidRemoteViews(
-            remoteViews = stackRemoteViews(context, page, compact, stackLayout),
-            modifier = GlanceModifier
-                .fillMaxWidth()
-                .height(stackLayout.heightDp.dp),
-        )
-    }
-}
-
-@Composable
-private fun InfoPager(
-    selected: WidgetInfoPage,
-    compact: Boolean,
-) {
-    Row(modifier = GlanceModifier.fillMaxWidth()) {
-        InfoPageButton(
-            title = "予定",
-            page = WidgetInfoPage.Calendar,
-            selected = selected == WidgetInfoPage.Calendar,
-            compact = compact,
-        )
-        Spacer(GlanceModifier.width(6.dp))
-        InfoPageButton(
-            title = "ニュース",
-            page = WidgetInfoPage.News,
-            selected = selected == WidgetInfoPage.News,
-            compact = compact,
-        )
-    }
-}
-
-@Composable
-private fun InfoPageButton(
-    title: String,
-    page: WidgetInfoPage,
-    selected: Boolean,
-    compact: Boolean,
-) {
-    Text(
-        text = title,
-        maxLines = 1,
-        style = TextStyle(
-            color = ColorProvider(if (selected) Color.Black else Color.White),
-            fontWeight = FontWeight.Bold,
-            fontSize = if (compact) 12.sp else 14.sp,
-            textAlign = TextAlign.Center,
-        ),
+    AndroidRemoteViews(
+        remoteViews = infoListRemoteViews(context, state, compact, listLayout),
         modifier = GlanceModifier
-            .width(if (compact) 76.dp else 96.dp)
-            .background(ColorProvider(if (selected) Color(0xEEFFFFFF) else Color(0x66000000)))
-            .cornerRadius(50.dp)
-            .padding(horizontal = if (compact) 10.dp else 12.dp, vertical = if (compact) 5.dp else 7.dp)
-            .clickable(
-                actionRunCallback<SelectWidgetInfoPageAction>(
-                    actionParametersOf(SelectWidgetInfoPageAction.PageKey to page.name)
-                )
-            ),
+            .fillMaxWidth()
+            .height(listLayout.heightDp.dp),
     )
 }
 
@@ -429,251 +315,210 @@ private fun shouldShowInfo(state: WidgetDisplayState): Boolean =
     state.status == WidgetSlotStatus.Processed &&
         (state.usedCalendarEvents.isNotEmpty() || state.usedNewsTopics.isNotEmpty())
 
-private fun shouldShowInfoPager(state: WidgetDisplayState): Boolean =
-    state.usedCalendarEvents.isNotEmpty() && state.usedNewsTopics.isNotEmpty()
-
 private fun shouldShowSmallNewsButton(state: WidgetDisplayState): Boolean =
     state.status == WidgetSlotStatus.Processed
 
-private fun selectedInfoPage(
-    context: Context,
-    state: WidgetDisplayState,
-): WidgetInfoPage {
-    val storedPage = WidgetInfoPageStore.current(context)
-    if (storedPage == WidgetInfoPage.Calendar && state.usedCalendarEvents.isNotEmpty()) {
-        return WidgetInfoPage.Calendar
-    }
-    if (storedPage == WidgetInfoPage.News && state.usedNewsTopics.isNotEmpty()) {
-        return WidgetInfoPage.News
-    }
-    if (state.usedNewsTopics.isNotEmpty()) {
-        return WidgetInfoPage.News
-    }
-    return WidgetInfoPage.Calendar
-}
-
-private data class StackLayout(
+private data class InfoListLayout(
     val heightDp: Int,
-    val itemLimit: Int,
+    val rowCapacity: Int,
 )
 
-private fun shouldShowInfoTypeSelector(compact: Boolean, widgetHeightDp: Int): Boolean =
-    !compact || widgetHeightDp >= 150
-
-private fun stackLayout(
+private fun infoListLayout(
     widgetHeightDp: Int,
     verticalPaddingDp: Int,
-    showTypeSelector: Boolean,
     compact: Boolean,
-): StackLayout {
-    val typeSelectorHeight = if (showTypeSelector) {
-        if (compact) 32 else 42
-    } else {
-        0
-    }
-    val availableHeight = (widgetHeightDp - verticalPaddingDp - typeSelectorHeight)
+): InfoListLayout {
+    val availableHeight = (widgetHeightDp - verticalPaddingDp)
         .coerceAtLeast(96)
-    return StackLayout(
-        heightDp = availableHeight * 2,
-        itemLimit = visibleItemLimit(availableHeight, compact),
+    return InfoListLayout(
+        heightDp = availableHeight,
+        rowCapacity = visibleInfoRowCapacity(availableHeight, compact),
     )
 }
 
-private fun visibleItemLimit(stackHeightDp: Int, compact: Boolean): Int {
-    val effectiveChildHeight = (stackHeightDp * 0.9f).toInt()
-    val rowHeight = if (compact) 46 else 47
-    val count = ((effectiveChildHeight + 1) / (rowHeight + 1)).coerceAtLeast(1)
-    return if (compact) {
-        count.coerceIn(2, 4)
-    } else {
-        count.coerceIn(2, 5)
+private fun visibleInfoRowCapacity(listHeightDp: Int, compact: Boolean): Int {
+    if (compact) {
+        return 3
+    }
+    val rowHeight = 42
+    val count = ((listHeightDp + 1) / (rowHeight + 1)).coerceAtLeast(3)
+    return count.coerceIn(3, 5)
+}
+
+private fun infoListRemoteViews(
+    context: Context,
+    state: WidgetDisplayState,
+    compact: Boolean,
+    layout: InfoListLayout,
+): RemoteViews =
+    RemoteViews(context.packageName, R.layout.wondaywall_widget_info_list).apply {
+        applyInfoListHeight(context, this, layout.heightDp)
+        removeAllViews(R.id.wondaywall_widget_info_list_container)
+
+        val items = visibleInfoItems(state, layout.rowCapacity)
+        items.forEachIndexed { index, item ->
+            if (index > 0) {
+                addInfoDivider(context, this)
+            }
+            addView(
+                R.id.wondaywall_widget_info_list_container,
+                when (item) {
+                    is WidgetInfoListItem.Calendar -> calendarRow(context, item.event, compact)
+                    WidgetInfoListItem.More -> moreRow(context, compact)
+                    is WidgetInfoListItem.News -> newsRow(context, item.news, state.faviconImages[item.news.id], compact)
+                },
+            )
+        }
+    }
+
+private fun visibleInfoItems(
+    state: WidgetDisplayState,
+    rowCapacity: Int,
+): List<WidgetInfoListItem> {
+    val allItems = orderedInfoItems(state)
+    if (allItems.size <= rowCapacity) {
+        return allItems
+    }
+    return allItems.take((rowCapacity - 1).coerceAtLeast(1)) + WidgetInfoListItem.More
+}
+
+private fun orderedInfoItems(state: WidgetDisplayState): List<WidgetInfoListItem> {
+    val calendarItems = state.usedCalendarEvents.map(WidgetInfoListItem::Calendar)
+    val newsItems = state.usedNewsTopics.map(WidgetInfoListItem::News)
+    if (calendarItems.isEmpty()) return newsItems
+    if (newsItems.isEmpty()) return calendarItems
+
+    return buildList {
+        add(calendarItems.first())
+        addAll(newsItems)
+        addAll(calendarItems.drop(1))
     }
 }
 
-private fun stackRemoteViews(
+private sealed class WidgetInfoListItem {
+    data class Calendar(val event: CalendarEventItem) : WidgetInfoListItem()
+    data class News(val news: NewsTopicItem) : WidgetInfoListItem()
+    object More : WidgetInfoListItem()
+}
+
+private fun newsRow(
     context: Context,
-    page: WidgetInfoPage,
+    item: NewsTopicItem,
+    favicon: Bitmap?,
     compact: Boolean,
-    stackLayout: StackLayout,
 ): RemoteViews =
-    RemoteViews(context.packageName, R.layout.wondaywall_widget_stack).apply {
-        val adapterIntent = Intent(context, WondayWallWidgetStackService::class.java).apply {
-            putExtra(EXTRA_STACK_PAGE, page.name)
-            putExtra(EXTRA_STACK_COMPACT, compact)
-            putExtra(EXTRA_STACK_HEIGHT_DP, stackLayout.heightDp)
-            putExtra(EXTRA_STACK_ITEM_LIMIT, stackLayout.itemLimit)
-            data = Uri.parse("wondaywall://widget-stack/${page.name}/$compact/${stackLayout.heightDp}/${stackLayout.itemLimit}/${System.currentTimeMillis()}")
+    RemoteViews(context.packageName, R.layout.wondaywall_widget_news_row).apply {
+        setViewPadding(
+            R.id.wondaywall_widget_news_row_root,
+            dpToPx(context, if (compact) 8 else 12),
+            dpToPx(context, if (compact) 3 else 5),
+            dpToPx(context, if (compact) 8 else 12),
+            dpToPx(context, if (compact) 3 else 5),
+        )
+        setInt(R.id.wondaywall_widget_news_row_root, "setMinimumHeight", dpToPx(context, if (compact) 32 else 40))
+        setTextViewText(R.id.wondaywall_widget_news_title, item.title)
+        setTextViewText(R.id.wondaywall_widget_news_date, formatNewsPublishedAt(item))
+        setTextColor(R.id.wondaywall_widget_news_title, themedNewsPrimaryTextColor(context))
+        setTextColor(R.id.wondaywall_widget_news_date, themedNewsSecondaryTextColor(context))
+        setTextViewTextSize(R.id.wondaywall_widget_news_title, TypedValue.COMPLEX_UNIT_SP, if (compact) 10.5f else 12f)
+        setTextViewTextSize(R.id.wondaywall_widget_news_date, TypedValue.COMPLEX_UNIT_SP, if (compact) 8.5f else 10f)
+        setInt(R.id.wondaywall_widget_news_title, "setMaxLines", if (compact) 1 else 2)
+        setInt(
+            R.id.wondaywall_widget_favicon_frame,
+            "setBackgroundResource",
+            R.drawable.wondaywall_widget_favicon_surface
+        )
+        if (favicon != null) {
+            setImageViewBitmap(R.id.wondaywall_widget_news_favicon, favicon)
         }
-        setRemoteAdapter(R.id.wondaywall_widget_stack_view, adapterIntent)
-        setPendingIntentTemplate(
-            R.id.wondaywall_widget_stack_view,
+        newsUri(item.url)?.let { uri ->
+            setOnClickPendingIntent(
+                R.id.wondaywall_widget_news_row_root,
+                PendingIntent.getActivity(
+                    context,
+                    pendingIntentRequestCode(10_000, item.id),
+                    articleIntent(uri),
+                    immutablePendingIntentFlags(),
+                )
+            )
+        }
+    }
+
+private fun calendarRow(
+    context: Context,
+    item: CalendarEventItem,
+    compact: Boolean,
+): RemoteViews =
+    RemoteViews(context.packageName, R.layout.wondaywall_widget_calendar_row).apply {
+        setViewPadding(
+            R.id.wondaywall_widget_calendar_row_root,
+            dpToPx(context, if (compact) 8 else 12),
+            dpToPx(context, if (compact) 5 else 8),
+            dpToPx(context, if (compact) 8 else 12),
+            dpToPx(context, if (compact) 5 else 8),
+        )
+        setInt(R.id.wondaywall_widget_calendar_row_root, "setMinimumHeight", dpToPx(context, if (compact) 32 else 40))
+        setTextViewText(R.id.wondaywall_widget_calendar_title, item.title)
+        setTextViewText(R.id.wondaywall_widget_calendar_subtitle, calendarSubtitle(item))
+        setTextColor(R.id.wondaywall_widget_calendar_title, themedNewsPrimaryTextColor(context))
+        setTextColor(R.id.wondaywall_widget_calendar_subtitle, themedNewsSecondaryTextColor(context))
+        setTextViewTextSize(R.id.wondaywall_widget_calendar_title, TypedValue.COMPLEX_UNIT_SP, if (compact) 11f else 13f)
+        setTextViewTextSize(R.id.wondaywall_widget_calendar_subtitle, TypedValue.COMPLEX_UNIT_SP, if (compact) 8.5f else 10.5f)
+    }
+
+private fun moreRow(
+    context: Context,
+    compact: Boolean,
+): RemoteViews =
+    RemoteViews(context.packageName, R.layout.wondaywall_widget_more_row).apply {
+        setViewPadding(
+            R.id.wondaywall_widget_more_row_root,
+            dpToPx(context, if (compact) 8 else 12),
+            dpToPx(context, if (compact) 5 else 8),
+            dpToPx(context, if (compact) 8 else 12),
+            dpToPx(context, if (compact) 5 else 8),
+        )
+        setInt(R.id.wondaywall_widget_more_row_root, "setMinimumHeight", dpToPx(context, if (compact) 32 else 40))
+        setTextColor(R.id.wondaywall_widget_more_text, themedNewsPrimaryTextColor(context))
+        setTextColor(R.id.wondaywall_widget_more_arrow, themedNewsSecondaryTextColor(context))
+        setTextViewTextSize(R.id.wondaywall_widget_more_text, TypedValue.COMPLEX_UNIT_SP, if (compact) 11f else 13f)
+        setTextViewTextSize(R.id.wondaywall_widget_more_arrow, TypedValue.COMPLEX_UNIT_SP, if (compact) 14f else 16f)
+        setOnClickPendingIntent(
+            R.id.wondaywall_widget_more_row_root,
             PendingIntent.getActivity(
                 context,
-                0,
-                Intent(Intent.ACTION_VIEW).addCategory(Intent.CATEGORY_BROWSABLE),
-                widgetPendingIntentTemplateFlags()
+                20_000,
+                newsHomeIntent(context),
+                immutablePendingIntentFlags(),
             )
         )
     }
 
-class WondayWallWidgetStackService : RemoteViewsService() {
-    override fun onGetViewFactory(intent: Intent): RemoteViewsService.RemoteViewsFactory =
-        WondayWallWidgetStackFactory(applicationContext, intent)
+private fun addInfoDivider(context: Context, parent: RemoteViews) {
+    val divider = RemoteViews(context.packageName, R.layout.wondaywall_widget_info_divider).apply {
+        setInt(R.id.wondaywall_widget_info_divider_line, "setBackgroundColor", themedDividerColor(context))
+    }
+    parent.addView(R.id.wondaywall_widget_info_list_container, divider)
 }
 
-private class WondayWallWidgetStackFactory(
-    private val context: Context,
-    intent: Intent,
-) : RemoteViewsService.RemoteViewsFactory {
-    private val page = intent.getStringExtra(EXTRA_STACK_PAGE)
-        ?.let { value -> runCatching { WidgetInfoPage.valueOf(value) }.getOrNull() }
-        ?: WidgetInfoPage.News
-    private val compact = intent.getBooleanExtra(EXTRA_STACK_COMPACT, false)
-    private val stackHeightDp = intent.getIntExtra(EXTRA_STACK_HEIGHT_DP, if (compact) 88 else 210)
-    private val itemLimit = intent.getIntExtra(EXTRA_STACK_ITEM_LIMIT, if (compact) 2 else 3)
-    private var pages: List<WidgetStackPage> = emptyList()
-
-    override fun onCreate() = Unit
-
-    override fun onDataSetChanged() {
-        val state = runBlocking { WidgetStateRepository(context).load() }
-        pages = when (page) {
-            WidgetInfoPage.Calendar -> state.usedCalendarEvents
-                .chunked(itemLimit)
-                .map { WidgetStackPage.Calendar(it) }
-            WidgetInfoPage.News -> state.usedNewsTopics
-                .chunked(itemLimit)
-                .map { WidgetStackPage.News(it, state.faviconImages) }
-        }
-    }
-
-    override fun onDestroy() {
-        pages = emptyList()
-    }
-
-    override fun getCount(): Int = pages.size
-
-    override fun getViewAt(position: Int): RemoteViews {
-        val page = pages.getOrNull(position)
-            ?: return RemoteViews(context.packageName, R.layout.wondaywall_widget_stack_page)
-        return when (page) {
-            is WidgetStackPage.Calendar -> calendarPage(page.events)
-            is WidgetStackPage.News -> newsPage(page.news, page.faviconImages)
-        }
-    }
-
-    override fun getLoadingView(): RemoteViews? = null
-    override fun getViewTypeCount(): Int = 1
-    override fun getItemId(position: Int): Long = position.toLong()
-    override fun hasStableIds(): Boolean = false
-
-    private fun newsPage(
-        news: List<NewsTopicItem>,
-        faviconImages: Map<String, Bitmap>,
-    ): RemoteViews =
-        RemoteViews(context.packageName, R.layout.wondaywall_widget_stack_page).apply {
-            applyStackPageHeight(this)
-            setInt(
-                R.id.wondaywall_widget_stack_page_root,
-                "setBackgroundResource",
-                R.drawable.wondaywall_widget_news_surface
-            )
-            removeAllViews(R.id.wondaywall_widget_stack_page_container)
-            news.forEachIndexed { index, item ->
-                if (index > 0) {
-                    addDivider(this)
-                }
-                addView(R.id.wondaywall_widget_stack_page_container, newsRow(item, faviconImages[item.id]))
-            }
-        }
-
-    private fun calendarPage(events: List<CalendarEventItem>): RemoteViews =
-        RemoteViews(context.packageName, R.layout.wondaywall_widget_stack_page).apply {
-            applyStackPageHeight(this)
-            setInt(
-                R.id.wondaywall_widget_stack_page_root,
-                "setBackgroundResource",
-                R.drawable.wondaywall_widget_news_surface
-            )
-            removeAllViews(R.id.wondaywall_widget_stack_page_container)
-            events.forEachIndexed { index, item ->
-                if (index > 0) {
-                    addView(
-                        R.id.wondaywall_widget_stack_page_container,
-                        RemoteViews(context.packageName, R.layout.wondaywall_widget_stack_spacer)
-                    )
-                }
-                addView(R.id.wondaywall_widget_stack_page_container, calendarRow(item))
-            }
-        }
-
-    private fun newsRow(item: NewsTopicItem, favicon: Bitmap?): RemoteViews =
-        RemoteViews(context.packageName, R.layout.wondaywall_widget_news_row).apply {
-            setTextViewText(R.id.wondaywall_widget_news_title, item.title)
-            setTextViewText(R.id.wondaywall_widget_news_date, formatNewsPublishedAt(item))
-            setTextColor(R.id.wondaywall_widget_news_title, themedNewsPrimaryTextColor(context))
-            setTextColor(R.id.wondaywall_widget_news_date, themedNewsSecondaryTextColor(context))
-            setTextViewTextSize(R.id.wondaywall_widget_news_title, TypedValue.COMPLEX_UNIT_SP, if (compact) 11f else 12f)
-            setInt(
-                R.id.wondaywall_widget_favicon_frame,
-                "setBackgroundResource",
-                R.drawable.wondaywall_widget_favicon_surface
-            )
-            if (favicon != null) {
-                setImageViewBitmap(R.id.wondaywall_widget_news_favicon, favicon)
-            }
-            newsUri(item.url)?.let { uri ->
-                setOnClickFillInIntent(R.id.wondaywall_widget_news_row_root, articleIntent(uri))
-            }
-        }
-
-    private fun calendarRow(item: CalendarEventItem): RemoteViews =
-        RemoteViews(context.packageName, R.layout.wondaywall_widget_calendar_row).apply {
-            setInt(
-                R.id.wondaywall_widget_calendar_row_root,
-                "setBackgroundResource",
-                R.drawable.wondaywall_widget_info_row_surface
-            )
-            setTextViewText(R.id.wondaywall_widget_calendar_title, item.title)
-            setTextViewText(R.id.wondaywall_widget_calendar_subtitle, calendarSubtitle(item))
-            setTextColor(R.id.wondaywall_widget_calendar_title, themedNewsPrimaryTextColor(context))
-            setTextColor(R.id.wondaywall_widget_calendar_subtitle, themedNewsSecondaryTextColor(context))
-        }
-
-    private fun addDivider(parent: RemoteViews) {
-        val divider = RemoteViews(context.packageName, R.layout.wondaywall_widget_stack_divider).apply {
-            setInt(R.id.wondaywall_widget_stack_divider_line, "setBackgroundColor", themedDividerColor(context))
-        }
-        parent.addView(R.id.wondaywall_widget_stack_page_container, divider)
-    }
-
-    private fun applyStackPageHeight(remoteViews: RemoteViews) {
-        val heightPx = dpToPx(context, (stackHeightDp * 0.9f).toInt())
-        remoteViews.setInt(R.id.wondaywall_widget_stack_page_root, "setMinimumHeight", heightPx)
-        remoteViews.setInt(R.id.wondaywall_widget_stack_page_container, "setMinimumHeight", heightPx)
-    }
+private fun applyInfoListHeight(context: Context, remoteViews: RemoteViews, heightDp: Int) {
+    val heightPx = dpToPx(context, heightDp)
+    remoteViews.setInt(R.id.wondaywall_widget_info_list_root, "setMinimumHeight", heightPx)
+    remoteViews.setInt(R.id.wondaywall_widget_info_list_container, "setMinimumHeight", heightPx)
 }
 
-private sealed class WidgetStackPage {
-    data class Calendar(val events: List<CalendarEventItem>) : WidgetStackPage()
-    data class News(
-        val news: List<NewsTopicItem>,
-        val faviconImages: Map<String, Bitmap>,
-    ) : WidgetStackPage()
-}
-
-private fun widgetPendingIntentTemplateFlags(): Int {
+private fun immutablePendingIntentFlags(): Int {
     var flags = PendingIntent.FLAG_UPDATE_CURRENT
     flags = flags or if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        PendingIntent.FLAG_MUTABLE
+        PendingIntent.FLAG_IMMUTABLE
     } else {
         0
     }
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-        flags = flags or PendingIntent.FLAG_ALLOW_UNSAFE_IMPLICIT_INTENT
-    }
     return flags
 }
+
+private fun pendingIntentRequestCode(base: Int, key: String): Int =
+    base + (key.hashCode() and 0x0FFFFFFF)
 
 private fun isNightMode(context: Context): Boolean =
     (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==

@@ -5,12 +5,12 @@
     android:orientation="horizontal">
 
     <TextView
-        android:layout_width="48dp"
+        android:layout_width="42dp"
         android:layout_height="1dp"
         android:text="" />
 
     <TextView
-        android:id="@+id/wondaywall_widget_stack_divider_line"
+        android:id="@+id/wondaywall_widget_info_divider_line"
         android:layout_width="0dp"
         android:layout_height="1dp"
         android:layout_weight="1"

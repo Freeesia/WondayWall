@@ -1,15 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/wondaywall_widget_stack_page_root"
+    android:id="@+id/wondaywall_widget_info_list_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:clipToPadding="false"
+    android:background="@drawable/wondaywall_widget_news_surface"
+    android:clipToPadding="true"
     android:orientation="vertical">
 
     <LinearLayout
-        android:id="@+id/wondaywall_widget_stack_page_container"
+        android:id="@+id/wondaywall_widget_info_list_container"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:clipToPadding="false"
+        android:clipToPadding="true"
         android:orientation="vertical" />
 </LinearLayout>
