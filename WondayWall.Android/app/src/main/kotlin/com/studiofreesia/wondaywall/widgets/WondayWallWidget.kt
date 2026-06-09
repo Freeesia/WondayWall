@@ -330,13 +330,9 @@ private fun infoListLayout(
 ): InfoListLayout {
     val availableHeight = (widgetHeightDp - verticalPaddingDp)
         .coerceAtLeast(96)
-    val renderHeight = if (compact) {
-        availableHeight
-    } else {
-        // Launcher 側の実表示領域が Glance の responsive size より高い場合があるため、
-        // Large は余裕を持った描画領域を確保してホスト側の境界で切る。
-        availableHeight * 2
-    }
+    // Launcher 側の実表示領域が Glance の responsive size より高い場合があるため、
+    // 描画領域は余裕を持って確保してホスト側の境界で切る。
+    val renderHeight = availableHeight * 2
     return InfoListLayout(
         heightDp = renderHeight,
         rowCapacity = visibleInfoRowCapacity(availableHeight, compact),
@@ -383,9 +379,6 @@ private fun visibleInfoItems(
 ): List<WidgetInfoListItem> {
     val allItems = orderedInfoItems(state)
     if (allItems.size <= rowCapacity) {
-        if (allItems.isNotEmpty() && allItems.size < rowCapacity) {
-            return allItems + WidgetInfoListItem.More
-        }
         return allItems
     }
     return allItems.take((rowCapacity - 1).coerceAtLeast(1)) + WidgetInfoListItem.More
@@ -431,7 +424,7 @@ private fun newsRow(
         setTextColor(R.id.wondaywall_widget_news_date, themedNewsSecondaryTextColor(context))
         setTextViewTextSize(R.id.wondaywall_widget_news_title, TypedValue.COMPLEX_UNIT_SP, if (compact) 10.5f else 12f)
         setTextViewTextSize(R.id.wondaywall_widget_news_date, TypedValue.COMPLEX_UNIT_SP, if (compact) 8.5f else 10f)
-        setInt(R.id.wondaywall_widget_news_title, "setMaxLines", if (compact) 1 else 2)
+        setInt(R.id.wondaywall_widget_news_title, "setMaxLines", 2)
         setInt(
             R.id.wondaywall_widget_favicon_frame,
             "setBackgroundResource",
