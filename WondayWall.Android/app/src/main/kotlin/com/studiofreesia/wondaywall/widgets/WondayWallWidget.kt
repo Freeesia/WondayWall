@@ -11,7 +11,6 @@ import android.util.TypedValue
 import android.widget.RemoteViews
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
@@ -59,13 +58,7 @@ private enum class WidgetDisplaySize {
 }
 
 class WondayWallWidget : GlanceAppWidget() {
-    override val sizeMode: SizeMode = SizeMode.Responsive(
-        setOf(
-            DpSize(110.dp, 110.dp),
-            DpSize(250.dp, 110.dp),
-            DpSize(250.dp, 250.dp),
-        )
-    )
+    override val sizeMode: SizeMode = SizeMode.Exact
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val state = WidgetStateRepository(context).load(includeFaviconImages = true)
@@ -330,11 +323,8 @@ private fun infoListLayout(
 ): InfoListLayout {
     val availableHeight = (widgetHeightDp - verticalPaddingDp)
         .coerceAtLeast(96)
-    // Launcher 側の実表示領域が Glance の responsive size より高い場合があるため、
-    // 描画領域は余裕を持って確保してホスト側の境界で切る。
-    val renderHeight = availableHeight * 2
     return InfoListLayout(
-        heightDp = renderHeight,
+        heightDp = availableHeight,
         rowCapacity = visibleInfoRowCapacity(availableHeight, compact),
     )
 }
