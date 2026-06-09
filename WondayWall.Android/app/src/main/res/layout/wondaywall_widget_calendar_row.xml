@@ -16,7 +16,7 @@
         android:includeFontPadding="false"
         android:maxLines="1"
         android:textColor="#FF1B1B1F"
-        android:textSize="11sp"
+        android:textSize="13sp"
         android:textStyle="bold" />
 
     <TextView
@@ -28,5 +28,5 @@
         android:includeFontPadding="false"
         android:maxLines="1"
         android:textColor="#FF535F70"
-        android:textSize="9sp" />
+        android:textSize="10.5sp" />
 </LinearLayout>

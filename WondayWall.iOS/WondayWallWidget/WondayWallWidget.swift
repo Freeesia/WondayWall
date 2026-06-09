@@ -584,7 +584,7 @@ struct WondayWallWidgetView: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(item.title)
-                    .font(.caption2.weight(.medium))
+                    .font(.caption.weight(.medium))
                     .foregroundStyle(.primary)
                     .lineLimit(compact ? 1 : 2)
                     .multilineTextAlignment(.leading)

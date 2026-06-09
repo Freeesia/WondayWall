@@ -410,8 +410,8 @@ private fun newsRow(
         setTextViewText(R.id.wondaywall_widget_news_date, formatNewsPublishedAt(item))
         setTextColor(R.id.wondaywall_widget_news_title, themedNewsPrimaryTextColor(context))
         setTextColor(R.id.wondaywall_widget_news_date, themedNewsSecondaryTextColor(context))
-        setTextViewTextSize(R.id.wondaywall_widget_news_title, TypedValue.COMPLEX_UNIT_SP, if (compact) 10.5f else 12f)
-        setTextViewTextSize(R.id.wondaywall_widget_news_date, TypedValue.COMPLEX_UNIT_SP, if (compact) 8.5f else 10f)
+        setTextViewTextSize(R.id.wondaywall_widget_news_title, TypedValue.COMPLEX_UNIT_SP, 13f)
+        setTextViewTextSize(R.id.wondaywall_widget_news_date, TypedValue.COMPLEX_UNIT_SP, 10f)
         setInt(R.id.wondaywall_widget_news_title, "setMaxLines", 2)
         setInt(
             R.id.wondaywall_widget_favicon_frame,
@@ -452,8 +452,8 @@ private fun calendarRow(
         setTextViewText(R.id.wondaywall_widget_calendar_subtitle, calendarSubtitle(item))
         setTextColor(R.id.wondaywall_widget_calendar_title, themedNewsPrimaryTextColor(context))
         setTextColor(R.id.wondaywall_widget_calendar_subtitle, themedNewsSecondaryTextColor(context))
-        setTextViewTextSize(R.id.wondaywall_widget_calendar_title, TypedValue.COMPLEX_UNIT_SP, if (compact) 11f else 13f)
-        setTextViewTextSize(R.id.wondaywall_widget_calendar_subtitle, TypedValue.COMPLEX_UNIT_SP, if (compact) 8.5f else 10.5f)
+        setTextViewTextSize(R.id.wondaywall_widget_calendar_title, TypedValue.COMPLEX_UNIT_SP, 13f)
+        setTextViewTextSize(R.id.wondaywall_widget_calendar_subtitle, TypedValue.COMPLEX_UNIT_SP, 10.5f)
     }
 
 private fun moreRow(
@@ -471,8 +471,8 @@ private fun moreRow(
         setInt(R.id.wondaywall_widget_more_row_root, "setMinimumHeight", dpToPx(context, if (compact) 32 else 40))
         setTextColor(R.id.wondaywall_widget_more_text, themedNewsPrimaryTextColor(context))
         setTextColor(R.id.wondaywall_widget_more_arrow, themedNewsSecondaryTextColor(context))
-        setTextViewTextSize(R.id.wondaywall_widget_more_text, TypedValue.COMPLEX_UNIT_SP, if (compact) 11f else 13f)
-        setTextViewTextSize(R.id.wondaywall_widget_more_arrow, TypedValue.COMPLEX_UNIT_SP, if (compact) 14f else 16f)
+        setTextViewTextSize(R.id.wondaywall_widget_more_text, TypedValue.COMPLEX_UNIT_SP, 13f)
+        setTextViewTextSize(R.id.wondaywall_widget_more_arrow, TypedValue.COMPLEX_UNIT_SP, 16f)
         setOnClickPendingIntent(
             R.id.wondaywall_widget_more_row_root,
             PendingIntent.getActivity(
