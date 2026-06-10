@@ -86,7 +86,10 @@ final class ContextService {
 
     // RSS/Atom フィードからニュースを取得し、OGP 画像 URL を付与する（1時間キャッシュ）
     func fetchNews() async -> [NewsTopicItem] {
-        await fetchNews(from: configService.config.rssSources)
+        if let dummyNewsCount = dummyNewsCountIfEnabled() {
+            return Self.makeDummyNewsTopics(count: dummyNewsCount)
+        }
+        return await fetchNews(from: configService.config.rssSources)
     }
 
     // 指定した RSS/Atom フィードからニュースを取得し、OGP 画像 URL を付与する（1時間キャッシュ）
@@ -150,6 +153,59 @@ final class ContextService {
             try? data.write(to: cacheURL)
         }
         return result
+    }
+
+    private func dummyNewsCountIfEnabled() -> Int? {
+        #if DEBUG
+        let debugConfig = configService.debugConfig.normalized()
+        return debugConfig.useDummyAiService ? debugConfig.dummyNewsCount : nil
+        #else
+        return nil
+        #endif
+    }
+
+    // ダミーAIサービス用のニュース。RSSへアクセスせず、件数指定だけで安定した表示確認を行う。
+    private static func makeDummyNewsTopics(count: Int) -> [NewsTopicItem] {
+        let normalizedCount = min(max(count, 0), 20)
+        guard normalizedCount > 0 else { return [] }
+
+        let now = Date()
+        let templates: [(title: String, summary: String)] = [
+            (
+                "ダミーニュース{n}: 週末の空模様と街イベントの見どころ",
+                "週末に楽しめる屋外イベントと天気の変化をまとめたダミーニュースです。"
+            ),
+            (
+                "ダミーニュース{n}: 新しい生成AIツールが公開、制作ワークフローを短縮",
+                "デザインや文章作成を支援する新機能の概要を紹介するダミーニュースです。"
+            ),
+            (
+                "ダミーニュース{n}: 夜景スポットでライトアップ企画が開始",
+                "季節限定のライトアップと周辺のおすすめルートを扱うダミーニュースです。"
+            ),
+            (
+                "ダミーニュース{n}: 宇宙観測プロジェクトが新しい画像を公開",
+                "星雲や銀河の観測成果をビジュアル中心に伝えるダミーニュースです。"
+            ),
+            (
+                "ダミーニュース{n}: 地域マーケットに限定スイーツが登場",
+                "週末の買い物や散歩の参考になる食の話題を想定したダミーニュースです。"
+            ),
+        ]
+
+        return (0..<normalizedCount).map { index in
+            let number = index + 1
+            let template = templates[index % templates.count]
+            return NewsTopicItem(
+                id: "dummy-news-\(number)",
+                title: template.title.replacingOccurrences(of: "{n}", with: "\(number)"),
+                summary: template.summary,
+                url: "https://example.com/wondaywall/dummy-news-\(number)",
+                publishedAt: now.addingTimeInterval(TimeInterval(-(index + 1) * 3600)),
+                ogpImageUrl: nil,
+                sourceRssUrl: "dummy://wondaywall/news"
+            )
+        }
     }
 
     // 1つの RSS ソースからアイテムを取得してパースする（FeedKit使用）
@@ -253,7 +309,13 @@ final class ContextService {
 
         // ニューストピックを取得して選別する
         onProgress?(0.18, "ニュースの取得中")
-        let cachedNews = await fetchNews()
+        let dummyNewsCount = dummyNewsCountIfEnabled()
+        let cachedNews: [NewsTopicItem]
+        if let dummyNewsCount {
+            cachedNews = Self.makeDummyNewsTopics(count: dummyNewsCount)
+        } else {
+            cachedNews = await fetchNews(from: config.rssSources)
+        }
         onProgress?(0.24, "ニュースの取得完了")
         let lastGenerated = historyService.getLastSuccessfulGenerated()
         let selectedNewsItems = selectPromptNewsItems(
@@ -263,21 +325,26 @@ final class ContextService {
         // 選別したアイテムの OGP 画像を並列取得する（最大10件）
         // すでに OGP 画像があれば再取得はスキップする
         onProgress?(0.30, "OGP画像の取得中")
-        let ogpURLs = await withTaskGroup(of: (String, String?).self) { group in
-            for item in selectedNewsItems.prefix(10) {
-                if let url = item.url {
-                    if let existingOgp = item.ogpImageUrl {
-                        group.addTask { (url, existingOgp) }
-                    } else {
-                        group.addTask { (url, await self.fetchOGPImageURL(from: url)) }
+        let ogpURLs: [String: String]
+        if dummyNewsCount != nil {
+            ogpURLs = [:]
+        } else {
+            ogpURLs = await withTaskGroup(of: (String, String?).self) { group in
+                for item in selectedNewsItems.prefix(10) {
+                    if let url = item.url {
+                        if let existingOgp = item.ogpImageUrl {
+                            group.addTask { (url, existingOgp) }
+                        } else {
+                            group.addTask { (url, await self.fetchOGPImageURL(from: url)) }
+                        }
                     }
                 }
+                var map: [String: String] = [:]
+                for await (key, ogp) in group {
+                    if let ogp { map[key] = ogp }
+                }
+                return map
             }
-            var map: [String: String] = [:]
-            for await (key, ogp) in group {
-                if let ogp { map[key] = ogp }
-            }
-            return map
         }
         onProgress?(0.35, "コンテキスト生成完了")
         let news: [NewsTopicItem] = selectedNewsItems.map { item in

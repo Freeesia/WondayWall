@@ -36,7 +36,7 @@ final class AppConfigService {
     // DEBUG 時のみ有効: デバッグ専用設定
     #if DEBUG
     var debugConfig: DebugConfig {
-        didSet { Defaults[.debugConfig] = debugConfig }
+        didSet { Defaults[.debugConfig] = debugConfig.normalized() }
     }
     #endif
 
@@ -44,7 +44,7 @@ final class AppConfigService {
         config = Self.loadConfig()
         googleAiApiKey = Self.keychain[Self.apiKeyKeychainKey] ?? ""
         #if DEBUG
-        debugConfig = Defaults[.debugConfig]
+        debugConfig = Defaults[.debugConfig].normalized()
         #endif
     }
 

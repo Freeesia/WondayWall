@@ -73,7 +73,8 @@ class DataViewModel(
 
     // ニュースを取得する
     private suspend fun loadNews(rssSources: List<String>) {
-        if (rssSources.isEmpty()) return
+        val debugConfig = appConfigService.getDebugConfig()
+        if (rssSources.isEmpty() && !debugConfig.useDummyAiService) return
         _uiState.value = _uiState.value.copy(isLoadingNews = true)
         try {
             val result = contextService.buildPromptContext()

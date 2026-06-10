@@ -37,7 +37,7 @@ class DummyAiService(
         )
         return PromptGenerationResult(
             imagePrompt = "[Dummy] Simulated Android wallpaper prompt",
-            selectedNewsIds = emptyList(),
+            selectedNewsIds = context.newsTopics.map { it.id },
         )
     }
 

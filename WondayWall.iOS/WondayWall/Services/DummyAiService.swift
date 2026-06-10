@@ -25,7 +25,7 @@ final class DummyAiService: AiService {
         )
         return PromptGenerationResult(
             imagePrompt: "[Dummy] Simulated prompt",
-            selectedNewsIds: []
+            selectedNewsIds: context.newsTopics.indices.map { "news-\($0 + 1)" }
         )
     }
 

@@ -7,9 +7,11 @@ import android.provider.CalendarContract
 import androidx.core.content.ContextCompat
 import com.prof18.rssparser.RssParserBuilder
 import com.prof18.rssparser.model.RssItem
+import com.studiofreesia.wondaywall.BuildConfig
 import com.studiofreesia.wondaywall.models.CalendarEventItem
 import com.studiofreesia.wondaywall.models.CalendarSourceItem
 import com.studiofreesia.wondaywall.models.ContextBuildResult
+import com.studiofreesia.wondaywall.models.DebugConfig
 import com.studiofreesia.wondaywall.models.NewsTopicItem
 import com.studiofreesia.wondaywall.models.PromptCalendarEvent
 import com.studiofreesia.wondaywall.models.PromptContext
@@ -108,6 +110,7 @@ class ContextService(
     // onProgress はプロンプト生成開始前までの全体進捗 0.0〜1.0 の値を通知する
     suspend fun buildPromptContext(onProgress: ((Double, String) -> Unit)? = null): ContextBuildResult {
         val config = appConfigService.getConfig()
+        val debugConfig = appConfigService.getDebugConfig()
 
         // カレンダーイベントを取得する
         onProgress?.invoke(0.05, "カレンダーの取得中")
@@ -121,7 +124,11 @@ class ContextService(
             message = "ニュースの取得中",
             onProgress = onProgress,
         ) {
-            fetchAllNews(config.rssSources).take(10)
+            if (BuildConfig.DEBUG_FEATURES_ENABLED && debugConfig.useDummyAiService) {
+                buildDummyNews(debugConfig.dummyNewsCount)
+            } else {
+                fetchAllNews(config.rssSources).take(10)
+            }
         }
         onProgress?.invoke(0.14, "ニュース画像情報の取得完了")
 
@@ -282,6 +289,49 @@ class ContextService(
             } catch (_: Exception) {
                 emptyList()
             }
+        }
+    }
+
+    // ダミーAIサービス用のニュース。RSSへアクセスせず、件数指定だけで安定した表示確認を行う。
+    private fun buildDummyNews(count: Int): List<NewsTopicItem> {
+        val normalizedCount = count.coerceIn(DebugConfig.MIN_NEWS_COUNT, DebugConfig.MAX_NEWS_COUNT)
+        if (normalizedCount == 0) return emptyList()
+
+        val now = Clock.System.now()
+        val templates = listOf(
+            DummyNewsTemplate(
+                title = "ダミーニュース{n}: 週末の空模様と街イベントの見どころ",
+                summary = "週末に楽しめる屋外イベントと天気の変化をまとめたダミーニュースです。",
+            ),
+            DummyNewsTemplate(
+                title = "ダミーニュース{n}: 新しい生成AIツールが公開、制作ワークフローを短縮",
+                summary = "デザインや文章作成を支援する新機能の概要を紹介するダミーニュースです。",
+            ),
+            DummyNewsTemplate(
+                title = "ダミーニュース{n}: 夜景スポットでライトアップ企画が開始",
+                summary = "季節限定のライトアップと周辺のおすすめルートを扱うダミーニュースです。",
+            ),
+            DummyNewsTemplate(
+                title = "ダミーニュース{n}: 宇宙観測プロジェクトが新しい画像を公開",
+                summary = "星雲や銀河の観測成果をビジュアル中心に伝えるダミーニュースです。",
+            ),
+            DummyNewsTemplate(
+                title = "ダミーニュース{n}: 地域マーケットに限定スイーツが登場",
+                summary = "週末の買い物や散歩の参考になる食の話題を想定したダミーニュースです。",
+            ),
+        )
+
+        return (0 until normalizedCount).map { index ->
+            val number = index + 1
+            val template = templates[index % templates.size]
+            NewsTopicItem(
+                id = "dummy-news-$number",
+                title = template.title.replace("{n}", number.toString()),
+                summary = template.summary,
+                url = "https://example.com/wondaywall/dummy-news-$number",
+                publishedAt = now - (index + 1).hours,
+                ogpImageUrl = null,
+            )
         }
     }
 
@@ -476,4 +526,9 @@ class ContextService(
 private data class RssFeedCacheEntry(
     val fetchedAtEpochMillis: Long,
     val items: List<NewsTopicItem>,
+)
+
+private data class DummyNewsTemplate(
+    val title: String,
+    val summary: String,
 )
