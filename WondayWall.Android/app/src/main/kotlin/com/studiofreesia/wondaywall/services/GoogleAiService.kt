@@ -14,6 +14,7 @@ import com.studiofreesia.wondaywall.models.PromptCalendarEvent
 import com.studiofreesia.wondaywall.models.PromptContext
 import com.studiofreesia.wondaywall.models.PromptGenerationResult
 import com.studiofreesia.wondaywall.models.PromptNewsTopic
+import com.studiofreesia.wondaywall.models.PromptSelectedNews
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -69,7 +70,7 @@ class GoogleAiService(
         onProgress?.invoke(1.0, "画像生成プロンプトを生成しました")
         return PromptGenerationResult(
             imagePrompt = promptSelection.imagePrompt,
-            selectedNewsIds = promptSelection.selectedNewsIds,
+            selectedNews = PromptSelectedNews.Ids(promptSelection.selectedNewsIds),
         )
     }
 

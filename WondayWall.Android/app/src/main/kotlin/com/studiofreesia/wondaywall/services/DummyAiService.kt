@@ -12,6 +12,7 @@ import com.studiofreesia.wondaywall.models.GoogleAiServiceTier
 import com.studiofreesia.wondaywall.models.NewsTopicItem
 import com.studiofreesia.wondaywall.models.PromptContext
 import com.studiofreesia.wondaywall.models.PromptGenerationResult
+import com.studiofreesia.wondaywall.models.PromptSelectedNews
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -42,8 +43,7 @@ class DummyAiService(
         )
         return PromptGenerationResult(
             imagePrompt = "[Dummy] Simulated Android wallpaper prompt",
-            selectedNewsIds = news.map { it.id },
-            usedNewsTopics = news,
+            selectedNews = PromptSelectedNews.Items(news),
         )
     }
 

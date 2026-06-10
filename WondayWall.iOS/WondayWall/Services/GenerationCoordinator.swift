@@ -206,7 +206,7 @@ actor GenerationCoordinator {
                         }
                         return nil
                     } ?? []
-                    promptResult = PromptGenerationResult(imagePrompt: savedPrompt, selectedNewsIds: selectedIds)
+                    promptResult = PromptGenerationResult(imagePrompt: savedPrompt, selectedNews: .ids(selectedIds))
                     generatedPrompt = savedPrompt
                 } else {
                     // 通常フロー: テキストモデルで画像プロンプトを生成
@@ -226,15 +226,7 @@ actor GenerationCoordinator {
                     promptResult = result
 
                     // 中間保存①: generatingPromptReady（プロンプト生成完了・画像 API 呼び出し前）
-                    let adoptedNewsForPrompt = result.usedNewsTopics ?? result.selectedNewsIds.compactMap { id -> NewsTopicItem? in
-                        guard id.hasPrefix("news-"),
-                            let indexStr = id.split(separator: "-").last,
-                            let index = Int(indexStr),
-                            index >= 1 && index <= contextResult.newsTopics.count else {
-                            return nil
-                        }
-                        return contextResult.newsTopics[index - 1]
-                    }
+                    let adoptedNewsForPrompt = result.selectedNews.resolve(from: contextResult.newsTopics)
                     historyService.update(HistoryItem(
                         id: generatingItem.id,
                         executedAt: generatingItem.executedAt,
@@ -246,26 +238,18 @@ actor GenerationCoordinator {
                     ))
                 }
 
-                // 採用ニュースを決定（再開: resumable.usedNewsTopics / 新規: selectedNewsIds でフィルタ）
+                // 採用ニュースを決定（再開: resumable.usedNewsTopics / 新規: selectedNews から解決）
                 let adoptedNews: [NewsTopicItem]
                 if let resumableNews = resumable?.usedNewsTopics {
                     adoptedNews = resumableNews
                 } else {
-                    adoptedNews = promptResult.usedNewsTopics ?? promptResult.selectedNewsIds.compactMap { id -> NewsTopicItem? in
-                        guard id.hasPrefix("news-"),
-                              let indexStr = id.split(separator: "-").last,
-                              let index = Int(indexStr),
-                              index >= 1 && index <= contextResult.newsTopics.count else {
-                            return nil
-                        }
-                        return contextResult.newsTopics[index - 1]
-                    }
+                    adoptedNews = promptResult.selectedNews.resolve(from: contextResult.newsTopics)
                 }
 
                 // ステップ 1.5: 採用ニュースの OGP 画像をダウンロードする
                 let contextWithOgp = await aiService.fetchOgpImages(
                     context: context,
-                    selectedNewsIds: promptResult.selectedNewsIds
+                    selectedNewsIds: promptResult.selectedNews.ids
                 )
 
                 // 中間保存②: generatingImageRequested（画像 API 呼び出し直前）

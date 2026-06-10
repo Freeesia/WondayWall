@@ -26,8 +26,7 @@ final class DummyAiService: AiService {
         )
         return PromptGenerationResult(
             imagePrompt: "[Dummy] Simulated prompt",
-            selectedNewsIds: news.map(\.id),
-            usedNewsTopics: news
+            selectedNews: .items(news)
         )
     }
 
