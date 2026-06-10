@@ -678,6 +678,17 @@ final class GoogleAiService: AiService {
 struct PromptGenerationResult {
     let imagePrompt: String
     let selectedNewsIds: [String]
+    let usedNewsTopics: [NewsTopicItem]?
+
+    init(
+        imagePrompt: String,
+        selectedNewsIds: [String],
+        usedNewsTopics: [NewsTopicItem]? = nil
+    ) {
+        self.imagePrompt = imagePrompt
+        self.selectedNewsIds = selectedNewsIds
+        self.usedNewsTopics = usedNewsTopics
+    }
 }
 
 // 画像生成結果（ステップ 2 の戻り値）
@@ -714,4 +725,3 @@ extension JSONValue: ExpressibleByDictionaryLiteral {
 extension JSONValue: ExpressibleByArrayLiteral {
     init(arrayLiteral elements: JSONValue...) { self = .array(elements) }
 }
-

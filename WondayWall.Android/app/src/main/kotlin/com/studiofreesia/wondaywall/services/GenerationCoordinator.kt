@@ -205,9 +205,10 @@ class GenerationCoordinator(
                     },
                 )
                 generatedPrompt = promptResult.imagePrompt
-                usedNews = contextResult.newsTopics.filter {
-                    promptResult.selectedNewsIds.contains(it.id)
-                }
+                usedNews = promptResult.usedNewsTopics
+                    ?: contextResult.newsTopics.filter {
+                        promptResult.selectedNewsIds.contains(it.id)
+                    }
                 historyService.updateHistoryItem(
                     generatingItem.copy(
                         status = GenerationStatus.GeneratingPromptReady,

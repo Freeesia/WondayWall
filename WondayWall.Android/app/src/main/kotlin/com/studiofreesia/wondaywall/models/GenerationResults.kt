@@ -4,6 +4,7 @@ package com.studiofreesia.wondaywall.models
 data class PromptGenerationResult(
     val imagePrompt: String,
     val selectedNewsIds: List<String>,
+    val usedNewsTopics: List<NewsTopicItem>? = null,
 )
 
 // 画像モデルで生成し、保存した壁紙画像

@@ -226,11 +226,11 @@ actor GenerationCoordinator {
                     promptResult = result
 
                     // 中間保存①: generatingPromptReady（プロンプト生成完了・画像 API 呼び出し前）
-                    let adoptedNewsForPrompt = result.selectedNewsIds.compactMap { id -> NewsTopicItem? in
+                    let adoptedNewsForPrompt = result.usedNewsTopics ?? result.selectedNewsIds.compactMap { id -> NewsTopicItem? in
                         guard id.hasPrefix("news-"),
-                              let indexStr = id.split(separator: "-").last,
-                              let index = Int(indexStr),
-                              index >= 1 && index <= contextResult.newsTopics.count else {
+                            let indexStr = id.split(separator: "-").last,
+                            let index = Int(indexStr),
+                            index >= 1 && index <= contextResult.newsTopics.count else {
                             return nil
                         }
                         return contextResult.newsTopics[index - 1]
@@ -251,7 +251,7 @@ actor GenerationCoordinator {
                 if let resumableNews = resumable?.usedNewsTopics {
                     adoptedNews = resumableNews
                 } else {
-                    adoptedNews = promptResult.selectedNewsIds.compactMap { id -> NewsTopicItem? in
+                    adoptedNews = promptResult.usedNewsTopics ?? promptResult.selectedNewsIds.compactMap { id -> NewsTopicItem? in
                         guard id.hasPrefix("news-"),
                               let indexStr = id.split(separator: "-").last,
                               let index = Int(indexStr),
