@@ -26,13 +26,13 @@ final class DummyAiService: AiService {
         )
         return PromptGenerationResult(
             imagePrompt: "[Dummy] Simulated prompt",
-            selectedNews: .items(news)
+            selectedNewsTopics: news
         )
     }
 
     func fetchOgpImages(
         context: PromptContext,
-        selectedNewsIds _: [String]
+        selectedNewsTopics _: [NewsTopicItem]
     ) async -> PromptContext {
         // ダミー実装: OGP 取得なしで context をそのまま返す
         return context

@@ -13,7 +13,6 @@ import com.studiofreesia.wondaywall.models.HistoryItem
 import com.studiofreesia.wondaywall.models.NewsTopicItem
 import com.studiofreesia.wondaywall.models.PromptGenerationResult
 import com.studiofreesia.wondaywall.models.PromptNewsTopic
-import com.studiofreesia.wondaywall.models.PromptSelectedNews
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -189,7 +188,7 @@ class GenerationCoordinator(
                 usedNews = resumable.usedNewsTopics
                 promptResult = PromptGenerationResult(
                     imagePrompt = resumable.generatedPrompt,
-                    selectedNews = PromptSelectedNews.Items(resumable.usedNewsTopics.orEmpty()),
+                    selectedNewsTopics = resumable.usedNewsTopics.orEmpty(),
                 )
             } else {
                 promptResult = aiService.generatePrompt(
@@ -206,7 +205,7 @@ class GenerationCoordinator(
                     },
                 )
                 generatedPrompt = promptResult.imagePrompt
-                usedNews = promptResult.selectedNews.resolve(contextResult.newsTopics)
+                usedNews = promptResult.selectedNewsTopics
                 historyService.updateHistoryItem(
                     generatingItem.copy(
                         status = GenerationStatus.GeneratingPromptReady,
@@ -234,7 +233,7 @@ class GenerationCoordinator(
             ) {
                 aiService.fetchOgpImages(
                     context = contextForImage,
-                    selectedNewsIds = promptResult.selectedNews.ids(),
+                    selectedNewsTopics = adoptedNews,
                 )
             }
             postProgress(50, "採用ニュース画像の取得完了", GenerationPhase.FetchingOgp, generatingItem.id, trigger)

@@ -312,9 +312,9 @@ final class ContextService {
                     description: e.notes
                 )
             },
-            newsTopics: news.enumerated().map { index, n in
+            newsTopics: news.map { n in
                 PromptNewsTopic(
-                    id: "news-\(index + 1)",
+                    id: n.id,
                     title: n.title,
                     summary: n.summary,
                     url: n.url,

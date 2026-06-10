@@ -15,7 +15,7 @@ protocol AiService: AnyObject {
     // 失敗は無視し、ダウンロードできた分だけ反映した context を返す
     func fetchOgpImages(
         context: PromptContext,
-        selectedNewsIds: [String]
+        selectedNewsTopics: [NewsTopicItem]
     ) async -> PromptContext
 
     // 画像プロンプトから壁紙を生成してローカルに保存する（ステップ 2）
@@ -76,7 +76,10 @@ final class GoogleAiService: AiService {
         }
         return PromptGenerationResult(
             imagePrompt: promptSelection.imagePrompt,
-            selectedNews: .ids(promptSelection.selectedNewsIds)
+            selectedNewsTopics: Self.resolveSelectedNewsTopics(
+                context: context,
+                selectedNewsIds: promptSelection.selectedNewsIds
+            )
         )
     }
 
@@ -85,9 +88,9 @@ final class GoogleAiService: AiService {
     // ダウンロード失敗は無視し、成功分だけ ogpImageData / ogpImageMimeType を設定して返す
     func fetchOgpImages(
         context: PromptContext,
-        selectedNewsIds: [String]
+        selectedNewsTopics: [NewsTopicItem]
     ) async -> PromptContext {
-        let selectedIds = Set(selectedNewsIds)
+        let selectedIds = Set(selectedNewsTopics.map(\.id))
         var newsTopics = context.newsTopics
 
         // 採用ニュースのインデックスを最大3件抽出する
@@ -143,6 +146,31 @@ final class GoogleAiService: AiService {
         var updatedContext = context
         updatedContext.newsTopics = newsTopics
         return updatedContext
+    }
+
+    private static func resolveSelectedNewsTopics(
+        context: PromptContext,
+        selectedNewsIds: [String]
+    ) -> [NewsTopicItem] {
+        var topicsById: [String: PromptNewsTopic] = [:]
+        for topic in context.newsTopics {
+            topicsById[topic.id] = topic
+        }
+        return selectedNewsIds.compactMap { id in
+            topicsById[id].map(Self.makeNewsTopicItem)
+        }
+    }
+
+    private static func makeNewsTopicItem(from topic: PromptNewsTopic) -> NewsTopicItem {
+        NewsTopicItem(
+            id: topic.id,
+            title: topic.title,
+            summary: topic.summary,
+            url: topic.url,
+            publishedAt: topic.publishedAt ?? Date(),
+            ogpImageUrl: topic.ogpImageUrl,
+            sourceRssUrl: nil
+        )
     }
 
     // MARK: - OGP 画像キャッシュ
@@ -677,46 +705,14 @@ final class GoogleAiService: AiService {
 // テキストモデルのプロンプト生成結果（ステップ 1 の戻り値）
 struct PromptGenerationResult {
     let imagePrompt: String
-    let selectedNews: PromptSelectedNews
+    let selectedNewsTopics: [NewsTopicItem]
 
     init(
         imagePrompt: String,
-        selectedNews: PromptSelectedNews = .ids([])
+        selectedNewsTopics: [NewsTopicItem] = []
     ) {
         self.imagePrompt = imagePrompt
-        self.selectedNews = selectedNews
-    }
-}
-
-// プロンプト生成で採用したニュース。ID参照か実体のどちらか一方だけを保持する。
-enum PromptSelectedNews {
-    case ids([String])
-    case items([NewsTopicItem])
-
-    var ids: [String] {
-        switch self {
-        case .ids(let values):
-            return values
-        case .items(let values):
-            return values.map(\.id)
-        }
-    }
-
-    func resolve(from candidates: [NewsTopicItem]) -> [NewsTopicItem] {
-        switch self {
-        case .ids(let values):
-            return values.compactMap { id -> NewsTopicItem? in
-                if id.hasPrefix("news-"),
-                   let indexStr = id.split(separator: "-").last,
-                   let index = Int(indexStr),
-                   index >= 1 && index <= candidates.count {
-                    return candidates[index - 1]
-                }
-                return candidates.first { $0.id == id }
-            }
-        case .items(let values):
-            return values
-        }
+        self.selectedNewsTopics = selectedNewsTopics
     }
 }
 
