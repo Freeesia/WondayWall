@@ -173,7 +173,7 @@ private fun MediumWidgetContent(
     state: WidgetDisplayState,
     widgetHeightDp: Int,
 ) {
-    val verticalPadding = 3
+    val verticalPadding = 8
     Column(
         modifier = GlanceModifier
             .fillMaxSize()
@@ -287,17 +287,15 @@ private fun InfoContent(
     widgetHeightDp: Int,
     verticalPaddingDp: Int,
 ) {
-    val listLayout = infoListLayout(
-        widgetHeightDp = widgetHeightDp,
-        verticalPaddingDp = verticalPaddingDp,
-        compact = compact,
-    )
+    val availableHeight = (widgetHeightDp - verticalPaddingDp).coerceAtLeast(96)
+    val items = visibleInfoItems(state, availableHeight, compact)
+    val heightDp = contentHeightDp(items, compact).coerceAtLeast(40)
 
     AndroidRemoteViews(
-        remoteViews = infoListRemoteViews(context, state, compact, listLayout),
+        remoteViews = infoListRemoteViews(context, state, compact, items),
         modifier = GlanceModifier
             .fillMaxWidth()
-            .height(listLayout.heightDp.dp),
+            .height(heightDp.dp),
     )
 }
 
@@ -311,44 +309,36 @@ private fun shouldShowInfo(state: WidgetDisplayState): Boolean =
 private fun shouldShowSmallNewsButton(state: WidgetDisplayState): Boolean =
     state.status == WidgetSlotStatus.Processed
 
-private data class InfoListLayout(
-    val heightDp: Int,
-    val availableHeightDp: Int,
-    val compact: Boolean,
-)
-
 private const val INFO_DIVIDER_HEIGHT_DP = 1
 private const val COMPACT_INFO_ROW_HEIGHT_DP = 40
 private const val REGULAR_INFO_ROW_HEIGHT_DP = 46
 private const val COMPACT_MORE_ROW_HEIGHT_DP = 32
 private const val REGULAR_MORE_ROW_HEIGHT_DP = 40
-private const val COMPACT_MAX_INFO_ROWS = 4
-private const val REGULAR_MAX_INFO_ROWS = 6
+private const val COMPACT_MAX_INFO_ROWS = 12
+private const val REGULAR_MAX_INFO_ROWS = 12
+// 行数計算時の安全余白（フォントスケール・端末差による溢れを防ぐ）
+private const val HEIGHT_SAFETY_BUFFER_DP = 2
 
-private fun infoListLayout(
-    widgetHeightDp: Int,
-    verticalPaddingDp: Int,
-    compact: Boolean,
-): InfoListLayout {
-    val availableHeight = (widgetHeightDp - verticalPaddingDp)
-        .coerceAtLeast(96)
-    return InfoListLayout(
-        heightDp = availableHeight,
-        availableHeightDp = availableHeight,
-        compact = compact,
-    )
+private fun contentHeightDp(items: List<WidgetInfoListItem>, compact: Boolean): Int {
+    if (items.isEmpty()) return 0
+    val rowsHeight = items.sumOf { item ->
+        when (item) {
+            WidgetInfoListItem.More -> moreRowHeight(compact)
+            else -> infoRowHeight(compact)
+        }
+    }
+    val dividersHeight = (items.size - 1).coerceAtLeast(0) * INFO_DIVIDER_HEIGHT_DP
+    return rowsHeight + dividersHeight
 }
 
 private fun infoListRemoteViews(
     context: Context,
     state: WidgetDisplayState,
     compact: Boolean,
-    layout: InfoListLayout,
+    items: List<WidgetInfoListItem>,
 ): RemoteViews =
     RemoteViews(context.packageName, R.layout.wondaywall_widget_info_list).apply {
         removeAllViews(R.id.wondaywall_widget_info_list_container)
-
-        val items = visibleInfoItems(state, layout)
         items.forEachIndexed { index, item ->
             if (index > 0) {
                 addInfoDivider(context, this)
@@ -366,27 +356,29 @@ private fun infoListRemoteViews(
 
 private fun visibleInfoItems(
     state: WidgetDisplayState,
-    layout: InfoListLayout,
+    availableHeightDp: Int,
+    compact: Boolean,
 ): List<WidgetInfoListItem> {
     val allItems = orderedInfoItems(state)
-    val fullRowLimit = fullInfoRowLimit(layout.availableHeightDp, layout.compact)
+    val fullRowLimit = fullInfoRowLimit(availableHeightDp, compact)
     if (allItems.size <= fullRowLimit) {
         return allItems
     }
-
-    val visibleRowsBeforeMore = rowsBeforeMore(layout.availableHeightDp, layout.compact)
+    val visibleRowsBeforeMore = rowsBeforeMore(availableHeightDp, compact)
     return allItems.take(visibleRowsBeforeMore) + WidgetInfoListItem.More
 }
 
 private fun fullInfoRowLimit(availableHeightDp: Int, compact: Boolean): Int {
     val rowHeight = infoRowHeight(compact)
-    val rows = (availableHeightDp + INFO_DIVIDER_HEIGHT_DP) / (rowHeight + INFO_DIVIDER_HEIGHT_DP)
+    val safeHeight = (availableHeightDp - HEIGHT_SAFETY_BUFFER_DP).coerceAtLeast(rowHeight)
+    val rows = (safeHeight + INFO_DIVIDER_HEIGHT_DP) / (rowHeight + INFO_DIVIDER_HEIGHT_DP)
     return rows.coerceIn(1, maxInfoRows(compact))
 }
 
 private fun rowsBeforeMore(availableHeightDp: Int, compact: Boolean): Int {
     val rowHeight = infoRowHeight(compact)
-    val remainingHeight = (availableHeightDp - moreRowHeight(compact))
+    val safeHeight = (availableHeightDp - HEIGHT_SAFETY_BUFFER_DP).coerceAtLeast(rowHeight)
+    val remainingHeight = (safeHeight - moreRowHeight(compact))
         .coerceAtLeast(rowHeight)
     val rows = remainingHeight / (rowHeight + INFO_DIVIDER_HEIGHT_DP)
     return rows.coerceIn(1, maxInfoRows(compact) - 1)

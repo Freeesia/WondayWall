@@ -25,8 +25,7 @@ class WidgetStateRepository(private val context: Context) {
         val lastCompleted = history.firstOrNull { !it.isGenerating }
         val isCurrentSlotProcessed =
             lastCompleted?.executedAt?.toEpochMilliseconds()?.let { it >= currentSlotStartedAtMillis } == true
-        val isGenerating = app.generationCoordinator.isGenerating.value ||
-            app.taskSchedulerService.isGenerationWorkRunning()
+        val isGenerating = app.generationCoordinator.isGenerating.value
 
         val slotHistory = history.firstOrNull {
             !it.isGenerating && it.executedAt.toEpochMilliseconds() >= currentSlotStartedAtMillis

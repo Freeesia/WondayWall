@@ -524,42 +524,64 @@ struct WondayWallWidgetView: View {
     }
 
     private func calendarList(limit: Int, compact: Bool) -> some View {
-        VStack(alignment: .leading, spacing: compact ? 6 : 8) {
-            ForEach(Array(calendarEvents.prefix(limit))) { item in
+        let events = calendarEvents
+        let displayEvents = Array(events.prefix(limit))
+        let showMore = events.count > limit
+        return VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(displayEvents.enumerated()), id: \.element.id) { index, item in
+                if index > 0 {
+                    Divider()
+                        .padding(.leading, compact ? 8 : 10)
+                }
                 calendarRow(item, compact: compact)
             }
+            if showMore {
+                Divider()
+                    .padding(.leading, compact ? 8 : 10)
+                moreRow(compact: compact)
+            }
         }
+        .background(AnyShapeStyle(.regularMaterial))
+        .cornerRadius(10)
     }
 
     private func calendarRow(_ item: WidgetCalendarEvent, compact: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(item.title)
-                .font((compact ? Font.callout : Font.title3).weight(.bold))
-                .foregroundStyle(.white)
-                .lineLimit(1)
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: item.isAllDay ? "calendar" : "clock")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .frame(width: 16, height: 16)
+                .padding(.top, 2)
 
-            HStack(spacing: 5) {
-                Image(systemName: item.isAllDay ? "calendar" : "clock")
-                Text(calendarTimeText(for: item))
+            VStack(alignment: .leading, spacing: 3) {
+                Text(item.title)
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.primary)
                     .lineLimit(1)
-                if let location = item.location, !location.isEmpty {
-                    Text("・\(location)")
-                        .lineLimit(1)
-                }
+                    .multilineTextAlignment(.leading)
+
+                let timeText = calendarTimeText(for: item)
+                let subtitleText = (item.location.flatMap { $0.isEmpty ? nil : $0 })
+                    .map { "\(timeText) ・\($0)" } ?? timeText
+                Text(subtitleText)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
-            .font((compact ? Font.caption : Font.callout).weight(.semibold))
-            .foregroundStyle(.white.opacity(0.86))
+
+            Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, compact ? 10 : 12)
-        .padding(.vertical, compact ? 8 : 10)
-        .background(Color.black.opacity(0.42))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .padding(.horizontal, compact ? 8 : 10)
+        .padding(.vertical, compact ? 6 : 8)
     }
 
     private func newsList(limit: Int, compact: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ForEach(Array(newsItems.prefix(limit).enumerated()), id: \.element.id) { index, item in
+        let items = newsItems
+        let displayItems = Array(items.prefix(limit))
+        let showMore = items.count > limit
+        return VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(displayItems.enumerated()), id: \.element.id) { index, item in
                 if index > 0 {
                     Divider()
                         .padding(.leading, compact ? 32 : 34)
@@ -572,9 +594,31 @@ struct WondayWallWidgetView: View {
                     newsRow(item, compact: compact)
                 }
             }
+            if showMore {
+                Divider()
+                    .padding(.leading, compact ? 32 : 34)
+                moreRow(compact: compact)
+            }
         }
         .background(AnyShapeStyle(.regularMaterial))
         .cornerRadius(10)
+    }
+
+    private func moreRow(compact: Bool) -> some View {
+        Link(destination: widgetNewsURL) {
+            HStack {
+                Text("その他の予定・ニュース")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, compact ? 8 : 10)
+            .padding(.vertical, compact ? 6 : 8)
+        }
     }
 
     private func newsRow(_ item: WidgetNewsTopic, compact: Bool) -> some View {
