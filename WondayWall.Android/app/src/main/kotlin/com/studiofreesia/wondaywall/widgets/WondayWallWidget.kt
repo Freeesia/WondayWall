@@ -8,7 +8,10 @@ import android.graphics.Bitmap
 import android.os.Build
 import android.net.Uri
 import android.util.TypedValue
+import android.view.LayoutInflater
+import android.view.View
 import android.widget.RemoteViews
+import android.widget.TextView
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -50,6 +53,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import kotlin.math.roundToInt
 
 private enum class WidgetDisplaySize {
     Small,
@@ -110,8 +114,18 @@ private fun WondayWallWidgetContent(
             } else {
                 when (displaySize) {
                     WidgetDisplaySize.Small -> SmallWidgetContent(context, state)
-                    WidgetDisplaySize.Medium -> MediumWidgetContent(context, state, size.height.value.toInt())
-                    WidgetDisplaySize.Large -> LargeWidgetContent(context, state, size.height.value.toInt())
+                    WidgetDisplaySize.Medium -> MediumWidgetContent(
+                        context = context,
+                        state = state,
+                        widgetWidthDp = size.width.value.roundToInt(),
+                        widgetHeightDp = size.height.value.roundToInt(),
+                    )
+                    WidgetDisplaySize.Large -> LargeWidgetContent(
+                        context = context,
+                        state = state,
+                        widgetWidthDp = size.width.value.roundToInt(),
+                        widgetHeightDp = size.height.value.roundToInt(),
+                    )
                 }
             }
         }
@@ -171,13 +185,15 @@ private fun SmallWidgetContent(
 private fun MediumWidgetContent(
     context: Context,
     state: WidgetDisplayState,
+    widgetWidthDp: Int,
     widgetHeightDp: Int,
 ) {
     val verticalPadding = 8
+    val horizontalPadding = 8
     Column(
         modifier = GlanceModifier
             .fillMaxSize()
-            .padding(vertical = verticalPadding.dp, horizontal = 8.dp),
+            .padding(vertical = verticalPadding.dp, horizontal = horizontalPadding.dp),
     ) {
         if (shouldShowStatus(state)) {
             StatusLabel(state)
@@ -188,7 +204,9 @@ private fun MediumWidgetContent(
                 context = context,
                 state = state,
                 compact = true,
+                widgetWidthDp = widgetWidthDp,
                 widgetHeightDp = widgetHeightDp,
+                horizontalPaddingDp = horizontalPadding * 2,
                 verticalPaddingDp = verticalPadding * 2,
             )
         }
@@ -199,13 +217,15 @@ private fun MediumWidgetContent(
 private fun LargeWidgetContent(
     context: Context,
     state: WidgetDisplayState,
+    widgetWidthDp: Int,
     widgetHeightDp: Int,
 ) {
     val verticalPadding = 16
+    val horizontalPadding = 16
     Column(
         modifier = GlanceModifier
             .fillMaxSize()
-            .padding(vertical = verticalPadding.dp, horizontal = 16.dp),
+            .padding(vertical = verticalPadding.dp, horizontal = horizontalPadding.dp),
     ) {
         if (shouldShowStatus(state)) {
             StatusLabel(state)
@@ -216,7 +236,9 @@ private fun LargeWidgetContent(
                 context = context,
                 state = state,
                 compact = false,
+                widgetWidthDp = widgetWidthDp,
                 widgetHeightDp = widgetHeightDp,
+                horizontalPaddingDp = horizontalPadding * 2,
                 verticalPaddingDp = verticalPadding * 2,
             )
         }
@@ -284,11 +306,20 @@ private fun InfoContent(
     context: Context,
     state: WidgetDisplayState,
     compact: Boolean,
+    widgetWidthDp: Int,
     widgetHeightDp: Int,
+    horizontalPaddingDp: Int,
     verticalPaddingDp: Int,
 ) {
+    val availableWidth = (widgetWidthDp - horizontalPaddingDp).coerceAtLeast(120)
     val availableHeight = (widgetHeightDp - verticalPaddingDp).coerceAtLeast(96)
-    val items = visibleInfoItems(state, availableHeight, compact)
+    val items = visibleInfoItems(
+        context = context,
+        state = state,
+        availableWidthDp = availableWidth,
+        availableHeightDp = availableHeight,
+        compact = compact,
+    )
 
     AndroidRemoteViews(
         remoteViews = infoListRemoteViews(context, state, compact, items),
@@ -309,11 +340,39 @@ private fun shouldShowSmallNewsButton(state: WidgetDisplayState): Boolean =
     state.status == WidgetSlotStatus.Processed
 
 private const val INFO_DIVIDER_HEIGHT_DP = 1
-private const val COMPACT_INFO_ROW_HEIGHT_DP = 40
-private const val REGULAR_INFO_ROW_HEIGHT_DP = 46
-private const val COMPACT_MORE_ROW_HEIGHT_DP = 32
-private const val REGULAR_MORE_ROW_HEIGHT_DP = 40
-private const val HEIGHT_SAFETY_BUFFER_DP = 2
+private const val NEWS_TITLE_TEXT_SIZE_SP = 13f
+private const val NEWS_DATE_TEXT_SIZE_SP = 10f
+private const val CALENDAR_TITLE_TEXT_SIZE_SP = 13f
+private const val CALENDAR_SUBTITLE_TEXT_SIZE_SP = 10.5f
+private const val MORE_TEXT_TEXT_SIZE_SP = 13f
+private const val MORE_ARROW_TEXT_SIZE_SP = 16f
+
+private data class WidgetRowLayoutParams(
+    val horizontalPaddingDp: Int,
+    val verticalPaddingDp: Int,
+    val minHeightDp: Int,
+)
+
+private fun newsRowLayoutParams(compact: Boolean): WidgetRowLayoutParams =
+    WidgetRowLayoutParams(
+        horizontalPaddingDp = if (compact) 8 else 12,
+        verticalPaddingDp = if (compact) 3 else 5,
+        minHeightDp = if (compact) 40 else 46,
+    )
+
+private fun calendarRowLayoutParams(compact: Boolean): WidgetRowLayoutParams =
+    WidgetRowLayoutParams(
+        horizontalPaddingDp = if (compact) 8 else 12,
+        verticalPaddingDp = if (compact) 5 else 8,
+        minHeightDp = if (compact) 40 else 46,
+    )
+
+private fun moreRowLayoutParams(compact: Boolean): WidgetRowLayoutParams =
+    WidgetRowLayoutParams(
+        horizontalPaddingDp = if (compact) 8 else 12,
+        verticalPaddingDp = if (compact) 5 else 8,
+        minHeightDp = if (compact) 32 else 40,
+    )
 
 private fun infoListRemoteViews(
     context: Context,
@@ -339,40 +398,50 @@ private fun infoListRemoteViews(
     }
 
 private fun visibleInfoItems(
+    context: Context,
     state: WidgetDisplayState,
+    availableWidthDp: Int,
     availableHeightDp: Int,
     compact: Boolean,
 ): List<WidgetInfoListItem> {
     val allItems = orderedInfoItems(state)
-    val fullRowLimit = fullInfoRowLimit(availableHeightDp, compact)
-    if (allItems.size <= fullRowLimit) {
+    if (allItems.isEmpty()) {
+        return emptyList()
+    }
+
+    val availableWidthPx = dpToPx(context, availableWidthDp)
+    val availableHeightPx = dpToPx(context, availableHeightDp)
+    val dividerHeightPx = dpToPx(context, INFO_DIVIDER_HEIGHT_DP).coerceAtLeast(1)
+    val itemHeightsPx = allItems.map { item ->
+        measureInfoItemHeight(context, item, availableWidthPx, compact)
+    }
+    if (totalListHeightPx(itemHeightsPx, dividerHeightPx) <= availableHeightPx) {
         return allItems
     }
-    val visibleRowsBeforeMore = rowsBeforeMore(availableHeightDp, compact)
-    return allItems.take(visibleRowsBeforeMore) + WidgetInfoListItem.More
+
+    val moreHeightPx = measureInfoItemHeight(context, WidgetInfoListItem.More, availableWidthPx, compact)
+    var usedHeightPx = 0
+    var visibleCount = 0
+    for (itemHeightPx in itemHeightsPx) {
+        val nextUsedHeightPx = if (visibleCount == 0) {
+            itemHeightPx
+        } else {
+            usedHeightPx + dividerHeightPx + itemHeightPx
+        }
+        val totalWithMorePx = nextUsedHeightPx + dividerHeightPx + moreHeightPx
+        if (totalWithMorePx > availableHeightPx) {
+            break
+        }
+        usedHeightPx = nextUsedHeightPx
+        visibleCount += 1
+    }
+
+    if (visibleCount == 0) {
+        return listOf(allItems.first())
+    }
+
+    return allItems.take(visibleCount) + WidgetInfoListItem.More
 }
-
-private fun fullInfoRowLimit(availableHeightDp: Int, compact: Boolean): Int {
-    val rowHeight = infoRowHeight(compact)
-    val safeHeight = (availableHeightDp - HEIGHT_SAFETY_BUFFER_DP).coerceAtLeast(rowHeight)
-    val rows = (safeHeight + INFO_DIVIDER_HEIGHT_DP) / (rowHeight + INFO_DIVIDER_HEIGHT_DP)
-    return rows.coerceAtLeast(1)
-}
-
-private fun rowsBeforeMore(availableHeightDp: Int, compact: Boolean): Int {
-    val rowHeight = infoRowHeight(compact)
-    val safeHeight = (availableHeightDp - HEIGHT_SAFETY_BUFFER_DP).coerceAtLeast(rowHeight)
-    val remainingHeight = (safeHeight - moreRowHeight(compact))
-        .coerceAtLeast(rowHeight)
-    val rows = remainingHeight / (rowHeight + INFO_DIVIDER_HEIGHT_DP)
-    return rows.coerceAtLeast(1)
-}
-
-private fun infoRowHeight(compact: Boolean): Int =
-    if (compact) COMPACT_INFO_ROW_HEIGHT_DP else REGULAR_INFO_ROW_HEIGHT_DP
-
-private fun moreRowHeight(compact: Boolean): Int =
-    if (compact) COMPACT_MORE_ROW_HEIGHT_DP else REGULAR_MORE_ROW_HEIGHT_DP
 
 private fun orderedInfoItems(state: WidgetDisplayState): List<WidgetInfoListItem> {
     val calendarItems = state.usedCalendarEvents.map(WidgetInfoListItem::Calendar)
@@ -393,6 +462,104 @@ private sealed class WidgetInfoListItem {
     object More : WidgetInfoListItem()
 }
 
+private fun totalListHeightPx(itemHeightsPx: List<Int>, dividerHeightPx: Int): Int {
+    if (itemHeightsPx.isEmpty()) {
+        return 0
+    }
+    return itemHeightsPx.sum() + dividerHeightPx * (itemHeightsPx.size - 1)
+}
+
+private fun measureInfoItemHeight(
+    context: Context,
+    item: WidgetInfoListItem,
+    rowWidthPx: Int,
+    compact: Boolean,
+): Int =
+    when (item) {
+        is WidgetInfoListItem.Calendar -> measureCalendarRowHeight(context, item.event, rowWidthPx, compact)
+        WidgetInfoListItem.More -> measureMoreRowHeight(context, rowWidthPx, compact)
+        is WidgetInfoListItem.News -> measureNewsRowHeight(context, item.news, rowWidthPx, compact)
+    }
+
+// RemoteViews 自体はレイアウト後の高さを返せないため、同じ行レイアウトをオフスクリーンで測って表示件数を決める。
+private fun measureNewsRowHeight(
+    context: Context,
+    item: NewsTopicItem,
+    rowWidthPx: Int,
+    compact: Boolean,
+): Int =
+    measureRowHeight(context, R.layout.wondaywall_widget_news_row, rowWidthPx) { view ->
+        val params = newsRowLayoutParams(compact)
+        applyRowLayoutParams(context, view.findViewById(R.id.wondaywall_widget_news_row_root), params)
+        view.findViewById<TextView>(R.id.wondaywall_widget_news_title).apply {
+            text = item.title
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, NEWS_TITLE_TEXT_SIZE_SP)
+            maxLines = 2
+        }
+        view.findViewById<TextView>(R.id.wondaywall_widget_news_date).apply {
+            text = formatNewsPublishedAt(item)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, NEWS_DATE_TEXT_SIZE_SP)
+        }
+    }
+
+private fun measureCalendarRowHeight(
+    context: Context,
+    item: CalendarEventItem,
+    rowWidthPx: Int,
+    compact: Boolean,
+): Int =
+    measureRowHeight(context, R.layout.wondaywall_widget_calendar_row, rowWidthPx) { view ->
+        val params = calendarRowLayoutParams(compact)
+        applyRowLayoutParams(context, view.findViewById(R.id.wondaywall_widget_calendar_row_root), params)
+        view.findViewById<TextView>(R.id.wondaywall_widget_calendar_title).apply {
+            text = item.title
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, CALENDAR_TITLE_TEXT_SIZE_SP)
+        }
+        view.findViewById<TextView>(R.id.wondaywall_widget_calendar_subtitle).apply {
+            text = calendarSubtitle(item)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, CALENDAR_SUBTITLE_TEXT_SIZE_SP)
+        }
+    }
+
+private fun measureMoreRowHeight(
+    context: Context,
+    rowWidthPx: Int,
+    compact: Boolean,
+): Int =
+    measureRowHeight(context, R.layout.wondaywall_widget_more_row, rowWidthPx) { view ->
+        val params = moreRowLayoutParams(compact)
+        applyRowLayoutParams(context, view.findViewById(R.id.wondaywall_widget_more_row_root), params)
+        view.findViewById<TextView>(R.id.wondaywall_widget_more_text)
+            .setTextSize(TypedValue.COMPLEX_UNIT_SP, MORE_TEXT_TEXT_SIZE_SP)
+        view.findViewById<TextView>(R.id.wondaywall_widget_more_arrow)
+            .setTextSize(TypedValue.COMPLEX_UNIT_SP, MORE_ARROW_TEXT_SIZE_SP)
+    }
+
+private fun measureRowHeight(
+    context: Context,
+    layoutId: Int,
+    rowWidthPx: Int,
+    bind: (View) -> Unit,
+): Int {
+    val view = LayoutInflater.from(context).inflate(layoutId, null, false)
+    bind(view)
+    val widthSpec = View.MeasureSpec.makeMeasureSpec(rowWidthPx, View.MeasureSpec.EXACTLY)
+    val heightSpec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+    view.measure(widthSpec, heightSpec)
+    return view.measuredHeight
+}
+
+private fun applyRowLayoutParams(
+    context: Context,
+    view: View,
+    params: WidgetRowLayoutParams,
+) {
+    val horizontalPaddingPx = dpToPx(context, params.horizontalPaddingDp)
+    val verticalPaddingPx = dpToPx(context, params.verticalPaddingDp)
+    view.setPadding(horizontalPaddingPx, verticalPaddingPx, horizontalPaddingPx, verticalPaddingPx)
+    view.minimumHeight = dpToPx(context, params.minHeightDp)
+}
+
 private fun newsRow(
     context: Context,
     item: NewsTopicItem,
@@ -400,20 +567,21 @@ private fun newsRow(
     compact: Boolean,
 ): RemoteViews =
     RemoteViews(context.packageName, R.layout.wondaywall_widget_news_row).apply {
+        val params = newsRowLayoutParams(compact)
         setViewPadding(
             R.id.wondaywall_widget_news_row_root,
-            dpToPx(context, if (compact) 8 else 12),
-            dpToPx(context, if (compact) 3 else 5),
-            dpToPx(context, if (compact) 8 else 12),
-            dpToPx(context, if (compact) 3 else 5),
+            dpToPx(context, params.horizontalPaddingDp),
+            dpToPx(context, params.verticalPaddingDp),
+            dpToPx(context, params.horizontalPaddingDp),
+            dpToPx(context, params.verticalPaddingDp),
         )
-        setInt(R.id.wondaywall_widget_news_row_root, "setMinimumHeight", dpToPx(context, infoRowHeight(compact)))
+        setInt(R.id.wondaywall_widget_news_row_root, "setMinimumHeight", dpToPx(context, params.minHeightDp))
         setTextViewText(R.id.wondaywall_widget_news_title, item.title)
         setTextViewText(R.id.wondaywall_widget_news_date, formatNewsPublishedAt(item))
         setTextColor(R.id.wondaywall_widget_news_title, themedNewsPrimaryTextColor(context))
         setTextColor(R.id.wondaywall_widget_news_date, themedNewsSecondaryTextColor(context))
-        setTextViewTextSize(R.id.wondaywall_widget_news_title, TypedValue.COMPLEX_UNIT_SP, 13f)
-        setTextViewTextSize(R.id.wondaywall_widget_news_date, TypedValue.COMPLEX_UNIT_SP, 10f)
+        setTextViewTextSize(R.id.wondaywall_widget_news_title, TypedValue.COMPLEX_UNIT_SP, NEWS_TITLE_TEXT_SIZE_SP)
+        setTextViewTextSize(R.id.wondaywall_widget_news_date, TypedValue.COMPLEX_UNIT_SP, NEWS_DATE_TEXT_SIZE_SP)
         setInt(R.id.wondaywall_widget_news_title, "setMaxLines", 2)
         setInt(
             R.id.wondaywall_widget_favicon_frame,
@@ -442,20 +610,21 @@ private fun calendarRow(
     compact: Boolean,
 ): RemoteViews =
     RemoteViews(context.packageName, R.layout.wondaywall_widget_calendar_row).apply {
+        val params = calendarRowLayoutParams(compact)
         setViewPadding(
             R.id.wondaywall_widget_calendar_row_root,
-            dpToPx(context, if (compact) 8 else 12),
-            dpToPx(context, if (compact) 5 else 8),
-            dpToPx(context, if (compact) 8 else 12),
-            dpToPx(context, if (compact) 5 else 8),
+            dpToPx(context, params.horizontalPaddingDp),
+            dpToPx(context, params.verticalPaddingDp),
+            dpToPx(context, params.horizontalPaddingDp),
+            dpToPx(context, params.verticalPaddingDp),
         )
-        setInt(R.id.wondaywall_widget_calendar_row_root, "setMinimumHeight", dpToPx(context, infoRowHeight(compact)))
+        setInt(R.id.wondaywall_widget_calendar_row_root, "setMinimumHeight", dpToPx(context, params.minHeightDp))
         setTextViewText(R.id.wondaywall_widget_calendar_title, item.title)
         setTextViewText(R.id.wondaywall_widget_calendar_subtitle, calendarSubtitle(item))
         setTextColor(R.id.wondaywall_widget_calendar_title, themedNewsPrimaryTextColor(context))
         setTextColor(R.id.wondaywall_widget_calendar_subtitle, themedNewsSecondaryTextColor(context))
-        setTextViewTextSize(R.id.wondaywall_widget_calendar_title, TypedValue.COMPLEX_UNIT_SP, 13f)
-        setTextViewTextSize(R.id.wondaywall_widget_calendar_subtitle, TypedValue.COMPLEX_UNIT_SP, 10.5f)
+        setTextViewTextSize(R.id.wondaywall_widget_calendar_title, TypedValue.COMPLEX_UNIT_SP, CALENDAR_TITLE_TEXT_SIZE_SP)
+        setTextViewTextSize(R.id.wondaywall_widget_calendar_subtitle, TypedValue.COMPLEX_UNIT_SP, CALENDAR_SUBTITLE_TEXT_SIZE_SP)
     }
 
 private fun moreRow(
@@ -463,18 +632,19 @@ private fun moreRow(
     compact: Boolean,
 ): RemoteViews =
     RemoteViews(context.packageName, R.layout.wondaywall_widget_more_row).apply {
+        val params = moreRowLayoutParams(compact)
         setViewPadding(
             R.id.wondaywall_widget_more_row_root,
-            dpToPx(context, if (compact) 8 else 12),
-            dpToPx(context, if (compact) 5 else 8),
-            dpToPx(context, if (compact) 8 else 12),
-            dpToPx(context, if (compact) 5 else 8),
+            dpToPx(context, params.horizontalPaddingDp),
+            dpToPx(context, params.verticalPaddingDp),
+            dpToPx(context, params.horizontalPaddingDp),
+            dpToPx(context, params.verticalPaddingDp),
         )
-        setInt(R.id.wondaywall_widget_more_row_root, "setMinimumHeight", dpToPx(context, moreRowHeight(compact)))
+        setInt(R.id.wondaywall_widget_more_row_root, "setMinimumHeight", dpToPx(context, params.minHeightDp))
         setTextColor(R.id.wondaywall_widget_more_text, themedNewsPrimaryTextColor(context))
         setTextColor(R.id.wondaywall_widget_more_arrow, themedNewsSecondaryTextColor(context))
-        setTextViewTextSize(R.id.wondaywall_widget_more_text, TypedValue.COMPLEX_UNIT_SP, 13f)
-        setTextViewTextSize(R.id.wondaywall_widget_more_arrow, TypedValue.COMPLEX_UNIT_SP, 16f)
+        setTextViewTextSize(R.id.wondaywall_widget_more_text, TypedValue.COMPLEX_UNIT_SP, MORE_TEXT_TEXT_SIZE_SP)
+        setTextViewTextSize(R.id.wondaywall_widget_more_arrow, TypedValue.COMPLEX_UNIT_SP, MORE_ARROW_TEXT_SIZE_SP)
         setOnClickPendingIntent(
             R.id.wondaywall_widget_more_row_root,
             PendingIntent.getActivity(
