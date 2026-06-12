@@ -1,16 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- カード背景(match_parent)とアイテムコンテナ(wrap_content)を分離することで
+     カードが高さいっぱいに広がりつつ addView でのアイテム追加が正しく動作する -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/wondaywall_widget_info_list_root"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:clipToPadding="true"
-    android:orientation="vertical">
+    android:layout_height="match_parent">
 
+    <!-- カード背景：ウィジェット高さいっぱいに表示 -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/wondaywall_widget_news_surface" />
+
+    <!-- アイテムコンテナ：wrap_content で addView が正しく機能する -->
     <LinearLayout
         android:id="@+id/wondaywall_widget_info_list_container"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@drawable/wondaywall_widget_news_surface"
-        android:clipToPadding="true"
         android:orientation="vertical" />
-</LinearLayout>
+</FrameLayout>
