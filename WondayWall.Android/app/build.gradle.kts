@@ -103,6 +103,10 @@ configure<ApplicationExtension> {
         buildConfig = true
     }
 
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
+
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -154,6 +158,10 @@ dependencies {
 
     debugImplementation(libs.androidx.compose.ui.tooling)
     add("previewImplementation", libs.androidx.compose.ui.tooling)
+
+    testImplementation(libs.junit4)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.robolectric)
 
     androidTestImplementation(libs.androidx.work.testing)
 }

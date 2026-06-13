@@ -437,7 +437,11 @@ private fun visibleInfoItems(
     }
 
     if (visibleCount == 0) {
-        return listOf(allItems.first())
+        return if (moreHeightPx <= availableHeightPx) {
+            listOf(WidgetInfoListItem.More)
+        } else {
+            listOf(allItems.first())
+        }
     }
 
     return allItems.take(visibleCount) + WidgetInfoListItem.More
