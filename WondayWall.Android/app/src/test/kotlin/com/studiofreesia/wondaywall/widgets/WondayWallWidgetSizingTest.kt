@@ -84,6 +84,17 @@ class WondayWallWidgetSizingTest {
     }
 
     @Test
+    fun representativeTallWidgetShowsMoreWhenTruncated() {
+        val context = contextWithFontScale(1.3f)
+        val state = widgetState(longNewsTitles = true)
+        val items = visibleInfoItems(context, state, 218, 400, compact = false)
+
+        assertTrue("tall widget should still truncate with long content", countRealItems(items) < totalInfoItemCount(state))
+        assertTrue("tall widget should show More row when truncated", hasMoreRow(items))
+        assertFitsWithinHeightBudget(context, items, 218, 400, compact = false)
+    }
+
+    @Test
     fun veryTallWidgetShowsAllItemsWithoutMore() {
         val context = contextWithFontScale(1.3f)
         val state = widgetState(longNewsTitles = true)
