@@ -42,9 +42,6 @@ class WidgetStateRepository(private val context: Context) {
         val usedEvents = slotHistory?.usedCalendarEvents?.takeIf { it.isNotEmpty() }
             ?: latestSuccess?.usedCalendarEvents?.takeIf { it.isNotEmpty() }
             ?: emptyList()
-        val displayEvents = usedEvents.take(4)
-        val displayNews = usedNews.take(8)
-        val hasHiddenInfoItems = usedEvents.size > displayEvents.size || usedNews.size > displayNews.size
 
         val status = when {
             !isConfigured -> WidgetSlotStatus.Unconfigured
@@ -58,11 +55,10 @@ class WidgetStateRepository(private val context: Context) {
             currentSlotStartedAtMillis = currentSlotStartedAtMillis,
             backgroundImage = imageHistory?.appliedImageUri?.let { loadWidgetBitmap(it) },
             canOpenGenerationConfirmation = isConfigured && !isGenerating && !isCurrentSlotProcessed,
-            usedCalendarEvents = displayEvents,
-            usedNewsTopics = displayNews,
-            hasHiddenInfoItems = hasHiddenInfoItems,
+            usedCalendarEvents = usedEvents,
+            usedNewsTopics = usedNews,
             faviconImages = if (includeFaviconImages) {
-                loadFaviconImages(displayNews)
+                loadFaviconImages(usedNews)
             } else {
                 emptyMap()
             },
@@ -180,6 +176,5 @@ data class WidgetDisplayState(
     val canOpenGenerationConfirmation: Boolean,
     val usedCalendarEvents: List<CalendarEventItem>,
     val usedNewsTopics: List<NewsTopicItem>,
-    val hasHiddenInfoItems: Boolean,
     val faviconImages: Map<String, Bitmap>,
 )

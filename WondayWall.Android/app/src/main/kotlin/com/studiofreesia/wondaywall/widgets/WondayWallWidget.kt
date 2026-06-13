@@ -417,14 +417,9 @@ private fun visibleInfoItems(
     }
     val totalDisplayedHeightPx = totalListHeightPx(itemHeightsPx, dividerHeightPx)
     val moreHeightPx = measureInfoItemHeight(context, WidgetInfoListItem.More, availableWidthPx, compact)
-    val requiresMore = state.hasHiddenInfoItems || totalDisplayedHeightPx > availableHeightPx
 
-    if (!requiresMore) {
+    if (totalDisplayedHeightPx <= availableHeightPx) {
         return allItems
-    }
-
-    if (totalDisplayedHeightPx + dividerHeightPx + moreHeightPx <= availableHeightPx) {
-        return allItems + WidgetInfoListItem.More
     }
 
     var usedHeightPx = 0
