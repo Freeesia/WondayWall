@@ -34,7 +34,7 @@ class WondayWallWidgetSizingTest {
         cases.forEach { (widthDp, heightDp, compact) ->
             val items = visibleInfoItems(context, state, widthDp, heightDp, compact)
             assertFitsWithinHeightBudget(context, items, widthDp, heightDp, compact)
-            if (items.size < totalInfoItemCount(state) && canFitFirstItemAndMore(context, state, widthDp, heightDp, compact)) {
+            if (items.size < displayedInfoItemCount(state) && canFitFirstItemAndMore(context, state, widthDp, heightDp, compact)) {
                     assertTrue("overflow should end with More row", hasMoreRow(items))
             }
         }
@@ -76,7 +76,7 @@ class WondayWallWidgetSizingTest {
         val firstHeight = measureItemHeight(largeFontContext, allItems.first(), dpToPx(largeFontContext, 234), compact = true)
         val moreHeight = measureItemHeight(largeFontContext, createMoreRowItem(), dpToPx(largeFontContext, 234), compact = true)
 
-        assertTrue("compact min-height widget should truncate", countRealItems(items) < totalInfoItemCount(state))
+        assertTrue("compact min-height widget should truncate", countRealItems(items) < displayedInfoItemCount(state))
         assertTrue(
             "compact min-height widget should show More row: first=${firstHeight}px more=${moreHeight}px items=${items.map { it.javaClass.simpleName }}",
             hasMoreRow(items),
@@ -89,9 +89,24 @@ class WondayWallWidgetSizingTest {
         val state = widgetState(longNewsTitles = true)
         val items = visibleInfoItems(context, state, 218, 400, compact = false)
 
-        assertTrue("tall widget should still truncate with long content", countRealItems(items) < totalInfoItemCount(state))
+        assertTrue("tall widget should still truncate with long content", countRealItems(items) < displayedInfoItemCount(state))
         assertTrue("tall widget should show More row when truncated", hasMoreRow(items))
         assertFitsWithinHeightBudget(context, items, 218, 400, compact = false)
+    }
+
+    @Test
+    fun hiddenSourceItemsStillShowMoreWhenDisplayedRowsAllFit() {
+        val context = contextWithFontScale(1.0f)
+        val state = widgetState(
+            longNewsTitles = false,
+            hasHiddenCalendarEvents = true,
+            hasHiddenNewsTopics = true,
+        )
+        val items = visibleInfoItems(context, state, 218, 1200, compact = false)
+
+        assertEquals(displayedInfoItemCount(state) + 1, items.size)
+        assertTrue("hidden source items should keep More row visible", hasMoreRow(items))
+        assertFitsWithinHeightBudget(context, items, 218, 1200, compact = false)
     }
 
     @Test
@@ -100,7 +115,7 @@ class WondayWallWidgetSizingTest {
         val state = widgetState(longNewsTitles = true)
         val items = visibleInfoItems(context, state, 218, 1200, compact = false)
 
-        assertEquals(totalInfoItemCount(state), items.size)
+        assertEquals(displayedInfoItemCount(state), items.size)
         assertFalse("very tall widget should not show More row", hasMoreRow(items))
         assertFitsWithinHeightBudget(context, items, 218, 1200, compact = false)
     }
@@ -145,10 +160,20 @@ class WondayWallWidgetSizingTest {
                     ogpImageUrl = null,
                 )
             },
+            hasHiddenInfoItems = false,
             faviconImages = emptyMap(),
         )
 
-    private fun totalInfoItemCount(state: WidgetDisplayState): Int =
+    private fun widgetState(
+        longNewsTitles: Boolean,
+        hasHiddenCalendarEvents: Boolean,
+        hasHiddenNewsTopics: Boolean,
+    ): WidgetDisplayState =
+        widgetState(longNewsTitles = longNewsTitles).copy(
+            hasHiddenInfoItems = hasHiddenCalendarEvents || hasHiddenNewsTopics,
+        )
+
+    private fun displayedInfoItemCount(state: WidgetDisplayState): Int =
         state.usedCalendarEvents.size + state.usedNewsTopics.size
 
     private fun orderedInfoItems(state: WidgetDisplayState): List<Any> {
