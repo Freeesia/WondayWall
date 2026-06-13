@@ -58,6 +58,32 @@ final class HomeViewModel {
         sheetNews = await environment.contextService.fetchNews()
     }
 
+    // ウィジェット起動要求から、現在も生成可能な場合だけ確認シートを開く
+    @MainActor
+    func openGenerationSheetIfStillAllowed(slotStartedAt: Date) async {
+        guard !environment.isGenerating else { return }
+        let config = environment.configService.config
+        guard config.hasCompletedInitialSetup else { return }
+        guard !environment.configService.googleAiApiKey
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .isEmpty
+        else { return }
+
+        let currentSlot = ScheduleHelper.getLatestScheduledSlotAtOrBefore(
+            Date(),
+            schedule: config.schedule
+        )
+        guard abs(currentSlot.timeIntervalSince(slotStartedAt)) < 1 else { return }
+
+        if let lastCompleted = environment.historyService.getLastCompletedRun(),
+           lastCompleted.executedAt >= currentSlot {
+            loadLatestHistory()
+            return
+        }
+
+        showGenerationSheet = true
+    }
+
     // 手動生成を実行する
     func generate() async {
         showGenerationSheet = false

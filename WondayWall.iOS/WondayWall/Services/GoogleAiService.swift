@@ -15,7 +15,7 @@ protocol AiService: AnyObject {
     // 失敗は無視し、ダウンロードできた分だけ反映した context を返す
     func fetchOgpImages(
         context: PromptContext,
-        selectedNewsIds: [String]
+        selectedNewsTopics: [NewsTopicItem]
     ) async -> PromptContext
 
     // 画像プロンプトから壁紙を生成してローカルに保存する（ステップ 2）
@@ -76,7 +76,10 @@ final class GoogleAiService: AiService {
         }
         return PromptGenerationResult(
             imagePrompt: promptSelection.imagePrompt,
-            selectedNewsIds: promptSelection.selectedNewsIds
+            selectedNewsTopics: Self.resolveSelectedNewsTopics(
+                context: context,
+                selectedNewsIds: promptSelection.selectedNewsIds
+            )
         )
     }
 
@@ -85,9 +88,9 @@ final class GoogleAiService: AiService {
     // ダウンロード失敗は無視し、成功分だけ ogpImageData / ogpImageMimeType を設定して返す
     func fetchOgpImages(
         context: PromptContext,
-        selectedNewsIds: [String]
+        selectedNewsTopics: [NewsTopicItem]
     ) async -> PromptContext {
-        let selectedIds = Set(selectedNewsIds)
+        let selectedIds = Set(selectedNewsTopics.map(\.id))
         var newsTopics = context.newsTopics
 
         // 採用ニュースのインデックスを最大3件抽出する
@@ -143,6 +146,31 @@ final class GoogleAiService: AiService {
         var updatedContext = context
         updatedContext.newsTopics = newsTopics
         return updatedContext
+    }
+
+    private static func resolveSelectedNewsTopics(
+        context: PromptContext,
+        selectedNewsIds: [String]
+    ) -> [NewsTopicItem] {
+        var topicsById: [String: PromptNewsTopic] = [:]
+        for topic in context.newsTopics {
+            topicsById[topic.id] = topic
+        }
+        return selectedNewsIds.compactMap { id in
+            topicsById[id].map(Self.makeNewsTopicItem)
+        }
+    }
+
+    private static func makeNewsTopicItem(from topic: PromptNewsTopic) -> NewsTopicItem {
+        NewsTopicItem(
+            id: topic.id,
+            title: topic.title,
+            summary: topic.summary,
+            url: topic.url,
+            publishedAt: topic.publishedAt ?? Date(),
+            ogpImageUrl: topic.ogpImageUrl,
+            sourceRssUrl: nil
+        )
     }
 
     // MARK: - OGP 画像キャッシュ
@@ -677,7 +705,15 @@ final class GoogleAiService: AiService {
 // テキストモデルのプロンプト生成結果（ステップ 1 の戻り値）
 struct PromptGenerationResult {
     let imagePrompt: String
-    let selectedNewsIds: [String]
+    let selectedNewsTopics: [NewsTopicItem]
+
+    init(
+        imagePrompt: String,
+        selectedNewsTopics: [NewsTopicItem] = []
+    ) {
+        self.imagePrompt = imagePrompt
+        self.selectedNewsTopics = selectedNewsTopics
+    }
 }
 
 // 画像生成結果（ステップ 2 の戻り値）
@@ -714,4 +750,3 @@ extension JSONValue: ExpressibleByDictionaryLiteral {
 extension JSONValue: ExpressibleByArrayLiteral {
     init(arrayLiteral elements: JSONValue...) { self = .array(elements) }
 }
-

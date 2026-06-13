@@ -86,7 +86,7 @@ final class ContextService {
 
     // RSS/Atom フィードからニュースを取得し、OGP 画像 URL を付与する（1時間キャッシュ）
     func fetchNews() async -> [NewsTopicItem] {
-        await fetchNews(from: configService.config.rssSources)
+        return await fetchNews(from: configService.config.rssSources)
     }
 
     // 指定した RSS/Atom フィードからニュースを取得し、OGP 画像 URL を付与する（1時間キャッシュ）
@@ -253,7 +253,7 @@ final class ContextService {
 
         // ニューストピックを取得して選別する
         onProgress?(0.18, "ニュースの取得中")
-        let cachedNews = await fetchNews()
+        let cachedNews = await fetchNews(from: config.rssSources)
         onProgress?(0.24, "ニュースの取得完了")
         let lastGenerated = historyService.getLastSuccessfulGenerated()
         let selectedNewsItems = selectPromptNewsItems(
@@ -312,9 +312,9 @@ final class ContextService {
                     description: e.notes
                 )
             },
-            newsTopics: news.enumerated().map { index, n in
+            newsTopics: news.map { n in
                 PromptNewsTopic(
-                    id: "news-\(index + 1)",
+                    id: n.id,
                     title: n.title,
                     summary: n.summary,
                     url: n.url,

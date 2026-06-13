@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // タブビュー — Home / Data / History / Settings の4タブ構成
 struct ContentView: View {
@@ -33,6 +34,10 @@ struct ContentView: View {
             guard !hasLoadedInitialSetupState else { return }
             hasCompletedInitialSetup = environment.configService.config.hasCompletedInitialSetup
             hasLoadedInitialSetupState = true
+            await environment.reloadWidgetTimelineNow()
+        }
+        .onOpenURL { url in
+            handleOpenURL(url)
         }
     }
 
@@ -107,6 +112,7 @@ struct ContentView: View {
             NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)
         ) { _ in
             Task {
+                await environment.reloadWidgetTimelineNow()
                 await evaluateStartupGeneration()
             }
         }
@@ -134,6 +140,7 @@ struct ContentView: View {
     private func completeInitialSetup() {
         hasCompletedInitialSetup = true
         selectedTab = 0
+        environment.reloadWidgetTimeline()
     }
 
     private var startupAlertTitle: String {
@@ -168,6 +175,7 @@ struct ContentView: View {
 
     private func evaluateStartupGeneration() async {
         guard isInitialSetupComplete else { return }
+        guard environment.pendingWidgetGenerationSlotStartedAt == nil else { return }
         guard environment.configService.config.autoGenerationEnabled else { return }
         guard environment.configService.hasMinimumConfigurationForStartupGeneration() else { return }
 
@@ -188,6 +196,41 @@ struct ContentView: View {
             startupAlertMode = .confirmStart
             showStartupAlert = true
         }
+    }
+
+    private func handleOpenURL(_ url: URL) {
+        if isExternalURL(url) {
+            UIApplication.shared.open(url)
+            return
+        }
+
+        guard url.scheme == "wondaywall",
+              url.host == "widget"
+        else { return }
+
+        switch url.path {
+        case "/generate-confirmation":
+            guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+                  let slotValue = components.queryItems?.first(where: { $0.name == "slotStartedAt" })?.value,
+                  let slotStartedAt = ISO8601DateFormatter().date(from: slotValue)
+            else { return }
+
+            selectedTab = 0
+            startupAlertMode = nil
+            showStartupAlert = false
+            environment.requestWidgetGenerationConfirmation(slotStartedAt: slotStartedAt)
+        case "/news":
+            selectedTab = 0
+            startupAlertMode = nil
+            showStartupAlert = false
+        default:
+            return
+        }
+    }
+
+    private func isExternalURL(_ url: URL) -> Bool {
+        guard let scheme = url.scheme?.lowercased() else { return false }
+        return scheme == "http" || scheme == "https"
     }
 }
 

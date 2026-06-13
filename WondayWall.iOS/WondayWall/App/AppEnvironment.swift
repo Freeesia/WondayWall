@@ -1,4 +1,5 @@
 import Foundation
+import WidgetKit
 
 // 全サービスを保持する DI コンテナ
 // SwiftUI 環境経由で各ビューに注入する
@@ -15,8 +16,13 @@ final class AppEnvironment: ObservableObject {
     let coordinator: GenerationCoordinator
     let backgroundTaskService: BackgroundTaskService
 
+    private var widgetRefreshTask: Task<Void, Never>?
+
     // 生成進捗（0-100）。nil は非生成中を表す
     @Published var generationProgress: Int? = nil
+
+    // ウィジェットから生成確認シートを開く要求。HomeView が消費する。
+    @Published var pendingWidgetGenerationSlotStartedAt: Date? = nil
 
     // 生成中かどうか（手動・起動時補完・バックグラウンド両方を含む）
     var isGenerating: Bool { generationProgress != nil }
@@ -65,6 +71,17 @@ final class AppEnvironment: ObservableObject {
         self.coordinator = coord
         self.backgroundTaskService = bgTask
 
+        config.onConfigurationChanged = { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.reloadWidgetTimeline()
+            }
+        }
+        history.onHistoryChanged = { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.reloadWidgetTimeline()
+            }
+        }
+
         // 全プロパティ初期化後にコールバックを設定する
         Task {
             await coord.setIsGeneratingHandler { [weak self] value in
@@ -76,6 +93,7 @@ final class AppEnvironment: ObservableObject {
                 } else {
                     self.generationProgress = nil
                 }
+                self.reloadWidgetTimeline()
             }
         }
 
@@ -87,7 +105,9 @@ final class AppEnvironment: ObservableObject {
         ) { [weak self] notification in
             guard let progress = notification.userInfo?["progress"] as? Int else { return }
             Task { @MainActor [weak self] in
-                self?.generationProgress = max(0, min(100, progress))
+                guard let self else { return }
+                self.generationProgress = max(0, min(100, progress))
+                self.reloadWidgetTimeline()
             }
         }
 
@@ -97,8 +117,32 @@ final class AppEnvironment: ObservableObject {
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
-                self?.generationProgress = nil
+                guard let self else { return }
+                self.generationProgress = nil
+                self.reloadWidgetTimeline()
             }
         }
+    }
+
+    func reloadWidgetTimeline() {
+        widgetRefreshTask?.cancel()
+        widgetRefreshTask = Task {
+            try? await Task.sleep(for: .milliseconds(250))
+            guard !Task.isCancelled else { return }
+            WidgetCenter.shared.reloadTimelines(ofKind: WidgetSharedConstants.kind)
+        }
+    }
+
+    func reloadWidgetTimelineNow() async {
+        widgetRefreshTask?.cancel()
+        WidgetCenter.shared.reloadTimelines(ofKind: WidgetSharedConstants.kind)
+    }
+
+    func requestWidgetGenerationConfirmation(slotStartedAt: Date) {
+        pendingWidgetGenerationSlotStartedAt = slotStartedAt
+    }
+
+    func clearWidgetGenerationConfirmationRequest() {
+        pendingWidgetGenerationSlotStartedAt = nil
     }
 }
