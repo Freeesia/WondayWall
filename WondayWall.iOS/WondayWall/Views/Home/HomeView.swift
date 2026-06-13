@@ -4,12 +4,13 @@ import SwiftUI
 struct HomeView: View {
     @EnvironmentObject private var environment: AppEnvironment
     @State private var viewModel: HomeViewModel?
+    @State private var selectedCalendarEvent: CalendarEventItem?
 
     var body: some View {
         NavigationStack {
             Group {
                 if let vm = viewModel {
-                    HomeContentView(vm: vm)
+                    HomeContentView(selectedCalendarEvent: $selectedCalendarEvent, vm: vm)
                 } else {
                     ProgressView()
                 }
@@ -25,6 +26,12 @@ struct HomeView: View {
                 }
             }
         }
+        .sheet(item: $selectedCalendarEvent) { event in
+            CalendarEventDetailSheet(
+                event: event,
+                calendarService: environment.calendarService
+            )
+        }
         .task {
             if viewModel == nil {
                 viewModel = HomeViewModel(environment: environment)
@@ -32,12 +39,19 @@ struct HomeView: View {
             if let slotStartedAt = environment.pendingWidgetGenerationSlotStartedAt {
                 await handleWidgetGenerationRequest(slotStartedAt)
             }
+            if let eventID = environment.pendingWidgetCalendarEventID {
+                handleWidgetCalendarEventRequest(eventID)
+            }
         }
         .onReceive(environment.$pendingWidgetGenerationSlotStartedAt) { slotStartedAt in
             guard let slotStartedAt else { return }
             Task {
                 await handleWidgetGenerationRequest(slotStartedAt)
             }
+        }
+        .onReceive(environment.$pendingWidgetCalendarEventID) { eventID in
+            guard let eventID else { return }
+            handleWidgetCalendarEventRequest(eventID)
         }
     }
 
@@ -47,13 +61,20 @@ struct HomeView: View {
         await viewModel.openGenerationSheetIfStillAllowed(slotStartedAt: slotStartedAt)
         environment.clearWidgetGenerationConfirmationRequest()
     }
+
+    @MainActor
+    private func handleWidgetCalendarEventRequest(_ eventID: String) {
+        defer { environment.clearWidgetCalendarEventDetailRequest() }
+        guard let event = environment.historyService.findCalendarEvent(id: eventID) else { return }
+        selectedCalendarEvent = event
+    }
 }
 
 // ホーム画面のコンテンツ本体
 private struct HomeContentView: View {
     @EnvironmentObject private var environment: AppEnvironment
     @Environment(\.openURL) private var openURL
-    @State private var selectedCalendarEvent: CalendarEventItem?
+    @Binding var selectedCalendarEvent: CalendarEventItem?
     var vm: HomeViewModel
 
     var body: some View {
@@ -104,12 +125,6 @@ private struct HomeContentView: View {
                 set: { vm.showGenerationSheet = $0 }
             )) {
                 GenerationConfirmSheet(vm: vm)
-            }
-            .sheet(item: $selectedCalendarEvent) { event in
-                CalendarEventDetailSheet(
-                    event: event,
-                    calendarService: environment.calendarService
-                )
             }
             .background{
                 // 最新壁紙を全画面背景として表示する（タブバー裏まで伸ばす）
@@ -197,10 +212,8 @@ private struct HomeContentView: View {
                 }
             }
             Spacer(minLength: 8)
-            Image(systemName: "chevron.right")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
         }
+        .contentShape(Rectangle())
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)

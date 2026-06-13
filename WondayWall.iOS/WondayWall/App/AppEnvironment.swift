@@ -23,6 +23,8 @@ final class AppEnvironment: ObservableObject {
 
     // ウィジェットから生成確認シートを開く要求。HomeView が消費する。
     @Published var pendingWidgetGenerationSlotStartedAt: Date? = nil
+    // ウィジェットから予定詳細シートを開く要求。HomeView が消費する。
+    @Published var pendingWidgetCalendarEventID: String? = nil
 
     // 生成中かどうか（手動・起動時補完・バックグラウンド両方を含む）
     var isGenerating: Bool { generationProgress != nil }
@@ -144,5 +146,13 @@ final class AppEnvironment: ObservableObject {
 
     func clearWidgetGenerationConfirmationRequest() {
         pendingWidgetGenerationSlotStartedAt = nil
+    }
+
+    func requestWidgetCalendarEventDetail(eventID: String) {
+        pendingWidgetCalendarEventID = eventID
+    }
+
+    func clearWidgetCalendarEventDetailRequest() {
+        pendingWidgetCalendarEventID = nil
     }
 }

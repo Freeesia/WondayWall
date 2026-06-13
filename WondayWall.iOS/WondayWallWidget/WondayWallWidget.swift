@@ -533,7 +533,9 @@ struct WondayWallWidgetView: View {
                     Divider()
                         .padding(.leading, compact ? 8 : 10)
                 }
-                calendarRow(item, compact: compact)
+                Link(destination: calendarEventURL(for: item)) {
+                    calendarRow(item, compact: compact)
+                }
             }
             if showMore {
                 Divider()
@@ -760,6 +762,17 @@ struct WondayWallWidgetView: View {
 
     private var widgetNewsURL: URL {
         URL(string: "wondaywall://widget/news")!
+    }
+
+    private func calendarEventURL(for item: WidgetCalendarEvent) -> URL {
+        var components = URLComponents()
+        components.scheme = "wondaywall"
+        components.host = "widget"
+        components.path = "/calendar-event"
+        components.queryItems = [
+            URLQueryItem(name: "eventId", value: item.id)
+        ]
+        return components.url ?? URL(string: "wondaywall://widget/calendar-event")!
     }
 
     private var rootWidgetURL: URL? {

@@ -131,6 +131,14 @@ final class HistoryService {
         return getLastSuccessfulGenerated()?.usedCalendarEvents ?? []
     }
 
+    // 保存済み履歴から指定 ID の予定を探す
+    func findCalendarEvent(id: String) -> CalendarEventItem? {
+        loadNewestFirst()
+            .compactMap { $0.usedCalendarEvents }
+            .flatMap { $0 }
+            .first { $0.id == id }
+    }
+
     // プロンプト生成済み・画像 API 未呼び出しの再開可能な履歴を返す
     // generatingPromptReady: 画像 API を呼ぶ前に kill されたため再開可能
     func getGeneratingWithPrompt() -> HistoryItem? {

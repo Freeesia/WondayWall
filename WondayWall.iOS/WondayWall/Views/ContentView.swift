@@ -223,6 +223,15 @@ struct ContentView: View {
             selectedTab = 0
             startupAlertMode = nil
             showStartupAlert = false
+        case "/calendar-event":
+            guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+                  let eventID = components.queryItems?.first(where: { $0.name == "eventId" })?.value
+            else { return }
+
+            selectedTab = 0
+            startupAlertMode = nil
+            showStartupAlert = false
+            environment.requestWidgetCalendarEventDetail(eventID: eventID)
         default:
             return
         }
