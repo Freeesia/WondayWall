@@ -14,6 +14,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import kotlin.math.ceil
 
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE, sdk = [36])
@@ -34,7 +35,7 @@ class WondayWallWidgetSizingTest {
         cases.forEach { (widthDp, heightDp, compact) ->
             val items = visibleInfoItems(context, state, widthDp, heightDp, compact)
             assertFitsWithinHeightBudget(context, items, widthDp, heightDp, compact)
-            if (items.size < displayedInfoItemCount(state) && canFitFirstItemAndMore(context, state, widthDp, heightDp, compact)) {
+            if (items.size < totalInfoItemCount(state) && canFitFirstItemAndMore(context, state, widthDp, heightDp, compact)) {
                     assertTrue("overflow should end with More row", hasMoreRow(items))
             }
         }
@@ -76,7 +77,7 @@ class WondayWallWidgetSizingTest {
         val firstHeight = measureItemHeight(largeFontContext, allItems.first(), dpToPx(largeFontContext, 234), compact = true)
         val moreHeight = measureItemHeight(largeFontContext, createMoreRowItem(), dpToPx(largeFontContext, 234), compact = true)
 
-        assertTrue("compact min-height widget should truncate", countRealItems(items) < displayedInfoItemCount(state))
+        assertTrue("compact min-height widget should truncate", countRealItems(items) < totalInfoItemCount(state))
         assertTrue(
             "compact min-height widget should show More row: first=${firstHeight}px more=${moreHeight}px items=${items.map { it.javaClass.simpleName }}",
             hasMoreRow(items),
@@ -89,35 +90,21 @@ class WondayWallWidgetSizingTest {
         val state = widgetState(longNewsTitles = true)
         val items = visibleInfoItems(context, state, 218, 400, compact = false)
 
-        assertTrue("tall widget should still truncate with long content", countRealItems(items) < displayedInfoItemCount(state))
+        assertTrue("tall widget should still truncate with long content", countRealItems(items) < totalInfoItemCount(state))
         assertTrue("tall widget should show More row when truncated", hasMoreRow(items))
         assertFitsWithinHeightBudget(context, items, 218, 400, compact = false)
-    }
-
-    @Test
-    fun hiddenSourceItemsStillShowMoreWhenDisplayedRowsAllFit() {
-        val context = contextWithFontScale(1.0f)
-        val state = widgetState(
-            longNewsTitles = false,
-            hasHiddenCalendarEvents = true,
-            hasHiddenNewsTopics = true,
-        )
-        val items = visibleInfoItems(context, state, 218, 1200, compact = false)
-
-        assertEquals(displayedInfoItemCount(state) + 1, items.size)
-        assertTrue("hidden source items should keep More row visible", hasMoreRow(items))
-        assertFitsWithinHeightBudget(context, items, 218, 1200, compact = false)
     }
 
     @Test
     fun veryTallWidgetShowsAllItemsWithoutMore() {
         val context = contextWithFontScale(1.3f)
         val state = widgetState(longNewsTitles = true)
-        val items = visibleInfoItems(context, state, 218, 1200, compact = false)
+        val requiredHeightDp = requiredHeightDp(context, state, 218, compact = false)
+        val items = visibleInfoItems(context, state, 218, requiredHeightDp, compact = false)
 
-        assertEquals(displayedInfoItemCount(state), items.size)
+        assertEquals(totalInfoItemCount(state), items.size)
         assertFalse("very tall widget should not show More row", hasMoreRow(items))
-        assertFitsWithinHeightBudget(context, items, 218, 1200, compact = false)
+        assertFitsWithinHeightBudget(context, items, 218, requiredHeightDp, compact = false)
     }
 
     private fun contextWithFontScale(fontScale: Float): Context {
@@ -134,7 +121,7 @@ class WondayWallWidgetSizingTest {
             currentSlotStartedAtMillis = 0L,
             backgroundImage = null,
             canOpenGenerationConfirmation = false,
-            usedCalendarEvents = (1..4).map { index ->
+            usedCalendarEvents = (1..5).map { index ->
                 CalendarEventItem(
                     id = "calendar-$index",
                     calendarId = "primary",
@@ -146,7 +133,7 @@ class WondayWallWidgetSizingTest {
                     notes = null,
                 )
             },
-            usedNewsTopics = (1..8).map { index ->
+            usedNewsTopics = (1..10).map { index ->
                 NewsTopicItem(
                     id = "news-$index",
                     title = if (longNewsTitles) {
@@ -156,24 +143,14 @@ class WondayWallWidgetSizingTest {
                     },
                     summary = null,
                     url = "https://example.com/$index",
-                    publishedAt = Instant.parse("2026-06-13T1${index}:00:00Z"),
+                    publishedAt = Instant.parse("2026-06-13T${"%02d".format(index + 9)}:00:00Z"),
                     ogpImageUrl = null,
                 )
             },
-            hasHiddenInfoItems = false,
             faviconImages = emptyMap(),
         )
 
-    private fun widgetState(
-        longNewsTitles: Boolean,
-        hasHiddenCalendarEvents: Boolean,
-        hasHiddenNewsTopics: Boolean,
-    ): WidgetDisplayState =
-        widgetState(longNewsTitles = longNewsTitles).copy(
-            hasHiddenInfoItems = hasHiddenCalendarEvents || hasHiddenNewsTopics,
-        )
-
-    private fun displayedInfoItemCount(state: WidgetDisplayState): Int =
+    private fun totalInfoItemCount(state: WidgetDisplayState): Int =
         state.usedCalendarEvents.size + state.usedNewsTopics.size
 
     private fun orderedInfoItems(state: WidgetDisplayState): List<Any> {
@@ -243,6 +220,19 @@ class WondayWallWidgetSizingTest {
             "items should fit within ${availableHeightDp}dp but were ${totalHeightPx}px",
             totalHeightPx <= dpToPx(context, availableHeightDp),
         )
+    }
+
+    private fun requiredHeightDp(
+        context: Context,
+        state: WidgetDisplayState,
+        availableWidthDp: Int,
+        compact: Boolean,
+    ): Int {
+        val rowWidthPx = dpToPx(context, availableWidthDp)
+        val dividerHeightPx = dpToPx(context, 1).coerceAtLeast(1)
+        val totalHeightPx = orderedInfoItems(state).sumOf { measureItemHeight(context, it, rowWidthPx, compact) } +
+            dividerHeightPx * (totalInfoItemCount(state) - 1).coerceAtLeast(0)
+        return ceil(totalHeightPx / context.resources.displayMetrics.density).toInt()
     }
 
     private fun measureItemHeight(
