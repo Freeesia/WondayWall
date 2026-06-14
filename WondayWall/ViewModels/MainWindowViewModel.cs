@@ -133,9 +133,12 @@ public partial class MainWindowViewModel : ObservableObject
         _httpClientFactory = httpClientFactory;
         _logger = logger;
 
-        ShowUpdateControls = _updateChecker.IsInstalled;
-        _updateChecker.UpdateAvailable += UpdateChecker_UpdateAvailable;
-        SyncUpdateInfo();
+        ShowUpdateControls = _updateChecker.ShowUpdateControls;
+        if (_updateChecker.IsInstalled)
+        {
+            _updateChecker.UpdateAvailable += UpdateChecker_UpdateAvailable;
+            SyncUpdateInfo();
+        }
         AppConfig = configService.Load();
         ShowSetupWizard = !configService.HasSavedConfig;
         SelectedSchedule = AppConfig.Schedule;
@@ -251,9 +254,14 @@ public partial class MainWindowViewModel : ObservableObject
         IsCheckingUpdate = true;
         try
         {
-            await _updateChecker.CheckAsync(ct);
+            var ownerWindow = Application.Current?.MainWindow;
+            if (ownerWindow is null)
+                return;
+
+            var result = await _updateChecker.CheckForUpdatesFromUiAsync(ownerWindow, ct);
             SyncUpdateInfo();
-            LastResultMessage = HasUpdate
+
+            LastResultMessage = result?.HasUpdate == true
                 ? AppResources.Format(AppResources.UpdateAvailableMessage, LatestVersion)
                 : AppResources.UpdateNotAvailable;
         }
@@ -268,11 +276,15 @@ public partial class MainWindowViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void InstallUpdate()
+    private async Task InstallUpdate(CancellationToken ct = default)
     {
         try
         {
-            _updateChecker.InstallUpdate();
+            var ownerWindow = Application.Current?.MainWindow;
+            if (ownerWindow is null)
+                return;
+
+            await _updateChecker.InstallUpdateAsync(ownerWindow, ct);
         }
         catch (Exception ex)
         {
@@ -280,7 +292,10 @@ public partial class MainWindowViewModel : ObservableObject
         }
     }
 
-    [RelayCommand]
+    private bool CanOpenReleaseNotes()
+        => _updateChecker.CanOpenReleaseNotes;
+
+    [RelayCommand(CanExecute = nameof(CanOpenReleaseNotes))]
     private void OpenReleaseNotes()
     {
         try
