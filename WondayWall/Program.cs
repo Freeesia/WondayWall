@@ -18,6 +18,11 @@ using WondayWall.Views;
 Thread.CurrentThread.SetApartmentState(ApartmentState.Unknown);
 Thread.CurrentThread.SetApartmentState(ApartmentState.STA);
 
+if (args.Length > 0 && string.Equals(args[0], "widget-provider", StringComparison.OrdinalIgnoreCase))
+{
+    await RunWidgetProviderAsync(args.Skip(1).ToArray()).ConfigureAwait(false);
+    return;
+}
 
 var cafApp = ConsoleApp.Create()
     .ConfigureServices((context, _, services) =>
@@ -66,6 +71,10 @@ static void ConfigureCommonServices(IServiceCollection services)
     services.AddSingleton<GoogleAiService>();
     services.AddSingleton<GenerationCoordinator>();
     services.AddSingleton<TaskSchedulerService>();
+    services.AddSingleton<WidgetHistoryService>();
+    services.AddSingleton<WidgetActionService>();
+    services.AddSingleton<WidgetCardBuilder>();
+    services.AddSingleton<WondayWallWidgetProvider>();
 }
 
 static void ConfigureGuiServices(IServiceCollection services)
@@ -95,4 +104,13 @@ static void AttachConsole()
     var errorWriter = new StreamWriter(Console.OpenStandardError()) { AutoFlush = true };
     Console.SetOut(outputWriter);
     Console.SetError(errorWriter);
+}
+
+static async Task RunWidgetProviderAsync(string[] providerArgs)
+{
+    var hostBuilder = Host.CreateApplicationBuilder();
+    ConfigureCommonServices(hostBuilder.Services);
+    using var host = hostBuilder.Build();
+    var provider = host.Services.GetRequiredService<WondayWallWidgetProvider>();
+    Environment.ExitCode = await provider.RunAsync(providerArgs).ConfigureAwait(false);
 }

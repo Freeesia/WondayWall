@@ -87,6 +87,7 @@ public class GenerationCoordinator(
         }
 
         var historyItem = new HistoryItem(
+            Id: $"{DateTime.Now:yyyyMMddHHmmssfff}-{Guid.NewGuid():N}",
             ExecutedAt: DateTime.Now,
             IsSuccess: isSuccess,
             ErrorSummary: errorSummary,
