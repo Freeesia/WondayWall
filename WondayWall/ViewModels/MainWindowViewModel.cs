@@ -30,7 +30,6 @@ public partial class MainWindowViewModel : ObservableObject
     private readonly UpdateChecker _updateChecker;
     private readonly ILogger<MainWindowViewModel> _logger;
     private readonly IHttpClientFactory _httpClientFactory;
-    private readonly AppDistributionKind _distributionKind;
 
     [ObservableProperty]
     public partial AppConfig AppConfig { get; set; } = new();
@@ -133,10 +132,9 @@ public partial class MainWindowViewModel : ObservableObject
         _updateChecker = updateChecker;
         _httpClientFactory = httpClientFactory;
         _logger = logger;
-        _distributionKind = _updateChecker.DistributionKind;
 
-        ShowUpdateControls = _distributionKind is not AppDistributionKind.Portable;
-        if (_distributionKind == AppDistributionKind.MsiInstalled)
+        ShowUpdateControls = _updateChecker.ShowUpdateControls;
+        if (_updateChecker.IsInstalled)
         {
             _updateChecker.UpdateAvailable += UpdateChecker_UpdateAvailable;
             SyncUpdateInfo();
@@ -256,43 +254,14 @@ public partial class MainWindowViewModel : ObservableObject
         IsCheckingUpdate = true;
         try
         {
-            if (_distributionKind == AppDistributionKind.MicrosoftStoreMsix)
-            {
-                var ownerWindow = Application.Current?.MainWindow;
-                if (ownerWindow is null)
-                    return;
-
-                var result = await _updateChecker.CheckStoreUpdateAsync(ownerWindow, ct);
-                HasUpdate = result.HasUpdate;
-                LatestVersion = result.LatestVersion;
-                LastResultMessage = result.HasUpdate
-                    ? AppResources.Format(AppResources.UpdateAvailableMessage, result.LatestVersion)
-                    : AppResources.UpdateNotAvailable;
-
-                if (result.HasUpdate)
-                {
-                    var currentVersion = result.CurrentVersion ?? string.Empty;
-                    var latestVersion = result.LatestVersion ?? string.Empty;
-                    var prompt = AppResources.Format(AppResources.UpdateAvailableMessage, latestVersion) + Environment.NewLine
-                                 + $"Current: {currentVersion}{Environment.NewLine}"
-                                 + $"Latest: {latestVersion}{Environment.NewLine}{Environment.NewLine}"
-                                 + AppResources.UpdateNotificationMessage;
-                    var choice = MessageBox.Show(
-                        ownerWindow,
-                        prompt,
-                        AppResources.Format(AppResources.UpdateNotificationTitle, result.LatestVersion),
-                        MessageBoxButton.YesNo,
-                        MessageBoxImage.Information);
-                    if (choice == MessageBoxResult.Yes)
-                        await _updateChecker.RequestStoreUpdateAsync(ownerWindow, ct);
-                }
-
+            var ownerWindow = Application.Current?.MainWindow;
+            if (ownerWindow is null)
                 return;
-            }
 
-            await _updateChecker.CheckAsync(ct);
+            var result = await _updateChecker.CheckForUpdatesFromUiAsync(ownerWindow, ct);
             SyncUpdateInfo();
-            LastResultMessage = HasUpdate
+
+            LastResultMessage = result?.HasUpdate == true
                 ? AppResources.Format(AppResources.UpdateAvailableMessage, LatestVersion)
                 : AppResources.UpdateNotAvailable;
         }
@@ -311,15 +280,11 @@ public partial class MainWindowViewModel : ObservableObject
     {
         try
         {
-            if (_distributionKind == AppDistributionKind.MicrosoftStoreMsix)
-            {
-                var ownerWindow = Application.Current?.MainWindow;
-                if (ownerWindow is not null)
-                    await _updateChecker.RequestStoreUpdateAsync(ownerWindow, ct);
+            var ownerWindow = Application.Current?.MainWindow;
+            if (ownerWindow is null)
                 return;
-            }
 
-            _updateChecker.InstallUpdate();
+            await _updateChecker.InstallUpdateAsync(ownerWindow, ct);
         }
         catch (Exception ex)
         {
@@ -328,7 +293,7 @@ public partial class MainWindowViewModel : ObservableObject
     }
 
     private bool CanOpenReleaseNotes()
-        => _distributionKind == AppDistributionKind.MsiInstalled;
+        => _updateChecker.CanOpenReleaseNotes;
 
     [RelayCommand(CanExecute = nameof(CanOpenReleaseNotes))]
     private void OpenReleaseNotes()

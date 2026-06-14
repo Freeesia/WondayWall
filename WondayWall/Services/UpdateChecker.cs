@@ -43,6 +43,8 @@ public class UpdateChecker : BackgroundService
 
     public AppDistributionKind DistributionKind { get; }
     public bool IsInstalled { get; }
+    public bool ShowUpdateControls => DistributionKind is not AppDistributionKind.Portable;
+    public bool CanOpenReleaseNotes => ShowUpdateControls;
     public bool HasUpdate { get; private set; }
     public string? LatestVersion { get; private set; }
 
@@ -164,6 +166,59 @@ public class UpdateChecker : BackgroundService
         return await storeContext.RequestDownloadAndInstallStorePackageUpdatesAsync(updates);
     }
 
+    public async Task<StoreUpdateCheckResult?> CheckForUpdatesFromUiAsync(Window ownerWindow, CancellationToken ct = default)
+    {
+        if (!ShowUpdateControls)
+            return null;
+
+        if (DistributionKind == AppDistributionKind.MicrosoftStoreMsix)
+        {
+            var result = await CheckStoreUpdateAsync(ownerWindow, ct);
+            HasUpdate = result.HasUpdate;
+            LatestVersion = result.LatestVersion;
+
+            if (result.HasUpdate)
+            {
+                var currentVersion = result.CurrentVersion ?? string.Empty;
+                var latestVersion = result.LatestVersion ?? string.Empty;
+                var prompt = AppResources.Format(AppResources.UpdateAvailableMessage, latestVersion) + Environment.NewLine
+                           + $"Current: {currentVersion}{Environment.NewLine}"
+                           + $"Latest: {latestVersion}{Environment.NewLine}{Environment.NewLine}"
+                           + AppResources.UpdateNotificationMessage;
+                var choice = MessageBox.Show(
+                    ownerWindow,
+                    prompt,
+                    AppResources.Format(AppResources.UpdateNotificationTitle, result.LatestVersion),
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Information);
+                if (choice == MessageBoxResult.Yes)
+                    await RequestStoreUpdateAsync(ownerWindow, ct);
+            }
+
+            return result;
+        }
+
+        await CheckAsync(ct);
+        return new StoreUpdateCheckResult(
+            IsSupported: true,
+            HasUpdate: HasUpdate,
+            CurrentVersion: _currentVersion.ToString(),
+            LatestVersion: LatestVersion,
+            IsMandatory: false,
+            DistributionKind: DistributionKind);
+    }
+
+    public async Task InstallUpdateAsync(Window ownerWindow, CancellationToken ct = default)
+    {
+        if (DistributionKind == AppDistributionKind.MicrosoftStoreMsix)
+        {
+            await RequestStoreUpdateAsync(ownerWindow, ct);
+            return;
+        }
+
+        InstallUpdate();
+    }
+
     public void InstallUpdate()
     {
         var updateInfo = LoadUpdateInfo();
@@ -184,13 +239,12 @@ public class UpdateChecker : BackgroundService
 
     public void OpenReleaseNotes()
     {
-        var updateInfo = LoadUpdateInfo();
-        var url = updateInfo?.Url;
+        var url = DistributionKind == AppDistributionKind.MsiInstalled
+            ? LoadUpdateInfo()?.Url
+            : null;
+
         if (string.IsNullOrWhiteSpace(url))
-        {
-            _logger.LogWarning("更新情報の URL がないためリリースノートを開けませんでした");
-            return;
-        }
+            url = AppLinks.ReleaseNotes;
 
         Process.Start(new ProcessStartInfo(url)
         {
