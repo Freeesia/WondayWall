@@ -243,6 +243,7 @@ public class UpdateChecker : BackgroundService
             ? LoadUpdateInfo()?.Url
             : null;
 
+        // MSI の更新メタ情報がない配布形態でも、常に GitHub のリリース一覧は開けるようにする
         if (string.IsNullOrWhiteSpace(url))
             url = AppLinks.ReleaseNotes;
 
