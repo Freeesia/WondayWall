@@ -60,7 +60,7 @@ public class UpdateChecker : BackgroundService
         var assemblyName = Assembly.GetExecutingAssembly().GetName();
         _currentVersion = GetCurrentVersion(assemblyName);
         DistributionKind = AppDistributionUtility.Detect();
-        IsInstalled = ShowUpdateControls;
+        IsInstalled = DistributionKind is not AppDistributionKind.Portable;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -235,7 +235,23 @@ public class UpdateChecker : BackgroundService
     {
         if (DistributionKind == AppDistributionKind.MicrosoftStoreMsix)
         {
-            _ = InstallStoreUpdateFromMainWindowAsync();
+            var ownerWindow = System.Windows.Application.Current?.MainWindow;
+            if (ownerWindow is null)
+            {
+                _logger.LogWarning("メインウィンドウが見つからないため Store 更新をスキップしました");
+                return;
+            }
+
+            _ = InstallUpdateAsync(ownerWindow).ContinueWith(
+                static (task, state) =>
+                {
+                    if (state is ILogger<UpdateChecker> logger)
+                        logger.LogWarning(task.Exception?.GetBaseException(), "Store 更新処理に失敗しました");
+                },
+                _logger,
+                CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted,
+                TaskScheduler.Default);
             return;
         }
 
@@ -253,25 +269,6 @@ public class UpdateChecker : BackgroundService
         startInfo.ArgumentList.Add("/i");
         startInfo.ArgumentList.Add(installerPath);
         Process.Start(startInfo);
-    }
-
-    private async Task InstallStoreUpdateFromMainWindowAsync()
-    {
-        try
-        {
-            var ownerWindow = System.Windows.Application.Current?.MainWindow;
-            if (ownerWindow is null)
-            {
-                _logger.LogWarning("メインウィンドウが見つからないため Store 更新をスキップしました");
-                return;
-            }
-
-            await InstallUpdateAsync(ownerWindow);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Store 更新処理に失敗しました");
-        }
     }
 
     public void OpenReleaseNotes()
