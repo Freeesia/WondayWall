@@ -60,12 +60,12 @@ public class UpdateChecker : BackgroundService
         var assemblyName = Assembly.GetExecutingAssembly().GetName();
         _currentVersion = GetCurrentVersion(assemblyName);
         DistributionKind = AppDistributionUtility.Detect();
-        IsInstalled = DistributionKind == AppDistributionKind.MsiInstalled;
+        IsInstalled = ShowUpdateControls;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        if (!IsInstalled)
+        if (DistributionKind != AppDistributionKind.MsiInstalled)
         {
             _logger.LogInformation("インストール済みアプリではないため更新チェックをスキップしました");
             return;
@@ -105,10 +105,22 @@ public class UpdateChecker : BackgroundService
 
     public Task CheckAsync(CancellationToken ct = default)
     {
-        if (!IsInstalled)
+        if (!ShowUpdateControls)
         {
             _logger.LogInformation("インストール済みアプリではないため更新チェックをスキップしました");
             return Task.CompletedTask;
+        }
+
+        if (DistributionKind == AppDistributionKind.MicrosoftStoreMsix)
+        {
+            var ownerWindow = System.Windows.Application.Current?.MainWindow;
+            if (ownerWindow is null)
+            {
+                _logger.LogWarning("メインウィンドウが見つからないため Store 更新チェックをスキップしました");
+                return Task.CompletedTask;
+            }
+
+            return CheckForUpdatesFromUiAsync(ownerWindow, ct);
         }
 
         return CheckCoreAsync(forceRefresh: true, ct);
@@ -221,6 +233,12 @@ public class UpdateChecker : BackgroundService
 
     public void InstallUpdate()
     {
+        if (DistributionKind == AppDistributionKind.MicrosoftStoreMsix)
+        {
+            _ = InstallStoreUpdateFromMainWindowAsync();
+            return;
+        }
+
         var updateInfo = LoadUpdateInfo();
         if (updateInfo?.Path is not { Length: > 0 } installerPath || !File.Exists(installerPath))
         {
@@ -235,6 +253,25 @@ public class UpdateChecker : BackgroundService
         startInfo.ArgumentList.Add("/i");
         startInfo.ArgumentList.Add(installerPath);
         Process.Start(startInfo);
+    }
+
+    private async Task InstallStoreUpdateFromMainWindowAsync()
+    {
+        try
+        {
+            var ownerWindow = System.Windows.Application.Current?.MainWindow;
+            if (ownerWindow is null)
+            {
+                _logger.LogWarning("メインウィンドウが見つからないため Store 更新をスキップしました");
+                return;
+            }
+
+            await InstallUpdateAsync(ownerWindow);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Store 更新処理に失敗しました");
+        }
     }
 
     public void OpenReleaseNotes()

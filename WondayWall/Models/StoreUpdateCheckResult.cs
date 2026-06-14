@@ -1,5 +1,12 @@
 namespace WondayWall.Models;
 
+public enum AppDistributionKind
+{
+    MicrosoftStoreMsix,
+    MsiInstalled,
+    Portable,
+}
+
 public sealed record StoreUpdateCheckResult(
     bool IsSupported,
     bool HasUpdate,
