@@ -65,9 +65,30 @@ public class UpdateChecker : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        if (DistributionKind != AppDistributionKind.MsiInstalled)
+        if (DistributionKind == AppDistributionKind.Portable)
         {
             _logger.LogInformation("インストール済みアプリではないため更新チェックをスキップしました");
+            return;
+        }
+
+        if (DistributionKind == AppDistributionKind.MicrosoftStoreMsix)
+        {
+            try
+            {
+                // Store版はウィンドウ不要のクエリのみ実行し、状態を設定する
+                var storeContext = StoreContext.GetDefault();
+                var updates = await storeContext.GetAppAndOptionalStorePackageUpdatesAsync();
+                if (updates.Count > 0)
+                {
+                    var latestVersion = ToVersionString(updates[0].Package.Id.Version);
+                    SetUpdateState(latestVersion, hasUpdate: true);
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException || !stoppingToken.IsCancellationRequested)
+            {
+                _logger.LogWarning(ex, "起動時の Store 更新チェックに失敗しました");
+            }
+
             return;
         }
 
