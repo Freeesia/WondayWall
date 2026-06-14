@@ -178,7 +178,7 @@ internal fun AboutDebugScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
-                    "遅延設定は次のダミー生成から反映されます。",
+                    "遅延・ニュース件数設定は次のダミー生成から反映されます。",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -200,6 +200,15 @@ internal fun AboutDebugScreen(
                         }
                     },
                 )
+                DebugCountRow(
+                    label = "ダミーニュース件数",
+                    value = debugConfig.dummyNewsCount,
+                    onValueChange = { value ->
+                        updateDebugConfig { config ->
+                            config.copy(dummyNewsCount = value)
+                        }
+                    },
+                )
             }
         }
 
@@ -209,6 +218,7 @@ internal fun AboutDebugScreen(
                 DebugInfoRow("ビルド種別", BuildConfig.BUILD_TYPE)
                 DebugInfoRow("AI サービス", if (aiService is DummyAiService) "Dummy" else "Live")
                 DebugInfoRow("次回起動時のAIサービス", if (debugConfig.useDummyAiService) "Dummy" else "Live")
+                DebugInfoRow("ダミーニュース件数", "${debugConfig.dummyNewsCount} 件")
                 DebugInfoRow("生成中", if (isGenerating) "YES" else "NO")
                 DebugInfoRow("進捗", generationProgress?.let { "${it.percent}% ${it.message}" } ?: "-")
                 DebugInfoRow("フェーズ", generationProgress?.phase?.name ?: "-")
@@ -254,6 +264,32 @@ private fun DebugSwitchRow(
     ) {
         Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
         Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
+@Composable
+private fun DebugCountRow(
+    label: String,
+    value: Int,
+    onValueChange: (Int) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+        OutlinedTextField(
+            value = value.toString(),
+            onValueChange = { text ->
+                val parsed = text.toIntOrNull() ?: return@OutlinedTextField
+                onValueChange(parsed.coerceIn(DebugConfig.MIN_NEWS_COUNT, DebugConfig.MAX_NEWS_COUNT))
+            },
+            modifier = Modifier.weight(0.75f),
+            label = { Text("件") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        )
     }
 }
 

@@ -6,14 +6,18 @@ import android.graphics.Color
 import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Shader
+import com.studiofreesia.wondaywall.models.DebugConfig
 import com.studiofreesia.wondaywall.models.GeneratedImageResult
 import com.studiofreesia.wondaywall.models.GoogleAiServiceTier
+import com.studiofreesia.wondaywall.models.NewsTopicItem
 import com.studiofreesia.wondaywall.models.PromptContext
 import com.studiofreesia.wondaywall.models.PromptGenerationResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.io.File
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.hours
 import kotlin.math.max
 import kotlin.math.roundToInt
 import kotlin.random.Random
@@ -30,6 +34,7 @@ class DummyAiService(
         onProgress: ((Double, String) -> Unit)?,
     ): PromptGenerationResult {
         val delaySeconds = appConfigService.getDebugConfig().dummyPromptDelaySeconds
+        val news = buildDummyNews(appConfigService.getDebugConfig().dummyNewsCount)
         simulateProgress(
             totalSeconds = delaySeconds,
             message = "[Dummy] 画像生成プロンプトの生成中",
@@ -37,13 +42,13 @@ class DummyAiService(
         )
         return PromptGenerationResult(
             imagePrompt = "[Dummy] Simulated Android wallpaper prompt",
-            selectedNewsIds = emptyList(),
+            selectedNewsTopics = news,
         )
     }
 
     override suspend fun fetchOgpImages(
         context: PromptContext,
-        selectedNewsIds: List<String>,
+        selectedNewsTopics: List<NewsTopicItem>,
     ): PromptContext = context
 
     override suspend fun generateImageFromPrompt(
@@ -156,4 +161,52 @@ class DummyAiService(
         if (width <= 0.0 || height <= 0.0) return 9.0 / 16.0
         return width / height
     }
+
+    // RSSへアクセスせず、件数指定だけで安定した表示確認を行う。
+    private fun buildDummyNews(count: Int): List<NewsTopicItem> {
+        val normalizedCount = count.coerceIn(DebugConfig.MIN_NEWS_COUNT, DebugConfig.MAX_NEWS_COUNT)
+        if (normalizedCount == 0) return emptyList()
+
+        val now = Clock.System.now()
+        val templates = listOf(
+            DummyNewsTemplate(
+                title = "ダミーニュース{n}: 週末の空模様と街イベントの見どころ",
+                summary = "週末に楽しめる屋外イベントと天気の変化をまとめたダミーニュースです。",
+            ),
+            DummyNewsTemplate(
+                title = "ダミーニュース{n}: 新しい生成AIツールが公開、制作ワークフローを短縮",
+                summary = "デザインや文章作成を支援する新機能の概要を紹介するダミーニュースです。",
+            ),
+            DummyNewsTemplate(
+                title = "ダミーニュース{n}: 夜景スポットでライトアップ企画が開始",
+                summary = "季節限定のライトアップと周辺のおすすめルートを扱うダミーニュースです。",
+            ),
+            DummyNewsTemplate(
+                title = "ダミーニュース{n}: 宇宙観測プロジェクトが新しい画像を公開",
+                summary = "星雲や銀河の観測成果をビジュアル中心に伝えるダミーニュースです。",
+            ),
+            DummyNewsTemplate(
+                title = "ダミーニュース{n}: 地域マーケットに限定スイーツが登場",
+                summary = "週末の買い物や散歩の参考になる食の話題を想定したダミーニュースです。",
+            ),
+        )
+
+        return (0 until normalizedCount).map { index ->
+            val number = index + 1
+            val template = templates[index % templates.size]
+            NewsTopicItem(
+                id = "dummy-news-$number",
+                title = template.title.replace("{n}", number.toString()),
+                summary = template.summary,
+                url = "https://example.com/wondaywall/dummy-news-$number",
+                publishedAt = now - (index + 1).hours,
+                ogpImageUrl = null,
+            )
+        }
+    }
+
+    private data class DummyNewsTemplate(
+        val title: String,
+        val summary: String,
+    )
 }

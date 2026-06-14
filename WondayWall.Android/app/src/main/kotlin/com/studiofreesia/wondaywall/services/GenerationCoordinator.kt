@@ -188,7 +188,7 @@ class GenerationCoordinator(
                 usedNews = resumable.usedNewsTopics
                 promptResult = PromptGenerationResult(
                     imagePrompt = resumable.generatedPrompt,
-                    selectedNewsIds = resumable.usedNewsTopics?.map { it.id }.orEmpty(),
+                    selectedNewsTopics = resumable.usedNewsTopics.orEmpty(),
                 )
             } else {
                 promptResult = aiService.generatePrompt(
@@ -205,9 +205,7 @@ class GenerationCoordinator(
                     },
                 )
                 generatedPrompt = promptResult.imagePrompt
-                usedNews = contextResult.newsTopics.filter {
-                    promptResult.selectedNewsIds.contains(it.id)
-                }
+                usedNews = promptResult.selectedNewsTopics
                 historyService.updateHistoryItem(
                     generatingItem.copy(
                         status = GenerationStatus.GeneratingPromptReady,
@@ -235,7 +233,7 @@ class GenerationCoordinator(
             ) {
                 aiService.fetchOgpImages(
                     context = contextForImage,
-                    selectedNewsIds = promptResult.selectedNewsIds,
+                    selectedNewsTopics = adoptedNews,
                 )
             }
             postProgress(50, "採用ニュース画像の取得完了", GenerationPhase.FetchingOgp, generatingItem.id, trigger)

@@ -4,12 +4,13 @@ import SwiftUI
 struct HomeView: View {
     @EnvironmentObject private var environment: AppEnvironment
     @State private var viewModel: HomeViewModel?
+    @State private var selectedCalendarEvent: CalendarEventItem?
 
     var body: some View {
         NavigationStack {
             Group {
                 if let vm = viewModel {
-                    HomeContentView(vm: vm)
+                    HomeContentView(selectedCalendarEvent: $selectedCalendarEvent, vm: vm)
                 } else {
                     ProgressView()
                 }
@@ -25,11 +26,47 @@ struct HomeView: View {
                 }
             }
         }
+        .sheet(item: $selectedCalendarEvent) { event in
+            CalendarEventDetailSheet(
+                event: event,
+                calendarService: environment.calendarService
+            )
+        }
         .task {
             if viewModel == nil {
                 viewModel = HomeViewModel(environment: environment)
             }
+            if let slotStartedAt = environment.pendingWidgetGenerationSlotStartedAt {
+                await handleWidgetGenerationRequest(slotStartedAt)
+            }
+            if let eventID = environment.pendingWidgetCalendarEventID {
+                handleWidgetCalendarEventRequest(eventID)
+            }
         }
+        .onReceive(environment.$pendingWidgetGenerationSlotStartedAt) { slotStartedAt in
+            guard let slotStartedAt else { return }
+            Task {
+                await handleWidgetGenerationRequest(slotStartedAt)
+            }
+        }
+        .onReceive(environment.$pendingWidgetCalendarEventID) { eventID in
+            guard let eventID else { return }
+            handleWidgetCalendarEventRequest(eventID)
+        }
+    }
+
+    @MainActor
+    private func handleWidgetGenerationRequest(_ slotStartedAt: Date) async {
+        guard let viewModel else { return }
+        await viewModel.openGenerationSheetIfStillAllowed(slotStartedAt: slotStartedAt)
+        environment.clearWidgetGenerationConfirmationRequest()
+    }
+
+    @MainActor
+    private func handleWidgetCalendarEventRequest(_ eventID: String) {
+        defer { environment.clearWidgetCalendarEventDetailRequest() }
+        guard let event = environment.historyService.findCalendarEvent(id: eventID) else { return }
+        selectedCalendarEvent = event
     }
 }
 
@@ -37,6 +74,7 @@ struct HomeView: View {
 private struct HomeContentView: View {
     @EnvironmentObject private var environment: AppEnvironment
     @Environment(\.openURL) private var openURL
+    @Binding var selectedCalendarEvent: CalendarEventItem?
     var vm: HomeViewModel
 
     var body: some View {
@@ -131,39 +169,59 @@ private struct HomeContentView: View {
                         Divider()
                             .padding(.leading, 12)
                     }
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(event.title).font(.subheadline)
-                        HStack {
-                            if event.isAllDay {
-                                Text(event.startTime, style: .date)
-                                    .font(.caption).foregroundStyle(.secondary)
-                                Text("終日")
-                                    .font(.caption).foregroundStyle(.secondary)
-                            } else {
-                                Text(event.startTime, style: .date)
-                                    .font(.caption).foregroundStyle(.secondary)
-                                Text(event.startTime, style: .time)
-                                    .font(.caption).foregroundStyle(.secondary)
-                            }
-                            if let location = event.location {
-                                Text("·")
-                                    .foregroundStyle(.secondary)
-                                Text(location)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                            }
-                        }
+                    Button {
+                        selectedCalendarEvent = event
+                    } label: {
+                        calendarEventRow(event)
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.primary)
                 }
             }
             .background(AnyShapeStyle(.regularMaterial))
             .cornerRadius(10)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private func calendarEventRow(_ event: CalendarEventItem) -> some View {
+        HStack(alignment: .center, spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(event.title).font(.subheadline)
+                HStack {
+                    if event.isAllDay {
+                        Text(event.startTime, style: .date)
+                            .font(.caption).foregroundStyle(.secondary)
+                        Text("終日")
+                            .font(.caption).foregroundStyle(.secondary)
+                    } else {
+                        Text(event.startTime, style: .date)
+                            .font(.caption).foregroundStyle(.secondary)
+                        Text(event.startTime, style: .time)
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    if let location = displayText(event.location) {
+                        Text("·")
+                            .foregroundStyle(.secondary)
+                        Text(location)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                }
+            }
+            Spacer(minLength: 8)
+        }
+        .contentShape(Rectangle())
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func displayText(_ value: String?) -> String? {
+        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? nil : trimmed
     }
 
     // 使用したニュース一覧
@@ -263,6 +321,170 @@ private struct HomeContentView: View {
         if item.isSkipped { return "前回: スキップ" }
         if item.isSuccess { return "前回: 生成成功" }
         return "前回: 失敗"
+    }
+}
+
+// 予定詳細シート — 保存済み情報を表示しつつ EventKit から最新詳細を取得する
+private struct CalendarEventDetailSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    private let event: CalendarEventItem
+    private let calendarService: EventKitCalendarService
+    @State private var detail: CalendarEventDetail
+    @State private var isLoadingDetail = false
+    @State private var didAttemptLoad = false
+
+    init(event: CalendarEventItem, calendarService: EventKitCalendarService) {
+        self.event = event
+        self.calendarService = calendarService
+        _detail = State(initialValue: CalendarEventDetail(savedEvent: event))
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if isLoadingDetail {
+                    Section {
+                        HStack(spacing: 10) {
+                            ProgressView()
+                            Text("予定の詳細を取得中...")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                } else if didAttemptLoad && !detail.isLiveEventKitData {
+                    Section {
+                        Label("保存済みの予定情報を表示しています", systemImage: "tray")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Section("予定") {
+                    detailRow(title: "タイトル", value: detail.title)
+                    detailRow(
+                        title: "日付",
+                        value: detail.startTime.formatted(date: .abbreviated, time: .omitted)
+                    )
+                    if detail.isAllDay {
+                        detailRow(title: "時間", value: "終日予定")
+                    } else {
+                        detailRow(
+                            title: "開始",
+                            value: detail.startTime.formatted(date: .abbreviated, time: .shortened)
+                        )
+                        if let endTime = detail.endTime {
+                            detailRow(
+                                title: "終了",
+                                value: endTime.formatted(date: .abbreviated, time: .shortened)
+                            )
+                        }
+                    }
+                    calendarRow
+                    optionalRow(title: "場所", value: detail.location)
+                    urlRow
+                    optionalRow(title: "主催者", value: detail.organizerName)
+                }
+
+                if !detail.attendeeNames.isEmpty {
+                    Section("参加者") {
+                        ForEach(detail.attendeeNames, id: \.self) { attendeeName in
+                            Text(attendeeName)
+                        }
+                    }
+                }
+
+                if let notes = displayText(detail.notes) {
+                    Section("メモ") {
+                        Text(notes)
+                    }
+                }
+            }
+            .navigationTitle("予定詳細")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("閉じる") { dismiss() }
+                }
+            }
+        }
+        .task(id: event.id) {
+            await loadDetail()
+        }
+    }
+
+    @ViewBuilder
+    private var calendarRow: some View {
+        if let calendarTitle = displayText(detail.calendarTitle) {
+            HStack(alignment: .top) {
+                Text("カレンダー")
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 16)
+                HStack(spacing: 6) {
+                    if let colorHex = detail.calendarColorHex,
+                       let color = Color(hex: colorHex) {
+                        Circle()
+                            .fill(color)
+                            .frame(width: 10, height: 10)
+                    }
+                    Text(calendarTitle)
+                        .multilineTextAlignment(.trailing)
+                }
+                .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var urlRow: some View {
+        if let urlString = displayText(detail.urlString) {
+            if let url = URL(string: urlString) {
+                Link(destination: url) {
+                    HStack(alignment: .top) {
+                        Text("URL")
+                            .foregroundStyle(.secondary)
+                        Spacer(minLength: 16)
+                        Text(urlString)
+                            .multilineTextAlignment(.trailing)
+                    }
+                }
+            } else {
+                detailRow(title: "URL", value: urlString)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func optionalRow(title: String, value: String?) -> some View {
+        if let value = displayText(value) {
+            detailRow(title: title, value: value)
+        }
+    }
+
+    private func detailRow(title: String, value: String) -> some View {
+        HStack(alignment: .top) {
+            Text(title)
+                .foregroundStyle(.secondary)
+            Spacer(minLength: 16)
+            Text(value)
+                .multilineTextAlignment(.trailing)
+        }
+    }
+
+    @MainActor
+    private func loadDetail() async {
+        guard !isLoadingDetail else { return }
+        isLoadingDetail = true
+        didAttemptLoad = true
+        defer { isLoadingDetail = false }
+
+        if let liveDetail = calendarService.fetchEventDetail(for: event) {
+            detail = liveDetail
+        }
+    }
+
+    private func displayText(_ value: String?) -> String? {
+        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? nil : trimmed
     }
 }
 

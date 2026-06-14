@@ -103,6 +103,10 @@ configure<ApplicationExtension> {
         buildConfig = true
     }
 
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
+
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -149,9 +153,15 @@ dependencies {
     // 画像表示
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
+    implementation(libs.androidx.glance)
+    implementation(libs.androidx.glance.appwidget)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
     add("previewImplementation", libs.androidx.compose.ui.tooling)
+
+    testImplementation(libs.junit4)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.robolectric)
 
     androidTestImplementation(libs.androidx.work.testing)
 }

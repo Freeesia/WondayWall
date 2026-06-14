@@ -1,0 +1,70 @@
+import Foundation
+
+// アプリ本体と Widget Extension の間で共有するウィジェット表示状態
+struct WidgetSharedState: Codable {
+    var status: WidgetSlotStatus
+    var isGenerating: Bool
+    var generationProgress: Int?
+    var isCurrentSlotProcessed: Bool
+    var currentSlotStartedAt: Date
+    var nextSlotStartsAt: Date?
+    var latestDisplayHistory: WidgetDisplayHistory?
+    var canOpenGenerationConfirmation: Bool
+    var usedCalendarEvents: [WidgetCalendarEvent]?
+    var usedNewsTopics: [WidgetNewsTopic]
+    var updatedAt: Date
+
+    static var placeholder: WidgetSharedState {
+        WidgetSharedState(
+            status: .unconfigured,
+            isGenerating: false,
+            generationProgress: nil,
+            isCurrentSlotProcessed: false,
+            currentSlotStartedAt: Date(),
+            nextSlotStartsAt: nil,
+            latestDisplayHistory: nil,
+            canOpenGenerationConfirmation: false,
+            usedCalendarEvents: [],
+            usedNewsTopics: [],
+            updatedAt: Date()
+        )
+    }
+}
+
+enum WidgetSlotStatus: String, Codable {
+    case unconfigured
+    case pending
+    case processed
+    case generating
+}
+
+struct WidgetDisplayHistory: Codable, Identifiable {
+    var id: UUID
+    var executedAt: Date
+    var status: String
+    var photoAssetId: String?
+}
+
+struct WidgetCalendarEvent: Codable, Identifiable {
+    var id: String
+    var title: String
+    var startTime: Date
+    var endTime: Date?
+    var isAllDay: Bool
+    var location: String?
+}
+
+struct WidgetNewsTopic: Codable, Identifiable {
+    var id: String
+    var title: String
+    var url: String?
+    var publishedAt: Date
+}
+
+enum WidgetSharedConstants {
+    static let kind = "WondayWallWidget"
+
+    static var appGroupIdentifier: String? {
+        Bundle.main.object(forInfoDictionaryKey: "WondayWallAppGroupIdentifier") as? String
+    }
+}

@@ -193,18 +193,17 @@ actor GenerationCoordinator {
                 )
             {
                 status = .skipped
+                usedEvents = contextResult.calendarEvents
+                usedNews = contextResult.newsTopics
             } else {
                 // ステップ 1: プロンプト生成 or 保存済みプロンプト再利用
                 let promptResult: PromptGenerationResult
                 if let savedPrompt = resumable?.generatedPrompt {
-                    // 再開フロー: 保存済みプロンプトと採用ニュース ID を再利用（中間保存① はスキップ）
-                    let selectedIds = resumable?.usedNewsTopics?.compactMap { usedItem -> String? in
-                        if let index = contextResult.newsTopics.firstIndex(where: { $0.id == usedItem.id }) {
-                            return "news-\(index + 1)"
-                        }
-                        return nil
-                    } ?? []
-                    promptResult = PromptGenerationResult(imagePrompt: savedPrompt, selectedNewsIds: selectedIds)
+                    // 再開フロー: 保存済みプロンプトと採用ニュースを再利用（中間保存① はスキップ）
+                    promptResult = PromptGenerationResult(
+                        imagePrompt: savedPrompt,
+                        selectedNewsTopics: resumable?.usedNewsTopics ?? []
+                    )
                     generatedPrompt = savedPrompt
                 } else {
                     // 通常フロー: テキストモデルで画像プロンプトを生成
@@ -224,46 +223,29 @@ actor GenerationCoordinator {
                     promptResult = result
 
                     // 中間保存①: generatingPromptReady（プロンプト生成完了・画像 API 呼び出し前）
-                    let adoptedNewsForPrompt = result.selectedNewsIds.compactMap { id -> NewsTopicItem? in
-                        guard id.hasPrefix("news-"),
-                              let indexStr = id.split(separator: "-").last,
-                              let index = Int(indexStr),
-                              index >= 1 && index <= contextResult.newsTopics.count else {
-                            return nil
-                        }
-                        return contextResult.newsTopics[index - 1]
-                    }
                     historyService.update(HistoryItem(
                         id: generatingItem.id,
                         executedAt: generatingItem.executedAt,
                         status: .generatingPromptReady,
                         usedCalendarEvents: contextResult.calendarEvents,
-                        usedNewsTopics: adoptedNewsForPrompt,
+                        usedNewsTopics: result.selectedNewsTopics,
                         usedPrompt: configService.config.userPrompt.isEmpty ? nil : configService.config.userPrompt,
                         generatedPrompt: result.imagePrompt
                     ))
                 }
 
-                // 採用ニュースを決定（再開: resumable.usedNewsTopics / 新規: selectedNewsIds でフィルタ）
+                // 採用ニュースを決定（再開: resumable.usedNewsTopics / 新規: selectedNewsTopics）
                 let adoptedNews: [NewsTopicItem]
                 if let resumableNews = resumable?.usedNewsTopics {
                     adoptedNews = resumableNews
                 } else {
-                    adoptedNews = promptResult.selectedNewsIds.compactMap { id -> NewsTopicItem? in
-                        guard id.hasPrefix("news-"),
-                              let indexStr = id.split(separator: "-").last,
-                              let index = Int(indexStr),
-                              index >= 1 && index <= contextResult.newsTopics.count else {
-                            return nil
-                        }
-                        return contextResult.newsTopics[index - 1]
-                    }
+                    adoptedNews = promptResult.selectedNewsTopics
                 }
 
                 // ステップ 1.5: 採用ニュースの OGP 画像をダウンロードする
                 let contextWithOgp = await aiService.fetchOgpImages(
                     context: context,
-                    selectedNewsIds: promptResult.selectedNewsIds
+                    selectedNewsTopics: adoptedNews
                 )
 
                 // 中間保存②: generatingImageRequested（画像 API 呼び出し直前）

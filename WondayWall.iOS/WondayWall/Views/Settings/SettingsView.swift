@@ -485,6 +485,18 @@ private struct DebugInfoSheetView: View {
         )
     }
 
+    private var dummyNewsCountBinding: Binding<Int> {
+        Binding(
+            get: { environment.configService.debugConfig.dummyNewsCount },
+            set: {
+                environment.configService.debugConfig.dummyNewsCount = min(
+                    max($0, DebugConfig.minNewsCount),
+                    DebugConfig.maxNewsCount
+                )
+            }
+        )
+    }
+
     var body: some View {
         NavigationStack {
             List {
@@ -508,7 +520,12 @@ private struct DebugInfoSheetView: View {
                         in: 1...3600,
                         step: 10
                     )
-                    Text("遅延設定は即時反映されます。")
+                    Stepper(
+                        "ダミーニュース件数: \(environment.configService.debugConfig.dummyNewsCount) 件",
+                        value: dummyNewsCountBinding,
+                        in: DebugConfig.minNewsCount...DebugConfig.maxNewsCount
+                    )
+                    Text("遅延・ニュース件数設定は次のダミー生成から反映されます。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -525,6 +542,9 @@ private struct DebugInfoSheetView: View {
                     }
                     LabeledContent("次回起動時のAIサービス") {
                         Text(nextLaunchServiceName)
+                    }
+                    LabeledContent("ダミーニュース件数") {
+                        Text("\(environment.configService.debugConfig.dummyNewsCount) 件")
                     }
                     LabeledContent("起動時生成条件") {
                         Text(

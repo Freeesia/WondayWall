@@ -2,6 +2,7 @@ package com.studiofreesia.wondaywall.services
 
 import com.studiofreesia.wondaywall.models.GeneratedImageResult
 import com.studiofreesia.wondaywall.models.GoogleAiServiceTier
+import com.studiofreesia.wondaywall.models.NewsTopicItem
 import com.studiofreesia.wondaywall.models.PromptContext
 import com.studiofreesia.wondaywall.models.PromptGenerationResult
 
@@ -15,7 +16,7 @@ interface AiService {
 
     suspend fun fetchOgpImages(
         context: PromptContext,
-        selectedNewsIds: List<String>,
+        selectedNewsTopics: List<NewsTopicItem>,
     ): PromptContext
 
     suspend fun generateImageFromPrompt(

@@ -105,6 +105,7 @@ targets:
       - package: KeychainAccess
       - package: Defaults
       - package: SwiftSoup
+      - target: WondayWallWidget
     postBuildScripts:
       - name: Copy App Icon Display Resource
         basedOnDependencyAnalysis: false
@@ -139,6 +140,7 @@ targets:
         DEVELOPMENT_ASSET_PATHS: ""
         GENERATE_INFOPLIST_FILE: "NO"
         INFOPLIST_FILE: WondayWall/Info.plist
+        CODE_SIGN_ENTITLEMENTS: WondayWall/WondayWall.entitlements
         LD_RUNPATH_SEARCH_PATHS:
           - $(inherited)
           - "@executable_path/Frameworks"
@@ -151,17 +153,70 @@ targets:
           ASSETCATALOG_COMPILER_APPICON_NAME: AppIconLocal
           CURRENT_PROJECT_VERSION: "0"
           MARKETING_VERSION: 0.0.0
-          PRODUCT_BUNDLE_IDENTIFIER: com.studiofreesia.wondaywall.local
+          PRODUCT_BUNDLE_IDENTIFIER: $(WONDAYWALL_APP_BUNDLE_IDENTIFIER)
+          WONDAYWALL_APP_BUNDLE_IDENTIFIER: com.studiofreesia.wondaywall.local
+          WONDAYWALL_APP_GROUP_IDENTIFIER: group.com.studiofreesia.wondaywall.local
         Release:
           ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
           CURRENT_PROJECT_VERSION: "1"
           MARKETING_VERSION: "1.0"
-          PRODUCT_BUNDLE_IDENTIFIER: com.studiofreesia.wondaywall
+          PRODUCT_BUNDLE_IDENTIFIER: $(WONDAYWALL_APP_BUNDLE_IDENTIFIER)
+          WONDAYWALL_APP_BUNDLE_IDENTIFIER: com.studiofreesia.wondaywall
+          WONDAYWALL_APP_GROUP_IDENTIFIER: group.com.studiofreesia.wondaywall
+  WondayWallWidget:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: WondayWallWidget
+      - path: WondayWall/WidgetSupport
+      - path: WondayWall/Models/AppConfig.swift
+      - path: WondayWall/Models/CalendarEventItem.swift
+      - path: WondayWall/Models/DebugConfig.swift
+      - path: WondayWall/Models/HistoryItem.swift
+      - path: WondayWall/Models/NewsTopicItem.swift
+      - path: WondayWall/Models/UpdateSchedule.swift
+      - path: WondayWall/Services/AppConfigService.swift
+      - path: WondayWall/Services/HistoryService.swift
+      - path: WondayWall/Utils/FileHelper.swift
+      - path: WondayWall/Utils/ScheduleHelper.swift
+    dependencies:
+      - package: Defaults
+      - package: KeychainAccess
+    settings:
+      base:
+        CODE_SIGN_ENTITLEMENTS: WondayWallWidget/WondayWallWidget.entitlements
+        CODE_SIGN_STYLE: Automatic
+        GENERATE_INFOPLIST_FILE: "NO"
+        INFOPLIST_FILE: WondayWallWidget/Info.plist
+        LD_RUNPATH_SEARCH_PATHS:
+          - $(inherited)
+          - "@executable_path/Frameworks"
+          - "@executable_path/../../Frameworks"
+        PRODUCT_NAME: $(TARGET_NAME)
+        SKIP_INSTALL: "YES"
+        SWIFT_EMIT_LOC_STRINGS: "YES"
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1"
+      configs:
+        Debug:
+          CURRENT_PROJECT_VERSION: "0"
+          MARKETING_VERSION: 0.0.0
+          PRODUCT_BUNDLE_IDENTIFIER: $(WONDAYWALL_WIDGET_BUNDLE_IDENTIFIER)
+          WONDAYWALL_WIDGET_BUNDLE_IDENTIFIER: com.studiofreesia.wondaywall.local.widget
+          WONDAYWALL_APP_GROUP_IDENTIFIER: group.com.studiofreesia.wondaywall.local
+        Release:
+          CURRENT_PROJECT_VERSION: "1"
+          MARKETING_VERSION: "1.0"
+          PRODUCT_BUNDLE_IDENTIFIER: $(WONDAYWALL_WIDGET_BUNDLE_IDENTIFIER)
+          WONDAYWALL_WIDGET_BUNDLE_IDENTIFIER: com.studiofreesia.wondaywall.widget
+          WONDAYWALL_APP_GROUP_IDENTIFIER: group.com.studiofreesia.wondaywall
 schemes:
   WondayWall:
     build:
       targets:
         WondayWall: all
+        WondayWallWidget: all
     run:
       config: Debug
     archive:

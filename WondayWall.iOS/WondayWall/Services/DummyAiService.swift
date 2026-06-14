@@ -16,6 +16,7 @@ final class DummyAiService: AiService {
         onProgress: ((Double, String) -> Void)? = nil
     ) async throws -> PromptGenerationResult {
         let promptDelay = UInt64(configService.debugConfig.dummyPromptDelaySeconds)
+        let news = Self.makeDummyNewsTopics(count: configService.debugConfig.dummyNewsCount)
         try await simulateProgress(
             start: 0.0,
             end: 1.0,
@@ -25,13 +26,13 @@ final class DummyAiService: AiService {
         )
         return PromptGenerationResult(
             imagePrompt: "[Dummy] Simulated prompt",
-            selectedNewsIds: []
+            selectedNewsTopics: news
         )
     }
 
     func fetchOgpImages(
         context: PromptContext,
-        selectedNewsIds _: [String]
+        selectedNewsTopics _: [NewsTopicItem]
     ) async -> PromptContext {
         // ダミー実装: OGP 取得なしで context をそのまま返す
         return context
@@ -135,6 +136,50 @@ final class DummyAiService: AiService {
             return 9.0 / 16.0
         }
         return CGFloat(w / h)
+    }
+
+    // RSSへアクセスせず、件数指定だけで安定した表示確認を行う。
+    private static func makeDummyNewsTopics(count: Int) -> [NewsTopicItem] {
+        let normalizedCount = min(max(count, DebugConfig.minNewsCount), DebugConfig.maxNewsCount)
+        guard normalizedCount > 0 else { return [] }
+
+        let now = Date()
+        let templates: [(title: String, summary: String)] = [
+            (
+                "ダミーニュース{n}: 週末の空模様と街イベントの見どころ",
+                "週末に楽しめる屋外イベントと天気の変化をまとめたダミーニュースです。"
+            ),
+            (
+                "ダミーニュース{n}: 新しい生成AIツールが公開、制作ワークフローを短縮",
+                "デザインや文章作成を支援する新機能の概要を紹介するダミーニュースです。"
+            ),
+            (
+                "ダミーニュース{n}: 夜景スポットでライトアップ企画が開始",
+                "季節限定のライトアップと周辺のおすすめルートを扱うダミーニュースです。"
+            ),
+            (
+                "ダミーニュース{n}: 宇宙観測プロジェクトが新しい画像を公開",
+                "星雲や銀河の観測成果をビジュアル中心に伝えるダミーニュースです。"
+            ),
+            (
+                "ダミーニュース{n}: 地域マーケットに限定スイーツが登場",
+                "週末の買い物や散歩の参考になる食の話題を想定したダミーニュースです。"
+            ),
+        ]
+
+        return (0..<normalizedCount).map { index in
+            let number = index + 1
+            let template = templates[index % templates.count]
+            return NewsTopicItem(
+                id: "dummy-news-\(number)",
+                title: template.title.replacingOccurrences(of: "{n}", with: "\(number)"),
+                summary: template.summary,
+                url: "https://example.com/wondaywall/dummy-news-\(number)",
+                publishedAt: now.addingTimeInterval(TimeInterval(-(index + 1) * 3600)),
+                ogpImageUrl: nil,
+                sourceRssUrl: "dummy://wondaywall/news"
+            )
+        }
     }
 
     // グラデーションと図形を描いたダミー壁紙 PNG を返す

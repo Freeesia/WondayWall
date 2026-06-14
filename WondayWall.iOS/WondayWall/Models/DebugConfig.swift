@@ -10,6 +10,21 @@ struct DebugConfig: Codable {
     var dummyPromptDelaySeconds: Int = 180
     // ダミー実装での画像生成遅延秒数
     var dummyImageDelaySeconds: Int = 600
+    // ダミー実装で生成コンテキストに含めるニュース件数
+    var dummyNewsCount: Int = 4
+
+    func normalized() -> DebugConfig {
+        var config = self
+        config.dummyPromptDelaySeconds = min(max(config.dummyPromptDelaySeconds, Self.minDelaySeconds), Self.maxDelaySeconds)
+        config.dummyImageDelaySeconds = min(max(config.dummyImageDelaySeconds, Self.minDelaySeconds), Self.maxDelaySeconds)
+        config.dummyNewsCount = min(max(config.dummyNewsCount, Self.minNewsCount), Self.maxNewsCount)
+        return config
+    }
+
+    static let minDelaySeconds = 1
+    static let maxDelaySeconds = 3600
+    static let minNewsCount = 0
+    static let maxNewsCount = 20
 }
 
 // Defaults キー定義

@@ -65,11 +65,17 @@ import com.studiofreesia.wondaywall.ui.util.canDisplayImageReference
 import com.studiofreesia.wondaywall.ui.util.formatCalendarEventDateTime
 import com.studiofreesia.wondaywall.ui.util.formatNewsPublishedAt
 import com.studiofreesia.wondaywall.ui.util.imageReferenceModel
+import com.studiofreesia.wondaywall.widgets.WidgetLaunchContract
+import com.studiofreesia.wondaywall.widgets.WidgetLaunchRequest
 
 // ホーム画面（iOSのHomeViewと同等の構成）
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(viewModel: HomeViewModel) {
+fun HomeScreen(
+    viewModel: HomeViewModel,
+    widgetLaunchRequest: WidgetLaunchRequest? = null,
+    onWidgetLaunchRequestConsumed: () -> Unit = {},
+) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
@@ -80,6 +86,15 @@ fun HomeScreen(viewModel: HomeViewModel) {
         uiState.errorMessage?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.clearError()
+        }
+    }
+
+    LaunchedEffect(widgetLaunchRequest) {
+        widgetLaunchRequest?.let {
+            if (it.destination == WidgetLaunchContract.DESTINATION_GENERATE_CONFIRMATION) {
+                it.slotStartedAtMillis?.let(viewModel::openGenerationSheetIfStillAllowed)
+            }
+            onWidgetLaunchRequestConsumed()
         }
     }
 

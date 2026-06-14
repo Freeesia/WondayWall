@@ -10,6 +10,7 @@ import com.google.genai.types.Schema
 import com.google.genai.types.Tool
 import com.studiofreesia.wondaywall.models.GeneratedImageResult
 import com.studiofreesia.wondaywall.models.GoogleAiServiceTier
+import com.studiofreesia.wondaywall.models.NewsTopicItem
 import com.studiofreesia.wondaywall.models.PromptCalendarEvent
 import com.studiofreesia.wondaywall.models.PromptContext
 import com.studiofreesia.wondaywall.models.PromptGenerationResult
@@ -29,6 +30,7 @@ import okhttp3.Request
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.TimeUnit
+import kotlin.time.Clock
 
 // Google AI Gemini API を使った壁紙画像生成サービス（google-genai SDK 使用）
 class GoogleAiService(
@@ -69,16 +71,19 @@ class GoogleAiService(
         onProgress?.invoke(1.0, "画像生成プロンプトを生成しました")
         return PromptGenerationResult(
             imagePrompt = promptSelection.imagePrompt,
-            selectedNewsIds = promptSelection.selectedNewsIds,
+            selectedNewsTopics = resolveSelectedNewsTopics(
+                context = context,
+                selectedNewsIds = promptSelection.selectedNewsIds,
+            ),
         )
     }
 
     // 採用ニュースの OGP 画像を取得して PromptContext に付加する
     override suspend fun fetchOgpImages(
         context: PromptContext,
-        selectedNewsIds: List<String>,
+        selectedNewsTopics: List<NewsTopicItem>,
     ): PromptContext = withContext(Dispatchers.IO) {
-        val selectedIdSet = selectedNewsIds.toSet()
+        val selectedIdSet = selectedNewsTopics.map { it.id }.toSet()
         val newsTopics = context.newsTopics.toMutableList()
         val targets = newsTopics
             .withIndex()
@@ -109,6 +114,26 @@ class GoogleAiService(
 
         context.copy(newsTopics = newsTopics)
     }
+
+    private fun resolveSelectedNewsTopics(
+        context: PromptContext,
+        selectedNewsIds: List<String>,
+    ): List<NewsTopicItem> {
+        val topicsById = context.newsTopics.associateBy { it.id }
+        return selectedNewsIds.mapNotNull { id ->
+            topicsById[id]?.toNewsTopicItem()
+        }
+    }
+
+    private fun PromptNewsTopic.toNewsTopicItem(): NewsTopicItem =
+        NewsTopicItem(
+            id = id,
+            title = title,
+            summary = summary,
+            url = url,
+            publishedAt = publishedAt ?: Clock.System.now(),
+            ogpImageUrl = ogpImageUrl,
+        )
 
     // 生成済みプロンプトから画像を生成して保存する
     override suspend fun generateImageFromPrompt(

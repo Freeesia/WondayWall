@@ -1,6 +1,7 @@
 package com.studiofreesia.wondaywall
 
 import android.os.Bundle
+import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -15,6 +16,8 @@ import androidx.lifecycle.lifecycleScope
 import com.studiofreesia.wondaywall.models.GenerationProgress
 import com.studiofreesia.wondaywall.ui.navigation.AppNavigation
 import com.studiofreesia.wondaywall.ui.theme.WondayWallTheme
+import com.studiofreesia.wondaywall.widgets.WidgetLaunchContract
+import com.studiofreesia.wondaywall.widgets.WidgetLaunchRequest
 import kotlinx.coroutines.launch
 
 private enum class StartupAlertMode {
@@ -32,9 +35,11 @@ private data class StartupAlertState(
 class MainActivity : ComponentActivity() {
 
     private var startupAlert by mutableStateOf<StartupAlertState?>(null)
+    private var widgetLaunchRequest by mutableStateOf<WidgetLaunchRequest?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        widgetLaunchRequest = WidgetLaunchContract.parse(intent)
         enableEdgeToEdge()
         setContent {
             WondayWallTheme {
@@ -47,6 +52,8 @@ class MainActivity : ComponentActivity() {
                     contextService = app.contextService,
                     taskSchedulerService = app.taskSchedulerService,
                     aiService = app.aiService,
+                    widgetLaunchRequest = widgetLaunchRequest,
+                    onWidgetLaunchRequestConsumed = { widgetLaunchRequest = null },
                 )
                 startupAlert?.let { alert ->
                     StartupGenerationAlert(
@@ -59,8 +66,15 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        widgetLaunchRequest = WidgetLaunchContract.parse(intent)
+    }
+
     override fun onResume() {
         super.onResume()
+        (application as App).requestWidgetUpdate()
         lifecycleScope.launch {
             evaluateStartupGeneration()
         }
@@ -68,6 +82,7 @@ class MainActivity : ComponentActivity() {
 
     private suspend fun evaluateStartupGeneration() {
         if (startupAlert != null) return
+        if (widgetLaunchRequest != null) return
         val app = application as App
         val config = app.appConfigService.getConfig()
         if (config.googleAiApiKey.isBlank()) return
