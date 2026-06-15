@@ -8,6 +8,7 @@ public class GenerationCoordinator(
     AppConfigService configService,
     ContextService contextService,
     GoogleAiService googleAiService,
+    DummyAiService dummyAiService,
     WallpaperService wallpaperService,
     HistoryService historyService,
     ILogger<GenerationCoordinator> logger)
@@ -68,7 +69,9 @@ public class GenerationCoordinator(
             }
             else
             {
-                var imageInfo = await googleAiService.GenerateWallpaperAsync(promptContext, serviceTier, ct);
+                var imageInfo = configService.Current.DebugConfig.UseDummyAiService
+                    ? await dummyAiService.GenerateWallpaperAsync(promptContext, serviceTier, ct)
+                    : await googleAiService.GenerateWallpaperAsync(promptContext, serviceTier, ct);
                 usedServiceTier = imageInfo.ServiceTier;
                 await wallpaperService.SetWallpaperAsync(
                     imageInfo.FilePath,

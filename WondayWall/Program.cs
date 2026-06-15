@@ -66,6 +66,7 @@ static void ConfigureCommonServices(IServiceCollection services)
         .AddResilienceHandler("GoogleAiRetry", static builder => builder.AddRetry(new HttpRetryStrategyOptions()));
     services.AddSingleton<WallpaperService>();
     services.AddSingleton<AppConfigService>();
+    services.AddSingleton<DummyAiService>();
     services.AddSingleton<HistoryService>();
     services.AddSingleton<ContextService>();
     services.AddSingleton<GoogleAiService>();

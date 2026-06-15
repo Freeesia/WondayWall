@@ -148,6 +148,37 @@ public class CliCommands(
         return Task.CompletedTask;
     }
 
+    [Command("set-dummy-ai")]
+    public Task SetDummyAiAsync(
+        bool enabled,
+        int? dummyNewsCount = null,
+        int? dummyPromptDelaySeconds = null,
+        int? dummyImageDelaySeconds = null,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var config = configService.Current;
+        config.DebugConfig.UseDummyAiService = enabled;
+        if (dummyNewsCount is not null)
+            config.DebugConfig.DummyNewsCount = dummyNewsCount.Value;
+        if (dummyPromptDelaySeconds is not null)
+            config.DebugConfig.DummyPromptDelaySeconds = dummyPromptDelaySeconds.Value;
+        if (dummyImageDelaySeconds is not null)
+            config.DebugConfig.DummyImageDelaySeconds = dummyImageDelaySeconds.Value;
+
+        config.DebugConfig.Normalize();
+        configService.Save(config);
+
+        logger.LogInformation(
+            "Dummy AI service: {Enabled}, NewsCount={NewsCount}, PromptDelay={PromptDelay}s, ImageDelay={ImageDelay}s",
+            config.DebugConfig.UseDummyAiService,
+            config.DebugConfig.DummyNewsCount,
+            config.DebugConfig.DummyPromptDelaySeconds,
+            config.DebugConfig.DummyImageDelaySeconds);
+        return Task.CompletedTask;
+    }
+
     private void LogRunResult(HistoryItem result)
     {
         if (result.IsSkipped)

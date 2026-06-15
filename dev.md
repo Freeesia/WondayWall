@@ -42,6 +42,7 @@
 | `AppConfigService` | JSON 設定の読み書き（`%LocalAppData%/StudioFreesia/WondayWall/config.json`） |
 | `ContextService` | Google Calendar + RSS フィードから `ContextBuildResult` を構築 |
 | `GoogleAiService` | Gemini で壁紙画像を生成・保存（2 ステップ生成） |
+| `DummyAiService` | ダミーニュース生成とダミー壁紙生成（`DebugConfig.UseDummyAiService=true` 時） |
 | `WallpaperService` | 仮想デスクトップ API / Win32 で壁紙を適用 |
 | `GenerationCoordinator` | 上記サービスを順次呼び出すオーケストレーター |
 | `HistoryService` | 生成履歴を `history.json` に保存（最大 100 件） |
@@ -69,6 +70,8 @@ GenerationCoordinator（OS 全体共有 Mutex で多重実行防止: Local\Wonda
 ```
 
 `run-once` 専用の `RunScheduledAsync()` はスキップ判定（`SkipGenerationWhenNoChanges`）を行ってから上記を呼ぶ。
+
+`config.json` の `debugConfig.useDummyAiService` を `true` にすると、ニュース取得と画像生成はダミー実装に切り替わる。CLI では `set-dummy-ai` コマンドで切り替え可能。
 
 ---
 

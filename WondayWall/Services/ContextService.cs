@@ -19,7 +19,12 @@ using AppResources = WondayWall.Properties.Resources;
 
 namespace WondayWall.Services;
 
-public class ContextService(AppConfigService configService, HistoryService historyService, IHttpClientFactory httpClientFactory, ILogger<ContextService> logger)
+public class ContextService(
+    AppConfigService configService,
+    HistoryService historyService,
+    DummyAiService dummyAiService,
+    IHttpClientFactory httpClientFactory,
+    ILogger<ContextService> logger)
 {
     private const int MaxPromptNewsCount = 10;
     private const int MaxRecentNewsCountSinceLastGeneration = 3;
@@ -184,6 +189,18 @@ public class ContextService(AppConfigService configService, HistoryService histo
     /// </summary>
     public async IAsyncEnumerable<NewsTopicItem> FetchNewsAsync([EnumeratorCancellation] CancellationToken ct = default)
     {
+        if (configService.Current.DebugConfig.UseDummyAiService)
+        {
+            var dummyNews = await dummyAiService.BuildNewsTopicsAsync(ct);
+            foreach (var news in dummyNews)
+            {
+                ct.ThrowIfCancellationRequested();
+                yield return news;
+            }
+
+            yield break;
+        }
+
         var recentNews = await FetchRecentRssItemsAsync(configService.Current.RssSources, ct);
         foreach (var item in recentNews)
         {
@@ -297,6 +314,9 @@ public class ContextService(AppConfigService configService, HistoryService histo
 
     private async Task<List<NewsTopicItem>> BuildPromptNewsAsync(CancellationToken ct)
     {
+        if (configService.Current.DebugConfig.UseDummyAiService)
+            return await dummyAiService.BuildNewsTopicsAsync(ct);
+
         var recentNews = await FetchRecentRssItemsAsync(configService.Current.RssSources, ct);
         var lastGeneratedAt = historyService.GetLastSuccessfulGenerated()?.ExecutedAt;
         var selectedNews = SelectPromptNewsItems(recentNews, lastGeneratedAt);
