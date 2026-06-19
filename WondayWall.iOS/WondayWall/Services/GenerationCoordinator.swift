@@ -160,9 +160,11 @@ actor GenerationCoordinator {
         // generatingItem の決定（再開 | プロンプト生成前の再起動 | 新規）
         let generatingItem: HistoryItem
         if let resumable {
-            // 再開時は executedAt を現在時刻に更新して、再開スロットを消費済みとして正しく記録する
-            // 元の executedAt が前回スロットの時刻だと、再開完了後もスロット未実行と誤判定される
-            let resumed = HistoryItem(
+            // 再開時は executedAt を現在時刻に更新する
+            // resumable.executedAt は中断時点（前回スロット）の時刻のまま引き継がれるため、
+            // そのまま使うと中間保存②・最終保存も古い時刻になり
+            // getLastCompletedRun() が前スロットの時刻を返して isPendingGeneration が誤判定する
+            generatingItem = HistoryItem(
                 id: resumable.id,
                 executedAt: Date(),
                 status: resumable.status,
@@ -173,8 +175,6 @@ actor GenerationCoordinator {
                 photoAssetId: resumable.photoAssetId,
                 generatedPrompt: resumable.generatedPrompt
             )
-            historyService.update(resumed)
-            generatingItem = resumed
         } else if let pending = historyService.getPendingGeneratingItem() {
             let retrying = HistoryItem(id: pending.id, executedAt: Date(), status: .generating)
             historyService.update(retrying)
