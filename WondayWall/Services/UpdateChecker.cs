@@ -71,33 +71,15 @@ public class UpdateChecker : BackgroundService
             return;
         }
 
-        if (DistributionKind == AppDistributionKind.MicrosoftStoreMsix)
-        {
-            try
-            {
-                // Store版はウィンドウ不要のクエリのみ実行し、状態を設定する
-                var storeContext = StoreContext.GetDefault();
-                var updates = await storeContext.GetAppAndOptionalStorePackageUpdatesAsync();
-                if (updates.Count > 0)
-                {
-                    var latestVersion = ToVersionString(updates[0].Package.Id.Version);
-                    SetUpdateState(latestVersion, hasUpdate: true);
-                }
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException || !stoppingToken.IsCancellationRequested)
-            {
-                _logger.LogWarning(ex, "起動時の Store 更新チェックに失敗しました");
-            }
-
-            return;
-        }
-
         ToastNotificationManagerCompat.OnActivated += ToastNotificationManagerCompat_OnActivated;
         try
         {
             try
             {
-                await CheckCoreAsync(forceRefresh: false, stoppingToken).ConfigureAwait(false);
+                if (DistributionKind == AppDistributionKind.MicrosoftStoreMsix)
+                    await CheckCoreStoreAsync(stoppingToken).ConfigureAwait(false);
+                else
+                    await CheckCoreGitHubAsync(forceRefresh: false, stoppingToken).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is not OperationCanceledException || !stoppingToken.IsCancellationRequested)
             {
@@ -133,126 +115,12 @@ public class UpdateChecker : BackgroundService
         }
 
         if (DistributionKind == AppDistributionKind.MicrosoftStoreMsix)
-        {
-            var ownerWindow = System.Windows.Application.Current?.MainWindow;
-            if (ownerWindow is null)
-            {
-                _logger.LogWarning("メインウィンドウが見つからないため Store 更新チェックをスキップしました");
-                return Task.CompletedTask;
-            }
-
-            return CheckForUpdatesFromUiAsync(ownerWindow, ct);
-        }
-
-        return CheckCoreAsync(forceRefresh: true, ct);
+            return CheckCoreStoreAsync(ct);
+        else
+            return CheckCoreGitHubAsync(forceRefresh: true, ct);
     }
 
-    public async Task<StoreUpdateCheckResult> CheckStoreUpdateAsync(Window ownerWindow, CancellationToken ct = default)
-    {
-        if (DistributionKind != AppDistributionKind.MicrosoftStoreMsix)
-            return StoreUpdateCheckResult.NotSupported(DistributionKind);
-
-        ct.ThrowIfCancellationRequested();
-
-        var storeContext = StoreContext.GetDefault();
-        var hwnd = new WindowInteropHelper(ownerWindow).Handle;
-        InitializeWithWindow.Initialize(storeContext, hwnd);
-
-        var updates = await storeContext.GetAppAndOptionalStorePackageUpdatesAsync();
-
-        if (updates.Count == 0)
-        {
-            return new StoreUpdateCheckResult(
-                IsSupported: true,
-                HasUpdate: false,
-                CurrentVersion: ToVersionString(AppPackage.Current.Id.Version),
-                LatestVersion: null,
-                IsMandatory: false,
-                DistributionKind: AppDistributionKind.MicrosoftStoreMsix);
-        }
-
-        var appUpdate = updates[0];
-        return new StoreUpdateCheckResult(
-            IsSupported: true,
-            HasUpdate: true,
-            CurrentVersion: ToVersionString(AppPackage.Current.Id.Version),
-            LatestVersion: ToVersionString(appUpdate.Package.Id.Version),
-            IsMandatory: updates.Any(x => x.Mandatory),
-            DistributionKind: AppDistributionKind.MicrosoftStoreMsix);
-    }
-
-    public async Task<StorePackageUpdateResult?> RequestStoreUpdateAsync(Window ownerWindow, CancellationToken ct = default)
-    {
-        if (DistributionKind != AppDistributionKind.MicrosoftStoreMsix)
-            return null;
-
-        ct.ThrowIfCancellationRequested();
-
-        var storeContext = StoreContext.GetDefault();
-        var hwnd = new WindowInteropHelper(ownerWindow).Handle;
-        InitializeWithWindow.Initialize(storeContext, hwnd);
-
-        var updates = await storeContext.GetAppAndOptionalStorePackageUpdatesAsync();
-        if (updates.Count == 0)
-            return null;
-
-        return await storeContext.RequestDownloadAndInstallStorePackageUpdatesAsync(updates);
-    }
-
-    public async Task<StoreUpdateCheckResult?> CheckForUpdatesFromUiAsync(Window ownerWindow, CancellationToken ct = default)
-    {
-        if (!ShowUpdateControls)
-            return null;
-
-        if (DistributionKind == AppDistributionKind.MicrosoftStoreMsix)
-        {
-            var result = await CheckStoreUpdateAsync(ownerWindow, ct);
-            HasUpdate = result.HasUpdate;
-            LatestVersion = result.LatestVersion;
-
-            if (result.HasUpdate)
-            {
-                var currentVersion = result.CurrentVersion ?? string.Empty;
-                var latestVersion = result.LatestVersion ?? string.Empty;
-                var prompt = AppResources.Format(AppResources.UpdateAvailableMessage, latestVersion) + Environment.NewLine
-                           + $"Current: {currentVersion}{Environment.NewLine}"
-                           + $"Latest: {latestVersion}{Environment.NewLine}{Environment.NewLine}"
-                           + AppResources.UpdateNotificationMessage;
-                var choice = MessageBox.Show(
-                    ownerWindow,
-                    prompt,
-                    AppResources.Format(AppResources.UpdateNotificationTitle, result.LatestVersion),
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Information);
-                if (choice == MessageBoxResult.Yes)
-                    await RequestStoreUpdateAsync(ownerWindow, ct);
-            }
-
-            return result;
-        }
-
-        await CheckAsync(ct);
-        return new StoreUpdateCheckResult(
-            IsSupported: true,
-            HasUpdate: HasUpdate,
-            CurrentVersion: _currentVersion.ToString(),
-            LatestVersion: LatestVersion,
-            IsMandatory: false,
-            DistributionKind: DistributionKind);
-    }
-
-    public async Task InstallUpdateAsync(Window ownerWindow, CancellationToken ct = default)
-    {
-        if (DistributionKind == AppDistributionKind.MicrosoftStoreMsix)
-        {
-            await RequestStoreUpdateAsync(ownerWindow, ct);
-            return;
-        }
-
-        InstallUpdate();
-    }
-
-    public void InstallUpdate()
+    public async void InstallUpdate()
     {
         if (DistributionKind == AppDistributionKind.MicrosoftStoreMsix)
         {
@@ -263,33 +131,49 @@ public class UpdateChecker : BackgroundService
                 return;
             }
 
-            _ = InstallUpdateAsync(ownerWindow).ContinueWith(
-                static (task, state) =>
+            try
+            {
+                var storeContext = StoreContext.GetDefault();
+                var hwnd = new WindowInteropHelper(ownerWindow).Handle;
+                InitializeWithWindow.Initialize(storeContext, hwnd);
+
+                var updates = await storeContext.GetAppAndOptionalStorePackageUpdatesAsync();
+                if (updates.Count == 0)
                 {
-                    if (state is ILogger<UpdateChecker> logger)
-                        logger.LogWarning(task.Exception?.GetBaseException(), "Store 更新処理に失敗しました");
-                },
-                _logger,
-                CancellationToken.None,
-                TaskContinuationOptions.OnlyOnFaulted,
-                TaskScheduler.Default);
-            return;
-        }
+                    _logger.LogInformation("更新は見つかりませんでした");
+                    return;
+                }
 
-        var updateInfo = LoadUpdateInfo();
-        if (updateInfo?.Path is not { Length: > 0 } installerPath || !File.Exists(installerPath))
-        {
-            _logger.LogWarning("インストーラーが見つからないため更新を開始できませんでした");
-            return;
+                var result = await storeContext.RequestDownloadAndInstallStorePackageUpdatesAsync(updates);
+                if (result.OverallState == StorePackageUpdateState.Completed)
+                {
+                    _logger.LogInformation("更新が完了しました");
+                    return;
+                }
+                _logger.LogWarning("Store 更新の結果: {Result}", result.OverallState);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Store 更新処理に失敗しました");
+            }
         }
-
-        var startInfo = new ProcessStartInfo("msiexec")
+        else
         {
-            UseShellExecute = false,
-        };
-        startInfo.ArgumentList.Add("/i");
-        startInfo.ArgumentList.Add(installerPath);
-        Process.Start(startInfo);
+            var updateInfo = LoadUpdateInfo();
+            if (updateInfo?.Path is not { Length: > 0 } installerPath || !File.Exists(installerPath))
+            {
+                _logger.LogWarning("インストーラーが見つからないため更新を開始できませんでした");
+                return;
+            }
+
+            var startInfo = new ProcessStartInfo("msiexec")
+            {
+                UseShellExecute = false,
+            };
+            startInfo.ArgumentList.Add("/i");
+            startInfo.ArgumentList.Add(installerPath);
+            Process.Start(startInfo);
+        }
     }
 
     public void OpenReleaseNotes()
@@ -364,7 +248,8 @@ public class UpdateChecker : BackgroundService
             switch (action)
             {
                 case InstallAction:
-                    InstallUpdate();
+                    // Store版は WindowInteropHelper でウィンドウハンドルを取得するため、UIスレッドから呼び出す
+                    System.Windows.Application.Current?.Dispatcher.Invoke(InstallUpdate);
                     break;
                 case OpenReleaseNotesAction:
                     OpenReleaseNotes();
@@ -382,7 +267,7 @@ public class UpdateChecker : BackgroundService
         }
     }
 
-    private async Task CheckCoreAsync(bool forceRefresh, CancellationToken ct)
+    private async Task CheckCoreGitHubAsync(bool forceRefresh, CancellationToken ct)
     {
         using (await _checking.LockAsync(ct).ConfigureAwait(false))
         {
@@ -419,6 +304,25 @@ public class UpdateChecker : BackgroundService
             var latestUpdateInfo = new UpdateInfo(releaseVersion.ToString(), release.HtmlUrl, installerPath, DateTime.UtcNow, false);
             SaveUpdateInfo(latestUpdateInfo);
             SetUpdateState(latestUpdateInfo.Version, hasUpdate: true);
+        }
+    }
+
+    private async Task CheckCoreStoreAsync(CancellationToken ct)
+    {
+        using (await _checking.LockAsync(ct).ConfigureAwait(false))
+        {
+            var storeContext = StoreContext.GetDefault();
+            var updates = await storeContext.GetAppAndOptionalStorePackageUpdatesAsync();
+            ct.ThrowIfCancellationRequested();
+
+            if (updates.Count == 0)
+            {
+                SetUpdateState(null, hasUpdate: false);
+                return;
+            }
+
+            var latestVersion = ToVersionString(updates[0].Package.Id.Version);
+            SetUpdateState(latestVersion, hasUpdate: true);
         }
     }
 
