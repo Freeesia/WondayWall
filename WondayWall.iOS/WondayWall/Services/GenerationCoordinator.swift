@@ -86,6 +86,18 @@ actor GenerationCoordinator {
             return false
         }
 
+        let lastRunAt = historyService.getLastCompletedRun()?.executedAt
+        let needed = ScheduleHelper.isPendingGeneration(
+            now: now,
+            lastRunAt: lastRunAt,
+            schedule: config.schedule
+        )
+        if !needed {
+            let lastStr = lastRunAt.map { $0.formatted(.iso8601) } ?? "nil"
+            logger.notice("isScheduledGenerationNeeded: スケジュール上不要 lastRunAt=\(lastStr, privacy: .public) now=\(now.formatted(.iso8601), privacy: .public)")
+            return false
+        }
+
         // 前回の生成が中断されている場合は、設定に関わらずなるはやで再実行する
         if historyService.getPendingGeneratingItem() != nil || historyService.getGeneratingWithPrompt() != nil {
             logger.notice("isScheduledGenerationNeeded: 中断中の生成あり → 再実行")
@@ -105,20 +117,9 @@ actor GenerationCoordinator {
             return false
         }
 
-        let lastRunAt = historyService.getLastCompletedRun()?.executedAt
-        let needed = ScheduleHelper.isPendingGeneration(
-            now: now,
-            lastRunAt: lastRunAt,
-            schedule: config.schedule
-        )
-        if needed {
-            let lastStr = lastRunAt.map { $0.formatted(.iso8601) } ?? "nil"
-            logger.notice("isScheduledGenerationNeeded: 生成必要 lastRunAt=\(lastStr, privacy: .public) now=\(now.formatted(.iso8601), privacy: .public)")
-        } else {
-            let lastStr = lastRunAt.map { $0.formatted(.iso8601) } ?? "nil"
-            logger.notice("isScheduledGenerationNeeded: スケジュール上不要 lastRunAt=\(lastStr, privacy: .public) now=\(now.formatted(.iso8601), privacy: .public)")
-        }
-        return needed
+        let lastStr = lastRunAt.map { $0.formatted(.iso8601) } ?? "nil"
+        logger.notice("isScheduledGenerationNeeded: 生成必要 lastRunAt=\(lastStr, privacy: .public) now=\(now.formatted(.iso8601), privacy: .public)")
+        return true
     }
 
     // 定期生成が必要か判定し、必要なら1回だけ生成する
@@ -160,21 +161,7 @@ actor GenerationCoordinator {
         // generatingItem の決定（再開 | プロンプト生成前の再起動 | 新規）
         let generatingItem: HistoryItem
         if let resumable {
-            // 再開時は executedAt を現在時刻に更新する
-            // resumable.executedAt は中断時点（前回スロット）の時刻のまま引き継がれるため、
-            // そのまま使うと中間保存②・最終保存も古い時刻になり
-            // getLastCompletedRun() が前スロットの時刻を返して isPendingGeneration が誤判定する
-            generatingItem = HistoryItem(
-                id: resumable.id,
-                executedAt: Date(),
-                status: resumable.status,
-                usedCalendarEvents: resumable.usedCalendarEvents,
-                usedNewsTopics: resumable.usedNewsTopics,
-                usedPrompt: resumable.usedPrompt,
-                errorSummary: resumable.errorSummary,
-                photoAssetId: resumable.photoAssetId,
-                generatedPrompt: resumable.generatedPrompt
-            )
+            generatingItem = resumable
         } else if let pending = historyService.getPendingGeneratingItem() {
             let retrying = HistoryItem(id: pending.id, executedAt: Date(), status: .generating)
             historyService.update(retrying)
