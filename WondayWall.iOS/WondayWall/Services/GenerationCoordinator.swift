@@ -66,11 +66,12 @@ actor GenerationCoordinator {
         }
 
         await setIsGenerating(true)
-        defer { Task { await self.setIsGenerating(false) } }
 
         // 手動生成は変化がなくても必ず実行し、自動生成の枠も消費する
         let tier: GoogleAiServiceTier = configService.config.forceFlexTier ? .flex : .standard
-        return await runCore(skipIfNoChanges: false, serviceTier: tier)
+        let result = await runCore(skipIfNoChanges: false, serviceTier: tier)
+        await setIsGenerating(false)
+        return result
     }
 
     // 現在時刻で定期生成が必要かどうかを返す（起動時・復帰時の事前確認用）
@@ -83,18 +84,6 @@ actor GenerationCoordinator {
         let config = configService.config
         guard config.hasCompletedInitialSetup else {
             logger.notice("isScheduledGenerationNeeded: 初回セットアップ未完了 → スキップ")
-            return false
-        }
-
-        let lastRunAt = historyService.getLastCompletedRun()?.executedAt
-        let needed = ScheduleHelper.isPendingGeneration(
-            now: now,
-            lastRunAt: lastRunAt,
-            schedule: config.schedule
-        )
-        if !needed {
-            let lastStr = lastRunAt.map { $0.formatted(.iso8601) } ?? "nil"
-            logger.notice("isScheduledGenerationNeeded: スケジュール上不要 lastRunAt=\(lastStr, privacy: .public) now=\(now.formatted(.iso8601), privacy: .public)")
             return false
         }
 
@@ -117,9 +106,20 @@ actor GenerationCoordinator {
             return false
         }
 
-        let lastStr = lastRunAt.map { $0.formatted(.iso8601) } ?? "nil"
-        logger.notice("isScheduledGenerationNeeded: 生成必要 lastRunAt=\(lastStr, privacy: .public) now=\(now.formatted(.iso8601), privacy: .public)")
-        return true
+        let lastRunAt = historyService.getLastCompletedRun()?.executedAt
+        let needed = ScheduleHelper.isPendingGeneration(
+            now: now,
+            lastRunAt: lastRunAt,
+            schedule: config.schedule
+        )
+        if needed {
+            let lastStr = lastRunAt.map { $0.formatted(.iso8601) } ?? "nil"
+            logger.notice("isScheduledGenerationNeeded: 生成必要 lastRunAt=\(lastStr, privacy: .public) now=\(now.formatted(.iso8601), privacy: .public)")
+        } else {
+            let lastStr = lastRunAt.map { $0.formatted(.iso8601) } ?? "nil"
+            logger.notice("isScheduledGenerationNeeded: スケジュール上不要 lastRunAt=\(lastStr, privacy: .public) now=\(now.formatted(.iso8601), privacy: .public)")
+        }
+        return needed
     }
 
     // 定期生成が必要か判定し、必要なら1回だけ生成する
@@ -130,10 +130,11 @@ actor GenerationCoordinator {
         let config = configService.config
 
         await setIsGenerating(true)
-        defer { Task { await self.setIsGenerating(false) } }
 
         // バックグラウンド定期生成は Flex モードで実行（50% コスト削減，失敗時は Standard にフォールバック）
-        return await runCore(skipIfNoChanges: config.skipIfNoChanges, serviceTier: .flex)
+        let result = await runCore(skipIfNoChanges: config.skipIfNoChanges, serviceTier: .flex)
+        await setIsGenerating(false)
+        return result
     }
 
     // 現在の生成処理をキャンセルする（バックグラウンドタスクの期限切れ時に呼ぶ）
