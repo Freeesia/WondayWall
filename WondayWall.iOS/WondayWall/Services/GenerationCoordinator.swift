@@ -66,6 +66,7 @@ actor GenerationCoordinator {
         }
 
         await setIsGenerating(true)
+        defer { Task { await self.setIsGenerating(false) } }
 
         // 手動生成は変化がなくても必ず実行し、自動生成の枠も消費する
         let tier: GoogleAiServiceTier = configService.config.forceFlexTier ? .flex : .standard
@@ -128,6 +129,7 @@ actor GenerationCoordinator {
         let config = configService.config
 
         await setIsGenerating(true)
+        defer { Task { await self.setIsGenerating(false) } }
 
         // バックグラウンド定期生成は Flex モードで実行（50% コスト削減，失敗時は Standard にフォールバック）
         return await runCore(skipIfNoChanges: config.skipIfNoChanges, serviceTier: .flex)
@@ -151,7 +153,6 @@ actor GenerationCoordinator {
         var usedNews: [NewsTopicItem]? = nil
         var errorSummary: String? = nil
         var generatedPrompt: String? = nil
-        var successNotificationImagePath: String? = nil
 
         // 再開チェック: プロンプト生成済み（generatingPromptReady）→ 画像生成のみ再試行
         let resumable = historyService.getGeneratingWithPrompt()
@@ -293,7 +294,18 @@ actor GenerationCoordinator {
                 }
                 photoAssetId = savedPhotoAssetId
                 status = .success
-                successNotificationImagePath = imageResult.filePath
+
+                // 通知には絶対パスを渡す
+                if configService.config.notificationsEnabled {
+                    await notificationService.scheduleSuccessNotification(
+                        imagePath: imageResult.filePath)
+                }
+
+                // 生成成功を通知する（フォアグラウンド中は ContentView 側で Toast として表示される）
+                NotificationCenter.default.post(name: .generationSucceededInForeground, object: nil)
+
+                // 通知・Photos 保存が完了したらローカルファイルは不要なので削除する
+                try? FileManager.default.removeItem(atPath: imageResult.filePath)
                 await postProgress(1.0, message: "処理完了")
             }
         } catch {
@@ -317,30 +329,17 @@ actor GenerationCoordinator {
 
         // 生成中履歴を最終ステータスで更新する
         historyService.update(historyItem)
-        await setIsGenerating(false)
 
         let totalElapsed = Date().timeIntervalSince(coreStartTime)
         logger.notice("runCore 完了 status=\(status.rawValue, privacy: .public) elapsed=\(String(format: "%.1f", totalElapsed), privacy: .public)s")
 
-        // 最終履歴の保存と生成中状態の解除後に通知する。
-        // 即時通知からアプリを開いても、完了済み状態を必ず参照できる。
+        // 通知（失敗時のみここで送信。成功時は上で処理済み）
         if configService.config.notificationsEnabled {
-            if status == .success {
-                await notificationService.scheduleSuccessNotification(
-                    imagePath: successNotificationImagePath
-                )
-            } else if status == .failure {
+            if status == .failure {
                 await notificationService.scheduleFailureNotification(
                     error: errorSummary ?? "不明なエラー"
                 )
             }
-        }
-
-        if status == .success {
-            NotificationCenter.default.post(name: .generationSucceededInForeground, object: nil)
-        }
-        if let successNotificationImagePath {
-            try? FileManager.default.removeItem(atPath: successNotificationImagePath)
         }
 
         // BGContinuedProcessingTask の完了を通知する（iOS 17.4+ 向け）
