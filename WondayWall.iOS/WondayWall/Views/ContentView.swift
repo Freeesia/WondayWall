@@ -74,6 +74,14 @@ struct ContentView: View {
             ) { _ in
                 // 通知タップ時は必ずホームタブへ遷移する
                 selectedTab = 0
+                startupAlertMode = nil
+                showStartupAlert = false
+            }
+            .onReceive(environment.$isOpeningFromGenerationSuccessNotification) { isOpening in
+                guard isOpening else { return }
+                selectedTab = 0
+                startupAlertMode = nil
+                showStartupAlert = false
             }
             .onReceive(
                 NotificationCenter.default.publisher(for: .generationSucceededInForeground)
@@ -114,6 +122,11 @@ struct ContentView: View {
             Task {
                 await environment.reloadWidgetTimelineNow()
                 await evaluateStartupGeneration()
+            }
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .background {
+                environment.endGenerationSuccessNotificationLaunch()
             }
         }
         .alert(startupAlertTitle, isPresented: $showStartupAlert) {
@@ -176,6 +189,7 @@ struct ContentView: View {
     private func evaluateStartupGeneration() async {
         guard isInitialSetupComplete else { return }
         guard environment.pendingWidgetGenerationSlotStartedAt == nil else { return }
+        guard !environment.isOpeningFromGenerationSuccessNotification else { return }
         guard environment.configService.config.autoGenerationEnabled else { return }
         guard environment.configService.hasMinimumConfigurationForStartupGeneration() else { return }
 

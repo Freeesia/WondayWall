@@ -25,6 +25,8 @@ final class AppEnvironment: ObservableObject {
     @Published var pendingWidgetGenerationSlotStartedAt: Date? = nil
     // ウィジェットから予定詳細シートを開く要求。HomeView が消費する。
     @Published var pendingWidgetCalendarEventID: String? = nil
+    // 生成完了通知から起動したフォアグラウンド中は、起動時生成アラートを抑止する。
+    @Published private(set) var isOpeningFromGenerationSuccessNotification = false
 
     // 生成中かどうか（手動・起動時補完・バックグラウンド両方を含む）
     var isGenerating: Bool { generationProgress != nil }
@@ -154,5 +156,13 @@ final class AppEnvironment: ObservableObject {
 
     func clearWidgetCalendarEventDetailRequest() {
         pendingWidgetCalendarEventID = nil
+    }
+
+    func beginGenerationSuccessNotificationLaunch() {
+        isOpeningFromGenerationSuccessNotification = true
+    }
+
+    func endGenerationSuccessNotificationLaunch() {
+        isOpeningFromGenerationSuccessNotification = false
     }
 }

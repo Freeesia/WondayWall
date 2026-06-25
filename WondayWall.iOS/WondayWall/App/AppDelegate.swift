@@ -78,16 +78,22 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
-        defer { completionHandler() }
         let requestIdentifier = response.notification.request.identifier
+        let notificationType = response.notification.request.content.userInfo["type"] as? String
         center.removeDeliveredNotifications(withIdentifiers: [requestIdentifier])
         center.removePendingNotificationRequests(withIdentifiers: [requestIdentifier])
-        // 通知タップ時に履歴詳細へ遷移する
-        // NotificationCenter 経由で ContentView に伝達する
-        NotificationCenter.default.post(
-            name: .openHistoryNotification,
-            object: nil
-        )
+        Task { @MainActor [weak self] in
+            if notificationType == "generation.success" {
+                self?.environment.beginGenerationSuccessNotificationLaunch()
+            }
+            // 通知タップ時にホームへ遷移する。起動直後に購読前でも、
+            // AppEnvironment の状態から ContentView が通知起動を復元できる。
+            NotificationCenter.default.post(
+                name: .openHistoryNotification,
+                object: nil
+            )
+            completionHandler()
+        }
     }
 }
 

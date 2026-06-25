@@ -66,12 +66,11 @@ actor GenerationCoordinator {
         }
 
         await setIsGenerating(true)
+        defer { Task { await self.setIsGenerating(false) } }
 
         // 手動生成は変化がなくても必ず実行し、自動生成の枠も消費する
         let tier: GoogleAiServiceTier = configService.config.forceFlexTier ? .flex : .standard
-        let result = await runCore(skipIfNoChanges: false, serviceTier: tier)
-        await setIsGenerating(false)
-        return result
+        return await runCore(skipIfNoChanges: false, serviceTier: tier)
     }
 
     // 現在時刻で定期生成が必要かどうかを返す（起動時・復帰時の事前確認用）
@@ -130,11 +129,10 @@ actor GenerationCoordinator {
         let config = configService.config
 
         await setIsGenerating(true)
+        defer { Task { await self.setIsGenerating(false) } }
 
         // バックグラウンド定期生成は Flex モードで実行（50% コスト削減，失敗時は Standard にフォールバック）
-        let result = await runCore(skipIfNoChanges: config.skipIfNoChanges, serviceTier: .flex)
-        await setIsGenerating(false)
-        return result
+        return await runCore(skipIfNoChanges: config.skipIfNoChanges, serviceTier: .flex)
     }
 
     // 現在の生成処理をキャンセルする（バックグラウンドタスクの期限切れ時に呼ぶ）
