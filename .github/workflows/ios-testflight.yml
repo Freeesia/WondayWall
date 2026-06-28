@@ -40,7 +40,7 @@ jobs:
       WIDGET_APP_IDENTIFIER: com.studiofreesia.wondaywall.preview.widget
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6.0.3
 
       - name: Show Xcode version
         run: xcodebuild -version
