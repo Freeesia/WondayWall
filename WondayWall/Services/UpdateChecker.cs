@@ -2,7 +2,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Reflection;
-using System.Windows;
 using System.Windows.Interop;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -15,7 +14,6 @@ using WinRT.Interop;
 using WondayWall.Models;
 using WondayWall.Utils;
 using AppResources = WondayWall.Properties.Resources;
-using AppPackage = Windows.ApplicationModel.Package;
 using AppPackageVersion = Windows.ApplicationModel.PackageVersion;
 
 namespace WondayWall.Services;
@@ -38,13 +36,12 @@ public class UpdateChecker : BackgroundService
     private readonly ILogger<UpdateChecker> _logger;
     private readonly AsyncLock _checking = new();
     private readonly Version _currentVersion;
+    private readonly AppDistributionKind _distributionKind;
 
     public event EventHandler? UpdateAvailable;
 
-    public AppDistributionKind DistributionKind { get; }
     public bool IsInstalled { get; }
-    public bool ShowUpdateControls => DistributionKind is not AppDistributionKind.Portable;
-    public bool CanOpenReleaseNotes => ShowUpdateControls;
+    public bool ShowUpdateControls => _distributionKind is not AppDistributionKind.Portable;
     public bool HasUpdate { get; private set; }
     public string? LatestVersion { get; private set; }
 
@@ -59,13 +56,13 @@ public class UpdateChecker : BackgroundService
 
         var assemblyName = Assembly.GetExecutingAssembly().GetName();
         _currentVersion = GetCurrentVersion(assemblyName);
-        DistributionKind = AppDistributionUtility.Detect();
-        IsInstalled = DistributionKind is not AppDistributionKind.Portable;
+        _distributionKind = AppDistributionUtility.Detect();
+        IsInstalled = _distributionKind is not AppDistributionKind.Portable;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        if (DistributionKind == AppDistributionKind.Portable)
+        if (_distributionKind == AppDistributionKind.Portable)
         {
             _logger.LogInformation("インストール済みアプリではないため更新チェックをスキップしました");
             return;
@@ -76,7 +73,7 @@ public class UpdateChecker : BackgroundService
         {
             try
             {
-                if (DistributionKind == AppDistributionKind.MicrosoftStoreMsix)
+                if (_distributionKind == AppDistributionKind.MicrosoftStoreMsix)
                     await CheckCoreStoreAsync(stoppingToken).ConfigureAwait(false);
                 else
                     await CheckCoreGitHubAsync(forceRefresh: false, stoppingToken).ConfigureAwait(false);
@@ -114,7 +111,7 @@ public class UpdateChecker : BackgroundService
             return Task.CompletedTask;
         }
 
-        if (DistributionKind == AppDistributionKind.MicrosoftStoreMsix)
+        if (_distributionKind == AppDistributionKind.MicrosoftStoreMsix)
             return CheckCoreStoreAsync(ct);
         else
             return CheckCoreGitHubAsync(forceRefresh: true, ct);
@@ -122,7 +119,7 @@ public class UpdateChecker : BackgroundService
 
     public async void InstallUpdate()
     {
-        if (DistributionKind == AppDistributionKind.MicrosoftStoreMsix)
+        if (_distributionKind == AppDistributionKind.MicrosoftStoreMsix)
         {
             var ownerWindow = System.Windows.Application.Current?.MainWindow;
             if (ownerWindow is null)
@@ -178,7 +175,7 @@ public class UpdateChecker : BackgroundService
 
     public void OpenReleaseNotes()
     {
-        var url = DistributionKind == AppDistributionKind.MsiInstalled
+        var url = _distributionKind == AppDistributionKind.MsiInstalled
             ? LoadUpdateInfo()?.Url
             : null;
 
@@ -317,11 +314,17 @@ public class UpdateChecker : BackgroundService
 
             if (updates.Count == 0)
             {
+                _logger.LogInformation("更新は見つかりませんでした");
                 SetUpdateState(null, hasUpdate: false);
                 return;
             }
 
-            var latestVersion = ToVersionString(updates[0].Package.Id.Version);
+            foreach (var update in updates)
+            {
+                _logger.LogInformation("更新が見つかりました: {PackageId} {Version}", update.Package.Id.Name, update.Package.Id.Version);
+            }
+
+            var latestVersion = ToVersionString(updates[^1].Package.Id.Version);
             SetUpdateState(latestVersion, hasUpdate: true);
         }
     }
