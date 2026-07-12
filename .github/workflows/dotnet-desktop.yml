@@ -82,7 +82,7 @@ jobs:
             throw "THIRD-PARTY-NOTICES.md is empty."
           }
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: licenses
           path: licenses\
@@ -135,7 +135,7 @@ jobs:
           if (!(Test-Path "publish\licenses\THIRD-PARTY-NOTICES.md")) {
             throw "THIRD-PARTY-NOTICES.md was not found in publish output."
           }
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: WondayWall${{ matrix.self && '-full' || '' }}-${{ steps.gitversion.outputs.fullSemVer }}
           path: publish\
@@ -222,12 +222,12 @@ jobs:
 
           Write-Host "MSIX generated: publish\WondayWall-$version.msix"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: WondayWall-${{ needs.build.outputs.version }}.msi
           path: publish\*.msi
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: WondayWall-${{ needs.build.outputs.version }}.msix
           path: publish\*.msix
