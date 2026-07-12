@@ -40,13 +40,13 @@ jobs:
       WIDGET_APP_IDENTIFIER: com.studiofreesia.wondaywall.preview.widget
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7.0.0
 
       - name: Show Xcode version
         run: xcodebuild -version
 
       - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
+        uses: ruby/setup-ruby@v1.310.0
         with:
           ruby-version: "3.3"
           bundler-cache: true
