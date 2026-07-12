@@ -321,11 +321,11 @@ public partial class MainWindowViewModel : ObservableObject
     }
 
     [RelayCommand(CanExecute = nameof(CanInstallUpdate))]
-    private async Task InstallUpdateAsync()
+    private void InstallUpdate()
     {
         try
         {
-            await _updateChecker.InstallUpdateAsync();
+            _updateChecker.InstallUpdate();
         }
         catch (Exception ex)
         {
