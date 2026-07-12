@@ -116,7 +116,7 @@ jobs:
           versionSpec: "6.x"
       - id: gitversion
         uses: gittools/actions/gitversion/execute@v4.5.0
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: licenses
           path: publish\licenses
@@ -162,7 +162,7 @@ jobs:
           dotnet-version: 10.0.x
 
       # WondayWall-full-* は SelfContained=true のビルド成果物
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts
           pattern: WondayWall-full-*
