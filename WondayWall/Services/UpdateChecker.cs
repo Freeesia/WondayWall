@@ -10,11 +10,13 @@ using Nito.AsyncEx;
 using Octokit;
 using Windows.Services.Store;
 using Windows.UI.Notifications;
+using Windows.Win32;
+using Windows.Win32.System.Recovery;
 using WinRT.Interop;
 using WondayWall.Models;
 using WondayWall.Utils;
-using AppResources = WondayWall.Properties.Resources;
 using AppPackageVersion = Windows.ApplicationModel.PackageVersion;
+using AppResources = WondayWall.Properties.Resources;
 
 namespace WondayWall.Services;
 
@@ -141,6 +143,10 @@ public class UpdateChecker : BackgroundService
                     return;
                 }
 
+                if (PInvoke.RegisterApplicationRestart(string.Empty, REGISTER_APPLICATION_RESTART_FLAGS.RESTART_NO_REBOOT) < 0)
+                {
+                    _logger.LogWarning("アプリケーションの再起動登録に失敗しました");
+                }
                 var result = await storeContext.RequestDownloadAndInstallStorePackageUpdatesAsync(updates);
                 if (result.OverallState == StorePackageUpdateState.Completed)
                 {
