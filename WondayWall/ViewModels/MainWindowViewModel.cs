@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
@@ -62,6 +63,9 @@ public partial class MainWindowViewModel : ObservableObject
     public partial bool IsCheckingUpdate { get; set; }
 
     [ObservableProperty]
+    public partial bool IsInstallingUpdate { get; set; }
+
+    [ObservableProperty]
     public partial bool ShowSetupWizard { get; set; }
 
     [ObservableProperty]
@@ -107,6 +111,19 @@ public partial class MainWindowViewModel : ObservableObject
     ];
     public string TaskSchedulerScheduleDescription => ScheduleHelper.FormatScheduleDescription(SelectedSchedule);
 
+    /// <summary>更新通知のツールチップ文言。Store 経由はバージョンが取得できないため、その場合は汎用文言にする</summary>
+    public string NewVersionAvailableText => LatestVersion is not null
+        ? AppResources.Format(AppResources.NewVersionAvailable, LatestVersion)
+        : AppResources.NewVersionAvailableUnknownVersion;
+
+    /// <summary>更新インストールメニューの文言。Store 経由はバージョンが取得できないため、その場合は汎用文言にする</summary>
+    public string InstallNewVersionText => LatestVersion is not null
+        ? AppResources.Format(AppResources.InstallNewVersion, LatestVersion)
+        : AppResources.InstallNewVersionUnknownVersion;
+
+    /// <summary>更新の確認・インストール処理中かどうか。メインウィンドウ前面の ProgressRing 表示に使用する</summary>
+    public bool IsUpdateProcessing => IsCheckingUpdate || IsInstallingUpdate;
+
     /// <summary>アセンブリのインフォメーションバージョン</summary>
     public string AppVersion { get; } =
         Assembly.GetExecutingAssembly()
@@ -133,8 +150,8 @@ public partial class MainWindowViewModel : ObservableObject
         _httpClientFactory = httpClientFactory;
         _logger = logger;
 
-        ShowUpdateControls = _updateChecker.IsInstalled;
-        _updateChecker.UpdateAvailable += UpdateChecker_UpdateAvailable;
+        ShowUpdateControls = _updateChecker.IsUpdatable;
+        _updateChecker.PropertyChanged += UpdateChecker_PropertyChanged;
         SyncUpdateInfo();
         AppConfig = configService.Load();
         ShowSetupWizard = !configService.HasSavedConfig;
@@ -151,20 +168,38 @@ public partial class MainWindowViewModel : ObservableObject
         _ = InitializeDataAsync();
     }
 
-    private void UpdateChecker_UpdateAvailable(object? sender, EventArgs e)
+    private void UpdateChecker_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        var dispatcher = Application.Current?.Dispatcher;
-        if (dispatcher is null || dispatcher.CheckAccess())
+        switch (e.PropertyName)
         {
-            SyncUpdateInfo();
+            case nameof(UpdateChecker.HasUpdate):
+                SyncUpdateInfo();
+                break;
+            case nameof(UpdateChecker.IsInstalling):
+                UpdateInstalling();
+                break;
+            default:
+                break;
+        }
+    }
+
+    private void UpdateInstalling()
+    {
+        if (Application.Current.Dispatcher is { } d && !d.CheckAccess())
+        {
+            d.Invoke(UpdateInstalling);
             return;
         }
-
-        dispatcher.Invoke(SyncUpdateInfo);
+        IsInstallingUpdate = _updateChecker.IsInstalling;
     }
 
     private void SyncUpdateInfo()
     {
+        if (Application.Current.Dispatcher is { } d && !d.CheckAccess())
+        {
+            d.Invoke(SyncUpdateInfo);
+            return;
+        }
         HasUpdate = _updateChecker.HasUpdate;
         LatestVersion = _updateChecker.LatestVersion;
     }
@@ -232,7 +267,9 @@ public partial class MainWindowViewModel : ObservableObject
 
     private bool CanGenerate() => !IsGenerating;
 
-    private bool CanCheckUpdate() => ShowUpdateControls && !IsCheckingUpdate;
+    private bool CanCheckUpdate() => ShowUpdateControls && !IsCheckingUpdate && !IsInstallingUpdate;
+
+    private bool CanInstallUpdate() => !IsInstallingUpdate;
 
     partial void OnIsGeneratingChanged(bool value)
     {
@@ -243,6 +280,20 @@ public partial class MainWindowViewModel : ObservableObject
     partial void OnIsCheckingUpdateChanged(bool value)
     {
         CheckUpdateCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(IsUpdateProcessing));
+    }
+
+    partial void OnIsInstallingUpdateChanged(bool value)
+    {
+        CheckUpdateCommand.NotifyCanExecuteChanged();
+        InstallUpdateCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(IsUpdateProcessing));
+    }
+
+    partial void OnLatestVersionChanged(string? value)
+    {
+        OnPropertyChanged(nameof(NewVersionAvailableText));
+        OnPropertyChanged(nameof(InstallNewVersionText));
     }
 
     [RelayCommand(CanExecute = nameof(CanCheckUpdate))]
@@ -254,7 +305,9 @@ public partial class MainWindowViewModel : ObservableObject
             await _updateChecker.CheckAsync(ct);
             SyncUpdateInfo();
             LastResultMessage = HasUpdate
-                ? AppResources.Format(AppResources.UpdateAvailableMessage, LatestVersion)
+                ? (LatestVersion is not null
+                    ? AppResources.Format(AppResources.UpdateAvailableMessage, LatestVersion)
+                    : AppResources.UpdateAvailableMessageUnknownVersion)
                 : AppResources.UpdateNotAvailable;
         }
         catch (Exception ex)
@@ -267,7 +320,7 @@ public partial class MainWindowViewModel : ObservableObject
         }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanInstallUpdate))]
     private void InstallUpdate()
     {
         try

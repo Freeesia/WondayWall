@@ -5,3 +5,5 @@ DesktopWallpaper
 AttachConsole
 AllocConsole
 ATTACH_PARENT_PROCESS
+GetCurrentPackageFullName
+RegisterApplicationRestart

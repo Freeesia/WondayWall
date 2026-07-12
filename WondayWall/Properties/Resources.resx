@@ -339,11 +339,20 @@
   <data name="InstallNewVersion" xml:space="preserve">
     <value>Install version {0}</value>
   </data>
+  <data name="InstallNewVersionUnknownVersion" xml:space="preserve">
+    <value>Install update</value>
+  </data>
   <data name="NewVersionAvailable" xml:space="preserve">
     <value>Version {0} is available</value>
   </data>
+  <data name="NewVersionAvailableUnknownVersion" xml:space="preserve">
+    <value>A new version is available</value>
+  </data>
   <data name="UpdateAvailableMessage" xml:space="preserve">
     <value>Version {0} is available.</value>
+  </data>
+  <data name="UpdateAvailableMessageUnknownVersion" xml:space="preserve">
+    <value>A new version is available.</value>
   </data>
   <data name="UpdateCheckFailed" xml:space="preserve">
     <value>Update check failed: {0}</value>
@@ -357,11 +366,17 @@
   <data name="UpdateNotAvailable" xml:space="preserve">
     <value>You are using the latest version.</value>
   </data>
+  <data name="UpdateProcessing" xml:space="preserve">
+    <value>Processing update...</value>
+  </data>
   <data name="UpdateNotificationMessage" xml:space="preserve">
     <value>Do you want to install the update?</value>
   </data>
   <data name="UpdateNotificationTitle" xml:space="preserve">
     <value>WondayWall {0} has been released</value>
+  </data>
+  <data name="UpdateNotificationTitleUnknownVersion" xml:space="preserve">
+    <value>A new version of WondayWall has been released</value>
   </data>
   <data name="UpdateReleaseNotesOpenFailed" xml:space="preserve">
     <value>Could not open release notes: {0}</value>
