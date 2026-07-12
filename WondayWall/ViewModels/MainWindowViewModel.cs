@@ -107,6 +107,16 @@ public partial class MainWindowViewModel : ObservableObject
     ];
     public string TaskSchedulerScheduleDescription => ScheduleHelper.FormatScheduleDescription(SelectedSchedule);
 
+    /// <summary>更新通知のツールチップ文言。Store 経由はバージョンが取得できないため、その場合は汎用文言にする</summary>
+    public string NewVersionAvailableText => LatestVersion is not null
+        ? AppResources.Format(AppResources.NewVersionAvailable, LatestVersion)
+        : AppResources.NewVersionAvailableUnknownVersion;
+
+    /// <summary>更新インストールメニューの文言。Store 経由はバージョンが取得できないため、その場合は汎用文言にする</summary>
+    public string InstallNewVersionText => LatestVersion is not null
+        ? AppResources.Format(AppResources.InstallNewVersion, LatestVersion)
+        : AppResources.InstallNewVersionUnknownVersion;
+
     /// <summary>アセンブリのインフォメーションバージョン</summary>
     public string AppVersion { get; } =
         Assembly.GetExecutingAssembly()
@@ -245,6 +255,12 @@ public partial class MainWindowViewModel : ObservableObject
         CheckUpdateCommand.NotifyCanExecuteChanged();
     }
 
+    partial void OnLatestVersionChanged(string? value)
+    {
+        OnPropertyChanged(nameof(NewVersionAvailableText));
+        OnPropertyChanged(nameof(InstallNewVersionText));
+    }
+
     [RelayCommand(CanExecute = nameof(CanCheckUpdate))]
     private async Task CheckUpdateAsync(CancellationToken ct = default)
     {
@@ -254,7 +270,9 @@ public partial class MainWindowViewModel : ObservableObject
             await _updateChecker.CheckAsync(ct);
             SyncUpdateInfo();
             LastResultMessage = HasUpdate
-                ? AppResources.Format(AppResources.UpdateAvailableMessage, LatestVersion)
+                ? (LatestVersion is not null
+                    ? AppResources.Format(AppResources.UpdateAvailableMessage, LatestVersion)
+                    : AppResources.UpdateAvailableMessageUnknownVersion)
                 : AppResources.UpdateNotAvailable;
         }
         catch (Exception ex)

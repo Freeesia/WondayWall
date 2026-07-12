@@ -206,13 +206,17 @@ public class UpdateChecker : BackgroundService
         return Task.CompletedTask;
     }
 
-    private void ShowUpdateNotification(string version, bool suppressPopup)
+    private void ShowUpdateNotification(string? version, bool suppressPopup)
     {
+        // Store 経由の更新はバージョンが取得できないため、その場合はバージョンなしの文言にする
+        var title = version is not null
+            ? AppResources.Format(AppResources.UpdateNotificationTitle, version)
+            : AppResources.UpdateNotificationTitleUnknownVersion;
+
         var builder = new ToastContentBuilder()
-            .AddText(AppResources.Format(AppResources.UpdateNotificationTitle, version), AdaptiveTextStyle.Title)
+            .AddText(title, AdaptiveTextStyle.Title)
             .AddText(AppResources.UpdateNotificationMessage)
             .AddArgument(SourceArgument)
-            .AddArgument("version", version)
             .AddButton(new ToastButton()
                 .SetContent(AppResources.UpdateInstallButton)
                 .AddArgument(ActionArgument, InstallAction))
@@ -220,6 +224,9 @@ public class UpdateChecker : BackgroundService
                 .SetContent(AppResources.CheckUpdateNotes)
                 .AddArgument(ActionArgument, OpenReleaseNotesAction)
                 .SetBackgroundActivation());
+
+        if (version is not null)
+            builder.AddArgument("version", version);
 
         var skipArguments = ToastArguments.Parse(builder.Content.Launch);
         skipArguments.Add(ActionArgument, SkipAction);
@@ -256,8 +263,9 @@ public class UpdateChecker : BackgroundService
                     break;
                 case OpenReleaseNotesAction:
                     OpenReleaseNotes();
-                    if (args.TryGetValue("version", out string? version) && version is not null)
-                        ShowUpdateNotification(version, suppressPopup: true);
+                    // Store 経由の更新通知には version 引数が付与されないため、その場合は null のままでよい
+                    args.TryGetValue("version", out string? version);
+                    ShowUpdateNotification(version, suppressPopup: true);
                     break;
                 case SkipAction:
                     await SkipVersionAsync().ConfigureAwait(false);
@@ -320,18 +328,15 @@ public class UpdateChecker : BackgroundService
 
             if (updates.Count == 0)
             {
-                _logger.LogInformation("更新は見つかりませんでした");
+                _logger.LogDebug("更新は見つかりませんでした");
                 SetUpdateState(null, hasUpdate: false);
-                return;
             }
-
-            foreach (var update in updates)
+            else
             {
-                _logger.LogInformation("更新が見つかりました: {PackageId} {Version}", update.Package.Id.Name, update.Package.Id.Version);
+                _logger.LogInformation("Microsoft Storeに更新がありました");
+                // ストア経由では最新バージョン番号を取得する手段がないため、バージョンを表示せずに更新ありとして扱う
+                SetUpdateState(null, hasUpdate: true);
             }
-
-            var latestVersion = ToVersionString(updates[^1].Package.Id.Version);
-            SetUpdateState(latestVersion, hasUpdate: true);
         }
     }
 
@@ -417,10 +422,11 @@ public class UpdateChecker : BackgroundService
         if (changed)
         {
             UpdateAvailable?.Invoke(this, EventArgs.Empty);
-            if (hasUpdate && latestVersion is not null)
+            if (hasUpdate)
             {
                 try
                 {
+                    // Store 経由の更新は latestVersion が null になり得るが、その場合もバージョンなしの通知を表示する
                     ShowUpdateNotification(latestVersion, suppressPopup: false);
                 }
                 catch (Exception ex)

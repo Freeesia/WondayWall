@@ -57,13 +57,13 @@
                         CornerRadius="0"
                         Icon="{ui:SymbolIcon MegaphoneLoud24}"
                         MouseOverBackground="Gold"
-                        ToolTip="{Binding LatestVersion, StringFormat={x:Static properties:Resources.NewVersionAvailable}}"
+                        ToolTip="{Binding NewVersionAvailableText}"
                         Visibility="{Binding HasUpdate, Converter={StaticResource BooleanToVisibilityConverter}}">
                         <ui:DropDownButton.Flyout>
                             <ContextMenu>
                                 <ui:MenuItem Command="{Binding InstallUpdateCommand}">
                                     <ui:MenuItem.Header>
-                                        <TextBlock Text="{Binding LatestVersion, StringFormat={x:Static properties:Resources.InstallNewVersion}}" />
+                                        <TextBlock Text="{Binding InstallNewVersionText}" />
                                     </ui:MenuItem.Header>
                                     <ui:MenuItem.Icon>
                                         <ui:SymbolIcon Symbol="PresenceAvailable24" />

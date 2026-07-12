@@ -339,11 +339,20 @@
   <data name="InstallNewVersion" xml:space="preserve">
     <value>バージョン {0} をインストール</value>
   </data>
+  <data name="InstallNewVersionUnknownVersion" xml:space="preserve">
+    <value>更新をインストール</value>
+  </data>
   <data name="NewVersionAvailable" xml:space="preserve">
     <value>バージョン {0} が利用可能です</value>
   </data>
+  <data name="NewVersionAvailableUnknownVersion" xml:space="preserve">
+    <value>新しいバージョンが利用可能です</value>
+  </data>
   <data name="UpdateAvailableMessage" xml:space="preserve">
     <value>バージョン {0} が利用可能です。</value>
+  </data>
+  <data name="UpdateAvailableMessageUnknownVersion" xml:space="preserve">
+    <value>新しいバージョンが利用可能です。</value>
   </data>
   <data name="UpdateCheckFailed" xml:space="preserve">
     <value>更新チェックに失敗しました: {0}</value>
@@ -362,6 +371,9 @@
   </data>
   <data name="UpdateNotificationTitle" xml:space="preserve">
     <value>WondayWall {0} がリリースされました</value>
+  </data>
+  <data name="UpdateNotificationTitleUnknownVersion" xml:space="preserve">
+    <value>WondayWall の新しいバージョンがリリースされました</value>
   </data>
   <data name="UpdateReleaseNotesOpenFailed" xml:space="preserve">
     <value>更新内容を開けませんでした: {0}</value>
