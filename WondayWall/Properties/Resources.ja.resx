@@ -366,6 +366,9 @@
   <data name="UpdateNotAvailable" xml:space="preserve">
     <value>最新バージョンを使用しています。</value>
   </data>
+  <data name="UpdateProcessing" xml:space="preserve">
+    <value>更新処理中です...</value>
+  </data>
   <data name="UpdateNotificationMessage" xml:space="preserve">
     <value>更新版をインストールしますか？</value>
   </data>

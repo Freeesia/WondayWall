@@ -3,6 +3,7 @@ using System.IO;
 using System.Net.Http;
 using System.Reflection;
 using System.Windows.Interop;
+using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Toolkit.Uwp.Notifications;
@@ -20,7 +21,8 @@ using AppResources = WondayWall.Properties.Resources;
 
 namespace WondayWall.Services;
 
-public class UpdateChecker : BackgroundService
+[INotifyPropertyChanged]
+public partial class UpdateChecker : BackgroundService
 {
     private const string Owner = "Freeesia";
     private const string Repository = "WondayWall";
@@ -40,11 +42,14 @@ public class UpdateChecker : BackgroundService
     private readonly Version _currentVersion;
     private readonly AppDistributionKind _distributionKind;
 
-    public event EventHandler? UpdateAvailable;
+    public bool IsUpdatable => _distributionKind is not AppDistributionKind.Portable;
 
-    public bool IsInstalled { get; }
-    public bool ShowUpdateControls => _distributionKind is not AppDistributionKind.Portable;
-    public bool HasUpdate { get; private set; }
+    [ObservableProperty]
+    public partial bool HasUpdate { get; private set; }
+
+    [ObservableProperty]
+    public partial bool IsInstalling { get; private set; }
+
     public string? LatestVersion { get; private set; }
 
     public UpdateChecker(
@@ -59,7 +64,6 @@ public class UpdateChecker : BackgroundService
         var assemblyName = Assembly.GetExecutingAssembly().GetName();
         _currentVersion = GetCurrentVersion(assemblyName);
         _distributionKind = AppDistributionUtility.Detect();
-        IsInstalled = _distributionKind is not AppDistributionKind.Portable;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -107,7 +111,7 @@ public class UpdateChecker : BackgroundService
 
     public Task CheckAsync(CancellationToken ct = default)
     {
-        if (!ShowUpdateControls)
+        if (!IsUpdatable)
         {
             _logger.LogInformation("インストール済みアプリではないため更新チェックをスキップしました");
             return Task.CompletedTask;
@@ -121,61 +125,69 @@ public class UpdateChecker : BackgroundService
 
     public async void InstallUpdate()
     {
-        if (_distributionKind == AppDistributionKind.MicrosoftStoreMsix)
+        this.IsInstalling = true;
+        try
         {
-            var ownerWindow = System.Windows.Application.Current?.MainWindow;
-            if (ownerWindow is null)
+            if (_distributionKind == AppDistributionKind.MicrosoftStoreMsix)
             {
-                _logger.LogWarning("メインウィンドウが見つからないため Store 更新をスキップしました");
-                return;
-            }
-
-            try
-            {
-                var storeContext = StoreContext.GetDefault();
-                var hwnd = new WindowInteropHelper(ownerWindow).Handle;
-                InitializeWithWindow.Initialize(storeContext, hwnd);
-
-                var updates = await storeContext.GetAppAndOptionalStorePackageUpdatesAsync();
-                if (updates.Count == 0)
+                var ownerWindow = System.Windows.Application.Current?.MainWindow;
+                if (ownerWindow is null)
                 {
-                    _logger.LogInformation("更新は見つかりませんでした");
+                    _logger.LogWarning("メインウィンドウが見つからないため Store 更新をスキップしました");
                     return;
                 }
 
-                if (PInvoke.RegisterApplicationRestart(string.Empty, REGISTER_APPLICATION_RESTART_FLAGS.RESTART_NO_REBOOT) < 0)
+                try
                 {
-                    _logger.LogWarning("アプリケーションの再起動登録に失敗しました");
+                    var storeContext = StoreContext.GetDefault();
+                    var hwnd = new WindowInteropHelper(ownerWindow).Handle;
+                    InitializeWithWindow.Initialize(storeContext, hwnd);
+
+                    var updates = await storeContext.GetAppAndOptionalStorePackageUpdatesAsync();
+                    if (updates.Count == 0)
+                    {
+                        _logger.LogInformation("更新は見つかりませんでした");
+                        return;
+                    }
+
+                    if (PInvoke.RegisterApplicationRestart(string.Empty, REGISTER_APPLICATION_RESTART_FLAGS.RESTART_NO_REBOOT) < 0)
+                    {
+                        _logger.LogWarning("アプリケーションの再起動登録に失敗しました");
+                    }
+                    var result = await storeContext.RequestDownloadAndInstallStorePackageUpdatesAsync(updates);
+                    if (result.OverallState == StorePackageUpdateState.Completed)
+                    {
+                        _logger.LogInformation("更新が完了しました");
+                        return;
+                    }
+                    _logger.LogWarning("Store 更新の結果: {Result}", result.OverallState);
                 }
-                var result = await storeContext.RequestDownloadAndInstallStorePackageUpdatesAsync(updates);
-                if (result.OverallState == StorePackageUpdateState.Completed)
+                catch (Exception ex)
                 {
-                    _logger.LogInformation("更新が完了しました");
+                    _logger.LogWarning(ex, "Store 更新処理に失敗しました");
+                }
+            }
+            else
+            {
+                var updateInfo = LoadUpdateInfo();
+                if (updateInfo?.Path is not { Length: > 0 } installerPath || !File.Exists(installerPath))
+                {
+                    _logger.LogWarning("インストーラーが見つからないため更新を開始できませんでした");
                     return;
                 }
-                _logger.LogWarning("Store 更新の結果: {Result}", result.OverallState);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Store 更新処理に失敗しました");
+
+                var startInfo = new ProcessStartInfo("msiexec")
+                {
+                    UseShellExecute = false,
+                };
+                startInfo.ArgumentList.Add("/i");
+                startInfo.ArgumentList.Add(installerPath);
+                Process.Start(startInfo);
             }
         }
-        else
+        finally
         {
-            var updateInfo = LoadUpdateInfo();
-            if (updateInfo?.Path is not { Length: > 0 } installerPath || !File.Exists(installerPath))
-            {
-                _logger.LogWarning("インストーラーが見つからないため更新を開始できませんでした");
-                return;
-            }
-
-            var startInfo = new ProcessStartInfo("msiexec")
-            {
-                UseShellExecute = false,
-            };
-            startInfo.ArgumentList.Add("/i");
-            startInfo.ArgumentList.Add(installerPath);
-            Process.Start(startInfo);
+            this.IsInstalling = false;
         }
     }
 
@@ -419,20 +431,16 @@ public class UpdateChecker : BackgroundService
         HasUpdate = hasUpdate;
         LatestVersion = latestVersion;
 
-        if (changed)
+        if (changed && hasUpdate)
         {
-            UpdateAvailable?.Invoke(this, EventArgs.Empty);
-            if (hasUpdate)
+            try
             {
-                try
-                {
-                    // Store 経由の更新は latestVersion が null になり得るが、その場合もバージョンなしの通知を表示する
-                    ShowUpdateNotification(latestVersion, suppressPopup: false);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "更新通知の表示に失敗しました");
-                }
+                // Store 経由の更新は latestVersion が null になり得るが、その場合もバージョンなしの通知を表示する
+                ShowUpdateNotification(latestVersion, suppressPopup: false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "更新通知の表示に失敗しました");
             }
         }
     }

@@ -154,6 +154,7 @@ public static class Resources
     public static string UpdateInstallButton => GetString(nameof(UpdateInstallButton));
     public static string UpdateInstallStartFailed => GetString(nameof(UpdateInstallStartFailed));
     public static string UpdateNotAvailable => GetString(nameof(UpdateNotAvailable));
+    public static string UpdateProcessing => GetString(nameof(UpdateProcessing));
     public static string UpdateNotificationMessage => GetString(nameof(UpdateNotificationMessage));
     public static string UpdateNotificationTitle => GetString(nameof(UpdateNotificationTitle));
     public static string UpdateNotificationTitleUnknownVersion => GetString(nameof(UpdateNotificationTitleUnknownVersion));

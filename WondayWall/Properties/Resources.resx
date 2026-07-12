@@ -366,6 +366,9 @@
   <data name="UpdateNotAvailable" xml:space="preserve">
     <value>You are using the latest version.</value>
   </data>
+  <data name="UpdateProcessing" xml:space="preserve">
+    <value>Processing update...</value>
+  </data>
   <data name="UpdateNotificationMessage" xml:space="preserve">
     <value>Do you want to install the update?</value>
   </data>

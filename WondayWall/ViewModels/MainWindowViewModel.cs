@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
@@ -62,6 +63,9 @@ public partial class MainWindowViewModel : ObservableObject
     public partial bool IsCheckingUpdate { get; set; }
 
     [ObservableProperty]
+    public partial bool IsInstallingUpdate { get; set; }
+
+    [ObservableProperty]
     public partial bool ShowSetupWizard { get; set; }
 
     [ObservableProperty]
@@ -117,6 +121,9 @@ public partial class MainWindowViewModel : ObservableObject
         ? AppResources.Format(AppResources.InstallNewVersion, LatestVersion)
         : AppResources.InstallNewVersionUnknownVersion;
 
+    /// <summary>更新の確認・インストール処理中かどうか。メインウィンドウ前面の ProgressRing 表示に使用する</summary>
+    public bool IsUpdateProcessing => IsCheckingUpdate || IsInstallingUpdate;
+
     /// <summary>アセンブリのインフォメーションバージョン</summary>
     public string AppVersion { get; } =
         Assembly.GetExecutingAssembly()
@@ -143,8 +150,8 @@ public partial class MainWindowViewModel : ObservableObject
         _httpClientFactory = httpClientFactory;
         _logger = logger;
 
-        ShowUpdateControls = _updateChecker.IsInstalled;
-        _updateChecker.UpdateAvailable += UpdateChecker_UpdateAvailable;
+        ShowUpdateControls = _updateChecker.IsUpdatable;
+        _updateChecker.PropertyChanged += UpdateChecker_PropertyChanged;
         SyncUpdateInfo();
         AppConfig = configService.Load();
         ShowSetupWizard = !configService.HasSavedConfig;
@@ -161,20 +168,38 @@ public partial class MainWindowViewModel : ObservableObject
         _ = InitializeDataAsync();
     }
 
-    private void UpdateChecker_UpdateAvailable(object? sender, EventArgs e)
+    private void UpdateChecker_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        var dispatcher = Application.Current?.Dispatcher;
-        if (dispatcher is null || dispatcher.CheckAccess())
+        switch (e.PropertyName)
         {
-            SyncUpdateInfo();
+            case nameof(UpdateChecker.HasUpdate):
+                SyncUpdateInfo();
+                break;
+            case nameof(UpdateChecker.IsInstalling):
+                UpdateInstalling();
+                break;
+            default:
+                break;
+        }
+    }
+
+    private void UpdateInstalling()
+    {
+        if (Application.Current.Dispatcher is { } d && !d.CheckAccess())
+        {
+            d.Invoke(UpdateInstalling);
             return;
         }
-
-        dispatcher.Invoke(SyncUpdateInfo);
+        IsInstallingUpdate = _updateChecker.IsInstalling;
     }
 
     private void SyncUpdateInfo()
     {
+        if (Application.Current.Dispatcher is { } d && !d.CheckAccess())
+        {
+            d.Invoke(SyncUpdateInfo);
+            return;
+        }
         HasUpdate = _updateChecker.HasUpdate;
         LatestVersion = _updateChecker.LatestVersion;
     }
@@ -242,7 +267,9 @@ public partial class MainWindowViewModel : ObservableObject
 
     private bool CanGenerate() => !IsGenerating;
 
-    private bool CanCheckUpdate() => ShowUpdateControls && !IsCheckingUpdate;
+    private bool CanCheckUpdate() => ShowUpdateControls && !IsCheckingUpdate && !IsInstallingUpdate;
+
+    private bool CanInstallUpdate() => !IsInstallingUpdate;
 
     partial void OnIsGeneratingChanged(bool value)
     {
@@ -253,6 +280,14 @@ public partial class MainWindowViewModel : ObservableObject
     partial void OnIsCheckingUpdateChanged(bool value)
     {
         CheckUpdateCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(IsUpdateProcessing));
+    }
+
+    partial void OnIsInstallingUpdateChanged(bool value)
+    {
+        CheckUpdateCommand.NotifyCanExecuteChanged();
+        InstallUpdateCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(IsUpdateProcessing));
     }
 
     partial void OnLatestVersionChanged(string? value)
@@ -285,12 +320,12 @@ public partial class MainWindowViewModel : ObservableObject
         }
     }
 
-    [RelayCommand]
-    private void InstallUpdate()
+    [RelayCommand(CanExecute = nameof(CanInstallUpdate))]
+    private async Task InstallUpdateAsync()
     {
         try
         {
-            _updateChecker.InstallUpdate();
+            await _updateChecker.InstallUpdateAsync();
         }
         catch (Exception ex)
         {
