@@ -10,15 +10,6 @@ on:
         default: false
   push:
     branches: [main]
-    paths:
-      - "WondayWall/**"
-      - "WondayWall.Package/**"
-      - "WondayWall.Wix/**"
-      - "WondayWall.sln"
-      - "GitVersion.yml"
-      - ".config/**"
-      - "eng/**"
-      - ".github/workflows/dotnet-desktop.yml"
   pull_request:
     branches: [main]
     paths:
@@ -33,6 +24,8 @@ on:
 
 env:
   NUGET_PACKAGES: ${{ github.workspace }}\.nuget\packages
+  # Partner Center の main-build パッケージフライト
+  MSSTORE_FLIGHT_ID: "1152921505701405006"
 
 jobs:
   license:
@@ -141,7 +134,7 @@ jobs:
           path: publish\
 
   installer:
-    if: ${{ inputs.include-installers == true }}
+    if: ${{ inputs.include-installers == true || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
     needs:
       - build
     runs-on: windows-latest
@@ -231,3 +224,49 @@ jobs:
         with:
           name: WondayWall-${{ needs.build.outputs.version }}.msix
           path: publish\*.msix
+
+  store-upload:
+    name: Upload MSIX to main-build package flight
+    if: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')) }}
+    needs:
+      - installer
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: WondayWall-*.msix
+          path: msix-artifacts
+          merge-multiple: true
+
+      - uses: microsoft/microsoft-store-apppublisher@v1
+
+      - name: Configure Partner Center authentication
+        run: |
+          msstore reconfigure `
+            --tenantId "${{ secrets.AZURE_AD_TENANT_ID }}" `
+            --clientId "${{ secrets.AZURE_AD_APPLICATION_CLIENT_ID }}" `
+            --clientSecret "${{ secrets.AZURE_AD_APPLICATION_SECRET }}" `
+            --sellerId "${{ secrets.SELLER_ID }}"
+
+      - name: Upload MSIX to main-build package flight
+        run: |
+          $msixPath = Get-ChildItem -Path msix-artifacts -Filter "*.msix" |
+            Select-Object -First 1 -ExpandProperty FullName
+          if (-not $msixPath) {
+            throw "No MSIX file found in msix-artifacts. Ensure the installer job produced a WondayWall-*.msix artifact."
+          }
+
+          msstore publish `
+            -i "$msixPath" `
+            -id "${{ vars.MSSTORE_PRODUCT_ID }}" `
+            -f "${{ env.MSSTORE_FLIGHT_ID }}" `
+            --noCommit
+
+      - name: Publish main-build package flight submission
+        if: startsWith(github.ref, 'refs/tags/') && vars.MSSTORE_SUBMIT_ON_TAG == 'true'
+        run: |
+          msstore flights submission publish `
+            "${{ vars.MSSTORE_PRODUCT_ID }}" `
+            "${{ env.MSSTORE_FLIGHT_ID }}"
