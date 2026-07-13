@@ -2,14 +2,17 @@ name: .NET Desktop
 
 on:
   workflow_call:
-    inputs:
-      include-installers:
-        description: "Release 用のインストーラー成果物も作成する"
-        required: false
-        type: boolean
-        default: false
   push:
     branches: [main]
+    paths:
+      - "WondayWall/**"
+      - "WondayWall.Package/**"
+      - "WondayWall.Wix/**"
+      - "WondayWall.sln"
+      - "GitVersion.yml"
+      - ".config/**"
+      - "eng/**"
+      - ".github/workflows/dotnet-desktop.yml"
   pull_request:
     branches: [main]
     paths:
@@ -24,8 +27,6 @@ on:
 
 env:
   NUGET_PACKAGES: ${{ github.workspace }}\.nuget\packages
-  # Partner Center の main-build パッケージフライト
-  MSSTORE_FLIGHT_ID: "1152921505701405006"
 
 jobs:
   license:
@@ -134,7 +135,6 @@ jobs:
           path: publish\
 
   installer:
-    if: ${{ inputs.include-installers == true || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
     needs:
       - build
     runs-on: windows-latest
@@ -261,7 +261,7 @@ jobs:
           msstore publish `
             -i "$msixPath" `
             -id "${{ vars.MSSTORE_PRODUCT_ID }}" `
-            -f "${{ env.MSSTORE_FLIGHT_ID }}" `
+            -f "${{ vars.MSSTORE_FLIGHT_ID }}" `
             --noCommit
 
       - name: Publish main-build package flight submission
@@ -269,4 +269,4 @@ jobs:
         run: |
           msstore flights submission publish `
             "${{ vars.MSSTORE_PRODUCT_ID }}" `
-            "${{ env.MSSTORE_FLIGHT_ID }}"
+            "${{ vars.MSSTORE_FLIGHT_ID }}"

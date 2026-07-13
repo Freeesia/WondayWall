@@ -11,8 +11,6 @@ jobs:
   desktop:
     name: Build desktop release assets
     uses: ./.github/workflows/dotnet-desktop.yml
-    with:
-      include-installers: true
     secrets: inherit
 
   android:
