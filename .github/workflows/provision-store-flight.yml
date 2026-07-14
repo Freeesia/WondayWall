@@ -1,0 +1,57 @@
+name: Provision Microsoft Store package flight
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  provision:
+    name: Create main-build package flight
+    runs-on: windows-latest
+    steps:
+      - uses: microsoft/microsoft-store-apppublisher@v1
+
+      - name: Configure Partner Center authentication
+        run: |
+          msstore reconfigure `
+            --tenantId "${{ secrets.AZURE_AD_TENANT_ID }}" `
+            --clientId "${{ secrets.AZURE_AD_APPLICATION_CLIENT_ID }}" `
+            --clientSecret "${{ secrets.AZURE_AD_APPLICATION_SECRET }}" `
+            --sellerId "${{ secrets.SELLER_ID }}"
+
+      - name: Create main-build package flight
+        run: |
+          $productId = "${{ vars.MSSTORE_PRODUCT_ID }}"
+          $customerGroupId = "${{ vars.MSSTORE_CUSTOMER_GROUP_ID }}"
+          if (-not $productId) {
+            throw "MSSTORE_PRODUCT_ID is not configured."
+          }
+          if (-not $customerGroupId) {
+            throw "MSSTORE_CUSTOMER_GROUP_ID is not configured."
+          }
+
+          $createOutput = msstore flights create `
+            "$productId" `
+            "main-build" `
+            --group-ids "$customerGroupId" | Out-String
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to create the main-build package flight."
+          }
+
+          $flightId = [regex]::Match(
+            $createOutput,
+            '(?i)[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}'
+          ).Value
+          if (-not $flightId) {
+            throw "Could not read the new FlightId from Store CLI output."
+          }
+
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value @"
+          ## main-build package flight created
+
+          Set the repository variable ``MSSTORE_FLIGHT_ID`` to:
+
+          ``$flightId``
+          "@
