@@ -257,10 +257,8 @@ jobs:
           if (-not $msixPath) {
             throw "No MSIX file found in msix-artifacts. Ensure the installer job produced a WondayWall-*.msix artifact."
           }
-          $msixDirectory = Split-Path -Parent $msixPath
-
           msstore publish `
-            -i "$msixDirectory" `
+            "$msixPath" `
             -id "${{ vars.MSSTORE_PRODUCT_ID }}" `
             -f "${{ vars.MSSTORE_FLIGHT_ID }}" `
             --noCommit
