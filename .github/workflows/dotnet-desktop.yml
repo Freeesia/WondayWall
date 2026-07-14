@@ -233,6 +233,8 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: read
+    env:
+      MSSTORE_CUSTOMER_GROUP_ID: "1152921504607280733"
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -250,6 +252,64 @@ jobs:
             --clientSecret "${{ secrets.AZURE_AD_APPLICATION_SECRET }}" `
             --sellerId "${{ secrets.SELLER_ID }}"
 
+      - name: Resolve or create main-build package flight
+        id: resolve-flight
+        run: |
+          $productId = "${{ vars.MSSTORE_PRODUCT_ID }}"
+          $configuredFlightId = "${{ vars.MSSTORE_FLIGHT_ID }}"
+          $customerGroupId = $env:MSSTORE_CUSTOMER_GROUP_ID
+
+          $flightId = $null
+          if ($configuredFlightId) {
+            msstore flights get "$productId" "$configuredFlightId" *> $null
+            if ($LASTEXITCODE -eq 0) {
+              $flightId = $configuredFlightId
+            }
+          }
+
+          if (-not $flightId) {
+            $flightList = msstore flights list "$productId" | Out-String
+            if ($LASTEXITCODE -eq 0) {
+              Write-Host $flightList
+              $plainFlightList = $flightList -replace '\x1B\[[0-?]*[ -/]*[@-~]', ''
+              $plainFlightList = $plainFlightList -replace '([0-9a-f])\s+([0-9a-f])', '$1$2'
+              $flightMatch = [regex]::Match(
+                $plainFlightList,
+                '(?is)([0-9a-f]{8})-\s*([0-9a-f]{4})-\s*([0-9a-f]{4})-\s*([0-9a-f]{4})-\s*([0-9a-f]{12})\s+main-build\b'
+              )
+              if ($flightMatch.Success) {
+                $flightId = @(
+                  $flightMatch.Groups[1].Value,
+                  $flightMatch.Groups[2].Value,
+                  $flightMatch.Groups[3].Value,
+                  $flightMatch.Groups[4].Value,
+                  $flightMatch.Groups[5].Value
+                ) -join '-'
+              }
+            }
+          }
+
+          if (-not $flightId) {
+            $createOutput = msstore flights create `
+              "$productId" `
+              "main-build" `
+              --group-ids "$customerGroupId" | Out-String
+            if ($LASTEXITCODE -ne 0) {
+              throw "Failed to create the main-build package flight."
+            }
+
+            $flightId = [regex]::Match(
+              $createOutput,
+              '(?i)[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}'
+            ).Value
+          }
+
+          if (-not $flightId) {
+            throw "Could not resolve the FlightId for the main-build package flight."
+          }
+          Write-Host "Using main-build FlightId: $flightId"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "flight_id=$flightId"
+
       - name: Upload MSIX to main-build package flight
         run: |
           $msixPath = Get-ChildItem -Path msix-artifacts -Filter "*.msix" |
@@ -260,7 +320,7 @@ jobs:
           msstore publish `
             "$msixPath" `
             -id "${{ vars.MSSTORE_PRODUCT_ID }}" `
-            -f "${{ vars.MSSTORE_FLIGHT_ID }}" `
+            -f "${{ steps.resolve-flight.outputs.flight_id }}" `
             --noCommit
 
       - name: Publish main-build package flight submission
@@ -268,4 +328,4 @@ jobs:
         run: |
           msstore flights submission publish `
             "${{ vars.MSSTORE_PRODUCT_ID }}" `
-            "${{ vars.MSSTORE_FLIGHT_ID }}"
+            "${{ steps.resolve-flight.outputs.flight_id }}"
