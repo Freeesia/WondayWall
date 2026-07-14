@@ -68,17 +68,24 @@ iOSでは通常のApp Storeアプリからホーム画面・ロック画面の�
 ```text
 1. UpdateSchedule から当日（週次の場合は当週）のスケジュールスロット一覧を作る
 2. 現在時刻以前の最新スロットを取得する
-3. そのスロット以降に成功履歴があれば生成しない
-4. そのスロット以降に成功履歴がなければ生成を試みる
+3. そのスロット以降に完了履歴があれば生成しない
+4. 未処理スロットでも、直前の成功した画像生成から6時間未満なら生成をスキップし、そのスロットを消費済みとして履歴へ保存する
+5. それ以外は生成を試みる
+
+手動生成は6時間制限の対象外だが、成功した手動生成も定期生成の6時間判定とスロット消費に影響する。中断処理の再開は同じ生成の続きとして6時間制限の対象外とする。
 ```
 
 擬似コード:
 
 ```text
 latestSlot = GetLatestScheduledSlotAtOrBefore(now, schedule)
-lastSuccessfulGeneratedAt = 最後に成功した生成時刻
+lastCompletedRunAt = 最後に完了した生成試行の時刻
+lastSuccessfulGeneratedAt = 最後に成功した非スキップ生成の時刻
 
-if lastSuccessfulGeneratedAt >= latestSlot:
+if lastCompletedRunAt >= latestSlot:
+    skip
+else if now - lastSuccessfulGeneratedAt < 6 hours:
+    save skipped history
     skip
 else:
     generate

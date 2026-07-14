@@ -5,6 +5,7 @@ import OSLog
 // actor によって多重実行を防止する
 actor GenerationCoordinator {
     private let logger = Logger(subsystem: "com.studiofreesia.wondaywall", category: "GenerationCoordinator")
+    private static let minimumScheduledGenerationInterval: TimeInterval = 6 * 60 * 60
     private let configService: AppConfigService
     private let contextService: ContextService
     private let aiService: any AiService
@@ -122,14 +123,36 @@ actor GenerationCoordinator {
     }
 
     // 定期生成が必要か判定し、必要なら1回だけ生成する
-    // スキップの場合は nil を返す
+    // 未処理スロットがない場合は nil を返す
     func runScheduledIfNeeded(now: Date = Date()) async throws -> HistoryItem? {
         guard isScheduledGenerationNeeded(now: now) else { return nil }
 
         let config = configService.config
+        let isInterruptedRetry = historyService.getPendingGeneratingItem() != nil
+            || historyService.getGeneratingWithPrompt() != nil
 
         await setIsGenerating(true)
         defer { Task { await self.setIsGenerating(false) } }
+
+        // 中断処理の再開は同じ生成の続きなので、6時間制限の対象外とする
+        if !isInterruptedRetry,
+           let lastGeneratedAt = historyService.getLastSuccessfulGenerated()?.executedAt,
+           now.timeIntervalSince(lastGeneratedAt) < Self.minimumScheduledGenerationInterval
+        {
+            logger.notice(
+                "直前の生成 \(lastGeneratedAt.formatted(.iso8601), privacy: .public) から6時間経過していないため定期生成をスキップします。"
+            )
+            let skipped = HistoryItem(executedAt: now, status: .skipped)
+            historyService.append(skipped)
+            await MainActor.run {
+                NotificationCenter.default.post(
+                    name: .generationTaskCompleted,
+                    object: nil,
+                    userInfo: ["success": true]
+                )
+            }
+            return skipped
+        }
 
         // バックグラウンド定期生成は Flex モードで実行（50% コスト削減，失敗時は Standard にフォールバック）
         return await runCore(skipIfNoChanges: config.skipIfNoChanges, serviceTier: .flex)
