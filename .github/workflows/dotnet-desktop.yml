@@ -280,12 +280,4 @@ jobs:
           msstore publish `
             "$msixPath" `
             -id "${{ vars.MSSTORE_PRODUCT_ID }}" `
-            -f "${{ vars.MSSTORE_FLIGHT_ID }}" `
-            --noCommit
-
-      - name: Publish main-build package flight submission
-        if: startsWith(github.ref, 'refs/tags/') && vars.MSSTORE_SUBMIT_ON_TAG == 'true'
-        run: |
-          msstore flights submission publish `
-            "${{ vars.MSSTORE_PRODUCT_ID }}" `
-            "${{ vars.MSSTORE_FLIGHT_ID }}"
+            -f "${{ vars.MSSTORE_FLIGHT_ID }}"
