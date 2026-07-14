@@ -250,6 +250,31 @@ jobs:
             --clientSecret "${{ secrets.AZURE_AD_APPLICATION_SECRET }}" `
             --sellerId "${{ secrets.SELLER_ID }}"
 
+      - name: Resolve main-build package flight ID
+        id: resolve-flight
+        run: |
+          $flightList = msstore flights list "${{ vars.MSSTORE_PRODUCT_ID }}" | Out-String
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to retrieve package flights."
+          }
+          Write-Host $flightList
+
+          $flightLine = $flightList -split "`r?`n" |
+            Where-Object { $_ -match '\bmain-build\b' } |
+            Select-Object -First 1
+          if (-not $flightLine) {
+            throw "Could not find the main-build package flight."
+          }
+          $flightId = [regex]::Match(
+            $flightLine,
+            '(?i)[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}'
+          ).Value
+          if (-not $flightId) {
+            throw "Could not resolve the FlightId for the main-build package flight."
+          }
+
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "flight_id=$flightId"
+
       - name: Upload MSIX to main-build package flight
         run: |
           $msixPath = Get-ChildItem -Path msix-artifacts -Filter "*.msix" |
@@ -260,7 +285,7 @@ jobs:
           msstore publish `
             "$msixPath" `
             -id "${{ vars.MSSTORE_PRODUCT_ID }}" `
-            -f "${{ vars.MSSTORE_FLIGHT_ID }}" `
+            -f "${{ steps.resolve-flight.outputs.flight_id }}" `
             --noCommit
 
       - name: Publish main-build package flight submission
@@ -268,4 +293,4 @@ jobs:
         run: |
           msstore flights submission publish `
             "${{ vars.MSSTORE_PRODUCT_ID }}" `
-            "${{ vars.MSSTORE_FLIGHT_ID }}"
+            "${{ steps.resolve-flight.outputs.flight_id }}"
