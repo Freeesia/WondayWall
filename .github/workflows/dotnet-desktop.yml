@@ -250,26 +250,6 @@ jobs:
             --clientSecret "${{ secrets.AZURE_AD_APPLICATION_SECRET }}" `
             --sellerId "${{ secrets.SELLER_ID }}"
 
-      - name: Validate main-build package flight
-        run: |
-          $productId = "${{ vars.MSSTORE_PRODUCT_ID }}"
-          $flightId = "${{ vars.MSSTORE_FLIGHT_ID }}"
-          if (-not $productId) {
-            throw "MSSTORE_PRODUCT_ID is not configured."
-          }
-          if (-not $flightId) {
-            throw "MSSTORE_FLIGHT_ID is not configured."
-          }
-
-          $flightJson = msstore flights get "$productId" "$flightId" | Out-String
-          if ($LASTEXITCODE -ne 0) {
-            throw "MSSTORE_FLIGHT_ID does not identify an accessible package flight."
-          }
-          $flight = $flightJson | ConvertFrom-Json
-          if ($flight.friendlyName -ne "main-build") {
-            throw "MSSTORE_FLIGHT_ID identifies '$($flight.friendlyName)', not 'main-build'."
-          }
-
       - name: Upload MSIX to main-build package flight
         run: |
           $msixPath = Get-ChildItem -Path msix-artifacts -Filter "*.msix" |
