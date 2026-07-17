@@ -116,18 +116,13 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $versionComponents = '${{ steps.gitversion.outputs.assemblySemFileVer }}'.Split('.')
-          if ($versionComponents.Count -ne 4) {
-            throw "GitVersion did not produce a four-part file version."
-          }
-
+          $version = [Version]'${{ steps.gitversion.outputs.assemblySemFileVer }}'
           $buildNumber = [int](git rev-list --count HEAD)
-          if ($buildNumber -gt 65535) {
+          if ($buildNumber -gt [uint16]::MaxValue) {
             throw "The MSIX build number $buildNumber exceeds the maximum value 65535."
           }
 
-          $versionComponents[3] = $buildNumber.ToString()
-          $msixVersion = $versionComponents -join '.'
+          $msixVersion = [Version]::new($version.Major, $version.Minor, $version.Build, $buildNumber)
           "version=$msixVersion" >> $env:GITHUB_OUTPUT
           Write-Host "MSIX version: $msixVersion"
       - uses: actions/download-artifact@v8
@@ -270,83 +265,14 @@ jobs:
             --clientSecret "${{ secrets.AZURE_AD_APPLICATION_SECRET }}" `
             --sellerId "${{ secrets.SELLER_ID }}"
 
-      - name: Replace pending submission and upload MSIX to main-build package flight
-        shell: pwsh
+      - name: Upload MSIX to main-build package flight
         run: |
-          $ErrorActionPreference = 'Stop'
-          $productId = "${{ vars.MSSTORE_PRODUCT_ID }}"
-          $flightId = "${{ vars.MSSTORE_FLIGHT_ID }}"
-
-          function Get-PackageFlight {
-            $output = & msstore flights get $productId $flightId | Out-String
-            if ($LASTEXITCODE -ne 0) {
-              throw "Could not retrieve package flight '$flightId'."
-            }
-
-            try {
-              return $output | ConvertFrom-Json
-            }
-            catch {
-              throw "Could not parse package flight '$flightId'."
-            }
-          }
-
           $msixPath = Get-ChildItem -Path msix-artifacts -Filter "*.msix" |
             Select-Object -First 1 -ExpandProperty FullName
           if (-not $msixPath) {
             throw "No MSIX file found in msix-artifacts. Ensure the installer job produced a WondayWall-*.msix artifact."
           }
-
-          $flight = Get-PackageFlight
-          if ($null -ne $flight.pendingFlightSubmission) {
-            if ($null -eq $flight.lastPublishedFlightSubmission) {
-              throw "The first submission is still pending. Publish it once before enabling automatic replacement."
-            }
-
-            Write-Host "Canceling pending submission '$($flight.pendingFlightSubmission.id)'..."
-            & msstore flights submission delete $productId $flightId --no-confirm
-            if ($LASTEXITCODE -ne 0) {
-              Write-Warning "The pending submission could not be canceled. Waiting for it to finish instead."
-              & msstore flights submission poll $productId $flightId
-              if ($LASTEXITCODE -ne 0) {
-                throw "The pending submission could not be canceled or completed successfully."
-              }
-            }
-
-            for ($attempt = 1; $attempt -le 12; $attempt++) {
-              $flight = Get-PackageFlight
-              if ($null -eq $flight.pendingFlightSubmission) {
-                break
-              }
-              if ($attempt -eq 12) {
-                throw "Pending submission was not removed within 120 seconds."
-              }
-              Write-Host "Waiting for pending submission removal ($attempt/12)..."
-              Start-Sleep -Seconds 10
-            }
-          }
-
-          for ($attempt = 1; $attempt -le 5; $attempt++) {
-            & msstore publish `
-              "$msixPath" `
-              -id $productId `
-              -f $flightId
-            $publishExitCode = $LASTEXITCODE
-
-            if ($publishExitCode -eq 0) {
-              break
-            }
-
-            if ($attempt -eq 5) {
-              throw "Publishing the package flight submission failed after 5 attempts."
-            }
-
-            $flight = Get-PackageFlight
-            if ($null -ne $flight.pendingFlightSubmission) {
-              throw "Publishing failed after creating pending submission '$($flight.pendingFlightSubmission.id)'. It was preserved for the next run."
-            }
-
-            $retryDelay = 15 * $attempt
-            Write-Warning "Submission creation failed. Retrying in $retryDelay seconds ($attempt/5)..."
-            Start-Sleep -Seconds $retryDelay
-          }
+          msstore publish `
+            "$msixPath" `
+            -id "${{ vars.MSSTORE_PRODUCT_ID }}" `
+            -f "${{ vars.MSSTORE_FLIGHT_ID }}"
