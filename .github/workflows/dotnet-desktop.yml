@@ -276,3 +276,23 @@ jobs:
             "$msixPath" `
             -id "${{ vars.MSSTORE_PRODUCT_ID }}" `
             -f "${{ vars.MSSTORE_FLIGHT_ID }}"
+
+  flight-lookup:
+    name: Resolve main-build package flight
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: microsoft/microsoft-store-apppublisher@v1
+
+      - name: Configure Partner Center authentication
+        run: |
+          msstore reconfigure `
+            --tenantId "${{ secrets.AZURE_AD_TENANT_ID }}" `
+            --clientId "${{ secrets.AZURE_AD_APPLICATION_CLIENT_ID }}" `
+            --clientSecret "${{ secrets.AZURE_AD_APPLICATION_SECRET }}" `
+            --sellerId "${{ secrets.SELLER_ID }}"
+
+      - name: List package flights
+        run: msstore flights list "${{ vars.MSSTORE_PRODUCT_ID }}"
