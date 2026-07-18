@@ -92,6 +92,7 @@ jobs:
       contents: read
     outputs:
       version: ${{ steps.gitversion.outputs.assemblySemFileVer }}
+      msix_version: ${{ steps.build_number.outputs.version }}
     steps:
       - uses: actions/checkout@v7.0.0
         with:
@@ -110,6 +111,20 @@ jobs:
           versionSpec: "6.x"
       - id: gitversion
         uses: gittools/actions/gitversion/execute@v4.5.0
+      - id: build_number
+        name: Determine MSIX build number
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = [Version]'${{ steps.gitversion.outputs.assemblySemFileVer }}'
+          $buildNumber = [int](git rev-list --count HEAD)
+          if ($buildNumber -gt [uint16]::MaxValue) {
+            throw "The MSIX build number $buildNumber exceeds the maximum value 65535."
+          }
+
+          $msixVersion = [Version]::new($version.Major, $version.Minor, $version.Build, $buildNumber)
+          "version=$msixVersion" >> $env:GITHUB_OUTPUT
+          Write-Host "MSIX version: $msixVersion"
       - uses: actions/download-artifact@v8
         with:
           name: licenses
@@ -175,7 +190,7 @@ jobs:
       - name: Generate MSIX
         shell: pwsh
         run: |
-          $version = '${{ needs.build.outputs.version }}'
+          $version = '${{ needs.build.outputs.msix_version }}'
 
           # Windows SDK に同梱の makeappx.exe を検索
           $makeappx = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin' -Filter 'makeappx.exe' -Recurse -ErrorAction SilentlyContinue |
@@ -222,7 +237,7 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: WondayWall-${{ needs.build.outputs.version }}.msix
+          name: WondayWall-${{ needs.build.outputs.msix_version }}.msix
           path: publish\*.msix
 
   store-upload:
