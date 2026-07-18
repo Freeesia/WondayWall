@@ -267,6 +267,26 @@ jobs:
 
       - name: Upload MSIX to main-build package flight
         run: |
+          $productId = "${{ vars.MSSTORE_PRODUCT_ID }}"
+          $flightId = "${{ vars.MSSTORE_FLIGHT_ID }}"
+          & msstore flights get $productId $flightId *> $null
+          if ($LASTEXITCODE -ne 0) {
+            $createOutput = & msstore flights create `
+              $productId "main-build" `
+              --group-ids "${{ vars.MSSTORE_CUSTOMER_GROUP_ID }}" | Out-String
+            if ($LASTEXITCODE -ne 0) {
+              throw "Failed to create the main-build package flight."
+            }
+            $flightId = [regex]::Match(
+              $createOutput,
+              '(?i)[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}'
+            ).Value
+          }
+          if (-not $flightId) {
+            throw "Could not resolve the FlightId for the main-build package flight."
+          }
+          Write-Host "Using main-build FlightId: $flightId"
+
           $msixPath = Get-ChildItem -Path msix-artifacts -Filter "*.msix" |
             Select-Object -First 1 -ExpandProperty FullName
           if (-not $msixPath) {
@@ -274,5 +294,5 @@ jobs:
           }
           msstore publish `
             "$msixPath" `
-            -id "${{ vars.MSSTORE_PRODUCT_ID }}" `
-            -f "${{ vars.MSSTORE_FLIGHT_ID }}"
+            -id $productId `
+            -f $flightId
