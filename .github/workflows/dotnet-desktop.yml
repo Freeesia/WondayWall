@@ -122,7 +122,7 @@ jobs:
             throw "The MSIX build number $buildNumber exceeds the maximum value 65535."
           }
 
-          $msixVersion = [Version]::new($version.Major, $version.Minor, $version.Build, $buildNumber)
+          $msixVersion = [Version]::new($version.Major, $version.Minor, $buildNumber, 0)
           "version=$msixVersion" >> $env:GITHUB_OUTPUT
           Write-Host "MSIX version: $msixVersion"
       - uses: actions/download-artifact@v8
