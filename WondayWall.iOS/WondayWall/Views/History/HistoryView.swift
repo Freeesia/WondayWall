@@ -4,7 +4,6 @@ import SwiftUI
 struct HistoryView: View {
     @EnvironmentObject private var environment: AppEnvironment
     @State private var viewModel: HistoryViewModel?
-    @State private var notificationPresentation: NotificationHistoryPresentation?
 
     var body: some View {
         NavigationStack {
@@ -23,48 +22,8 @@ struct HistoryView: View {
             } else {
                 viewModel?.loadHistory()
             }
-            openHistoryFromNotificationIfNeeded()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .openHistoryNotification)) { _ in
-            openHistoryFromNotificationIfNeeded()
-        }
-        .sheet(item: $notificationPresentation) { presentation in
-            NavigationStack {
-                if let vm = viewModel {
-                    HistoryPhotoPagerView(items: vm.items, initialItemID: presentation.itemID)
-                        .environmentObject(environment)
-                } else {
-                    ProgressView()
-                }
-            }
         }
     }
-
-    private func openHistoryFromNotificationIfNeeded() {
-        guard let vm = viewModel else { return }
-        guard !vm.items.isEmpty else {
-            AppDelegate.pendingHistoryItemID = nil
-            return
-        }
-
-        guard AppDelegate.pendingHistoryItemID != nil else { return }
-
-        let targetID: UUID
-        if let requestedID = AppDelegate.pendingHistoryItemID,
-           vm.items.contains(where: { $0.id == requestedID }) {
-            targetID = requestedID
-        } else {
-            targetID = vm.items[0].id
-        }
-
-        notificationPresentation = NotificationHistoryPresentation(itemID: targetID)
-        AppDelegate.pendingHistoryItemID = nil
-    }
-}
-
-private struct NotificationHistoryPresentation: Identifiable {
-    let itemID: UUID
-    var id: UUID { itemID }
 }
 
 // 履歴一覧のコンテンツ本体

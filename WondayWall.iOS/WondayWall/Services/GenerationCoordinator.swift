@@ -298,9 +298,7 @@ actor GenerationCoordinator {
                 // 通知には絶対パスを渡す
                 if configService.config.notificationsEnabled {
                     await notificationService.scheduleSuccessNotification(
-                        imagePath: imageResult.filePath,
-                        historyItemID: generatingItem.id
-                    )
+                        imagePath: imageResult.filePath)
                 }
 
                 // 生成成功を通知する（フォアグラウンド中は ContentView 側で Toast として表示される）
@@ -339,8 +337,7 @@ actor GenerationCoordinator {
         if configService.config.notificationsEnabled {
             if status == .failure {
                 await notificationService.scheduleFailureNotification(
-                    error: errorSummary ?? "不明なエラー",
-                    historyItemID: historyItem.id
+                    error: errorSummary ?? "不明なエラー"
                 )
             }
         }

@@ -82,15 +82,6 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         let requestIdentifier = response.notification.request.identifier
         center.removeDeliveredNotifications(withIdentifiers: [requestIdentifier])
         center.removePendingNotificationRequests(withIdentifiers: [requestIdentifier])
-        let userInfo = response.notification.request.content.userInfo
-        let requestedID = (userInfo["historyItemId"] as? String)
-            .flatMap(UUID.init(uuidString:))
-        if let requestedID {
-            AppDelegate.pendingHistoryItemID = requestedID
-        } else {
-            AppDelegate.pendingHistoryItemID = environment.historyService.load().first?.id
-        }
-
         // 通知タップ時に履歴詳細へ遷移する
         // NotificationCenter 経由で ContentView に伝達する
         NotificationCenter.default.post(

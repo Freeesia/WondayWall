@@ -72,8 +72,8 @@ struct ContentView: View {
             .onReceive(
                 NotificationCenter.default.publisher(for: .openHistoryNotification)
             ) { _ in
-                // 通知タップ時は履歴タブへ遷移し、HistoryView 側で対象履歴を開く
-                selectedTab = 2
+                // 通知タップ時は必ずホームタブへ遷移する
+                selectedTab = 0
             }
             .onReceive(
                 NotificationCenter.default.publisher(for: .generationSucceededInForeground)

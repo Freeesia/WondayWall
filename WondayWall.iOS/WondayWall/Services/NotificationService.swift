@@ -20,18 +20,14 @@ final class NotificationService {
     }
 
     // 生成完了通知をスケジュールする
-    func scheduleSuccessNotification(imagePath: String?, historyItemID: UUID?) async {
+    func scheduleSuccessNotification(imagePath: String?) async {
         guard await requestPermission() else { return }
         let center = UNUserNotificationCenter.current()
         let content = UNMutableNotificationContent()
         content.title = "壁紙を生成しました"
         content.body = "新しい壁紙候補が生成されました。タップして確認してください。"
         content.sound = .default
-        content.userInfo = [
-            "type": "generation.success",
-            "imagePath": imagePath ?? "",
-            "historyItemId": historyItemID?.uuidString ?? ""
-        ]
+        content.userInfo = ["type": "generation.success", "imagePath": imagePath ?? ""]
         // 画像を通知に添付する
         if let path = imagePath,
             let attachment = try? UNNotificationAttachment(
@@ -51,17 +47,14 @@ final class NotificationService {
     }
 
     // 生成失敗通知をスケジュールする
-    func scheduleFailureNotification(error: String, historyItemID: UUID?) async {
+    func scheduleFailureNotification(error: String) async {
         guard await requestPermission() else { return }
         let center = UNUserNotificationCenter.current()
         let content = UNMutableNotificationContent()
         content.title = "壁紙生成に失敗しました"
         content.body = error
         content.sound = .defaultCritical
-        content.userInfo = [
-            "type": "generation.failure",
-            "historyItemId": historyItemID?.uuidString ?? ""
-        ]
+        content.userInfo = ["type": "generation.failure"]
         let request = UNNotificationRequest(
             identifier: "generation.failure.\(UUID().uuidString)",
             content: content,
