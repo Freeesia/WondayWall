@@ -2,12 +2,6 @@ name: .NET Desktop
 
 on:
   workflow_call:
-    inputs:
-      include-installers:
-        description: "Release 用のインストーラー成果物も作成する"
-        required: false
-        type: boolean
-        default: false
   push:
     branches: [main]
     paths:
@@ -40,13 +34,13 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7.0.0
 
-      - uses: actions/setup-dotnet@v5.3.0
+      - uses: actions/setup-dotnet@v5.4.0
         with:
           dotnet-version: 10.0.x
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ${{ env.NUGET_PACKAGES }}
           key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json', '**/*.csproj', '**/*.wixproj', '.config/dotnet-tools.json', 'eng/licenses/*.json', 'Directory.Packages.props', 'Directory.Build.props', 'NuGet.config', 'global.json') }}
@@ -82,7 +76,7 @@ jobs:
             throw "THIRD-PARTY-NOTICES.md is empty."
           }
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: licenses
           path: licenses\
@@ -98,17 +92,18 @@ jobs:
       contents: read
     outputs:
       version: ${{ steps.gitversion.outputs.assemblySemFileVer }}
+      msix_version: ${{ steps.gitversion.outputs.assemblySemFileVer }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7.0.0
         with:
           fetch-depth: 0
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ${{ env.NUGET_PACKAGES }}
           key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json', '**/*.csproj', '**/*.wixproj', '.config/dotnet-tools.json', 'eng/licenses/*.json', 'Directory.Packages.props', 'Directory.Build.props', 'NuGet.config', 'global.json') }}
           restore-keys: |
             ${{ runner.os }}-nuget-
-      - uses: actions/setup-dotnet@v5.3.0
+      - uses: actions/setup-dotnet@v5.4.0
         with:
           dotnet-version: 10.0.x
       - uses: gittools/actions/gitversion/setup@v4.5.0
@@ -116,7 +111,7 @@ jobs:
           versionSpec: "6.x"
       - id: gitversion
         uses: gittools/actions/gitversion/execute@v4.5.0
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: licenses
           path: publish\licenses
@@ -135,34 +130,33 @@ jobs:
           if (!(Test-Path "publish\licenses\THIRD-PARTY-NOTICES.md")) {
             throw "THIRD-PARTY-NOTICES.md was not found in publish output."
           }
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: WondayWall${{ matrix.self && '-full' || '' }}-${{ steps.gitversion.outputs.fullSemVer }}
           path: publish\
 
   installer:
-    if: ${{ inputs.include-installers == true }}
     needs:
       - build
     runs-on: windows-latest
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7.0.0
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ${{ env.NUGET_PACKAGES }}
           key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json', '**/*.csproj', '**/*.wixproj', '.config/dotnet-tools.json', 'eng/licenses/*.json', 'Directory.Packages.props', 'Directory.Build.props', 'NuGet.config', 'global.json') }}
           restore-keys: |
             ${{ runner.os }}-nuget-
 
-      - uses: actions/setup-dotnet@v5.3.0
+      - uses: actions/setup-dotnet@v5.4.0
         with:
           dotnet-version: 10.0.x
 
       # WondayWall-full-* は SelfContained=true のビルド成果物
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts
           pattern: WondayWall-full-*
@@ -182,7 +176,7 @@ jobs:
       - name: Generate MSIX
         shell: pwsh
         run: |
-          $version = '${{ needs.build.outputs.version }}'
+          $version = '${{ needs.build.outputs.msix_version }}'
 
           # Windows SDK に同梱の makeappx.exe を検索
           $makeappx = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin' -Filter 'makeappx.exe' -Recurse -ErrorAction SilentlyContinue |
@@ -222,12 +216,49 @@ jobs:
 
           Write-Host "MSIX generated: publish\WondayWall-$version.msix"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: WondayWall-${{ needs.build.outputs.version }}.msi
           path: publish\*.msi
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
-          name: WondayWall-${{ needs.build.outputs.version }}.msix
+          name: WondayWall-${{ needs.build.outputs.msix_version }}.msix
           path: publish\*.msix
+
+  store-upload:
+    name: Upload MSIX to main-build package flight
+    if: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')) }}
+    needs:
+      - installer
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: WondayWall-*.msix
+          path: msix-artifacts
+          merge-multiple: true
+
+      - uses: microsoft/microsoft-store-apppublisher@v1
+
+      - name: Configure Partner Center authentication
+        run: |
+          msstore reconfigure `
+            --tenantId "${{ secrets.AZURE_AD_TENANT_ID }}" `
+            --clientId "${{ secrets.AZURE_AD_APPLICATION_CLIENT_ID }}" `
+            --clientSecret "${{ secrets.AZURE_AD_APPLICATION_SECRET }}" `
+            --sellerId "${{ secrets.SELLER_ID }}"
+
+      - name: Upload MSIX to main-build package flight
+        run: |
+          $msixPath = Get-ChildItem -Path msix-artifacts -Filter "*.msix" |
+            Select-Object -First 1 -ExpandProperty FullName
+          if (-not $msixPath) {
+            throw "No MSIX file found in msix-artifacts. Ensure the installer job produced a WondayWall-*.msix artifact."
+          }
+          msstore publish `
+            "$msixPath" `
+            -id "${{ vars.MSSTORE_PRODUCT_ID }}" `
+            -f "${{ vars.MSSTORE_FLIGHT_ID }}"

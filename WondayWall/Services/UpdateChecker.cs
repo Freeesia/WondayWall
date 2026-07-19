@@ -2,19 +2,27 @@ using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Reflection;
+using System.Windows.Interop;
+using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Toolkit.Uwp.Notifications;
 using Nito.AsyncEx;
 using Octokit;
+using Windows.Services.Store;
 using Windows.UI.Notifications;
+using Windows.Win32;
+using Windows.Win32.System.Recovery;
+using WinRT.Interop;
 using WondayWall.Models;
 using WondayWall.Utils;
+using AppPackageVersion = Windows.ApplicationModel.PackageVersion;
 using AppResources = WondayWall.Properties.Resources;
 
 namespace WondayWall.Services;
 
-public class UpdateChecker : BackgroundService
+[INotifyPropertyChanged]
+public partial class UpdateChecker : BackgroundService
 {
     private const string Owner = "Freeesia";
     private const string Repository = "WondayWall";
@@ -32,11 +40,16 @@ public class UpdateChecker : BackgroundService
     private readonly ILogger<UpdateChecker> _logger;
     private readonly AsyncLock _checking = new();
     private readonly Version _currentVersion;
+    private readonly AppDistributionKind _distributionKind;
 
-    public event EventHandler? UpdateAvailable;
+    public bool IsUpdatable => _distributionKind is not AppDistributionKind.Portable;
 
-    public bool IsInstalled { get; }
-    public bool HasUpdate { get; private set; }
+    [ObservableProperty]
+    public partial bool HasUpdate { get; private set; }
+
+    [ObservableProperty]
+    public partial bool IsInstalling { get; private set; }
+
     public string? LatestVersion { get; private set; }
 
     public UpdateChecker(
@@ -50,12 +63,12 @@ public class UpdateChecker : BackgroundService
 
         var assemblyName = Assembly.GetExecutingAssembly().GetName();
         _currentVersion = GetCurrentVersion(assemblyName);
-        IsInstalled = CheckInstalled();
+        _distributionKind = AppDistributionUtility.Detect();
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        if (!IsInstalled)
+        if (_distributionKind == AppDistributionKind.Portable)
         {
             _logger.LogInformation("インストール済みアプリではないため更新チェックをスキップしました");
             return;
@@ -66,7 +79,10 @@ public class UpdateChecker : BackgroundService
         {
             try
             {
-                await CheckCoreAsync(forceRefresh: false, stoppingToken).ConfigureAwait(false);
+                if (_distributionKind == AppDistributionKind.MicrosoftStoreMsix)
+                    await CheckCoreStoreAsync(stoppingToken).ConfigureAwait(false);
+                else
+                    await CheckCoreGitHubAsync(forceRefresh: false, stoppingToken).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is not OperationCanceledException || !stoppingToken.IsCancellationRequested)
             {
@@ -95,42 +111,95 @@ public class UpdateChecker : BackgroundService
 
     public Task CheckAsync(CancellationToken ct = default)
     {
-        if (!IsInstalled)
+        if (!IsUpdatable)
         {
             _logger.LogInformation("インストール済みアプリではないため更新チェックをスキップしました");
             return Task.CompletedTask;
         }
 
-        return CheckCoreAsync(forceRefresh: true, ct);
+        if (_distributionKind == AppDistributionKind.MicrosoftStoreMsix)
+            return CheckCoreStoreAsync(ct);
+        else
+            return CheckCoreGitHubAsync(forceRefresh: true, ct);
     }
 
-    public void InstallUpdate()
+    public async void InstallUpdate()
     {
-        var updateInfo = LoadUpdateInfo();
-        if (updateInfo?.Path is not { Length: > 0 } installerPath || !File.Exists(installerPath))
+        this.IsInstalling = true;
+        try
         {
-            _logger.LogWarning("インストーラーが見つからないため更新を開始できませんでした");
-            return;
-        }
+            if (_distributionKind == AppDistributionKind.MicrosoftStoreMsix)
+            {
+                var ownerWindow = System.Windows.Application.Current?.MainWindow;
+                if (ownerWindow is null)
+                {
+                    _logger.LogWarning("メインウィンドウが見つからないため Store 更新をスキップしました");
+                    return;
+                }
 
-        var startInfo = new ProcessStartInfo("msiexec")
+                try
+                {
+                    var storeContext = StoreContext.GetDefault();
+                    var hwnd = new WindowInteropHelper(ownerWindow).Handle;
+                    InitializeWithWindow.Initialize(storeContext, hwnd);
+
+                    var updates = await storeContext.GetAppAndOptionalStorePackageUpdatesAsync();
+                    if (updates.Count == 0)
+                    {
+                        _logger.LogInformation("更新は見つかりませんでした");
+                        return;
+                    }
+
+                    if (PInvoke.RegisterApplicationRestart(string.Empty, REGISTER_APPLICATION_RESTART_FLAGS.RESTART_NO_REBOOT) < 0)
+                    {
+                        _logger.LogWarning("アプリケーションの再起動登録に失敗しました");
+                    }
+                    var result = await storeContext.RequestDownloadAndInstallStorePackageUpdatesAsync(updates);
+                    if (result.OverallState == StorePackageUpdateState.Completed)
+                    {
+                        _logger.LogInformation("更新が完了しました");
+                        return;
+                    }
+                    _logger.LogWarning("Store 更新の結果: {Result}", result.OverallState);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Store 更新処理に失敗しました");
+                }
+            }
+            else
+            {
+                var updateInfo = LoadUpdateInfo();
+                if (updateInfo?.Path is not { Length: > 0 } installerPath || !File.Exists(installerPath))
+                {
+                    _logger.LogWarning("インストーラーが見つからないため更新を開始できませんでした");
+                    return;
+                }
+
+                var startInfo = new ProcessStartInfo("msiexec")
+                {
+                    UseShellExecute = false,
+                };
+                startInfo.ArgumentList.Add("/i");
+                startInfo.ArgumentList.Add(installerPath);
+                Process.Start(startInfo);
+            }
+        }
+        finally
         {
-            UseShellExecute = false,
-        };
-        startInfo.ArgumentList.Add("/i");
-        startInfo.ArgumentList.Add(installerPath);
-        Process.Start(startInfo);
+            this.IsInstalling = false;
+        }
     }
 
     public void OpenReleaseNotes()
     {
-        var updateInfo = LoadUpdateInfo();
-        var url = updateInfo?.Url;
+        var url = _distributionKind == AppDistributionKind.MsiInstalled
+            ? LoadUpdateInfo()?.Url
+            : null;
+
+        // Store MSIX を含む非 MSI 配布では更新メタ情報を持たないため、GitHub のリリース一覧へフォールバックする
         if (string.IsNullOrWhiteSpace(url))
-        {
-            _logger.LogWarning("更新情報の URL がないためリリースノートを開けませんでした");
-            return;
-        }
+            url = AppLinks.ReleaseNotes;
 
         Process.Start(new ProcessStartInfo(url)
         {
@@ -149,13 +218,17 @@ public class UpdateChecker : BackgroundService
         return Task.CompletedTask;
     }
 
-    private void ShowUpdateNotification(string version, bool suppressPopup)
+    private void ShowUpdateNotification(string? version, bool suppressPopup)
     {
+        // Store 経由の更新はバージョンが取得できないため、その場合はバージョンなしの文言にする
+        var title = version is not null
+            ? AppResources.Format(AppResources.UpdateNotificationTitle, version)
+            : AppResources.UpdateNotificationTitleUnknownVersion;
+
         var builder = new ToastContentBuilder()
-            .AddText(AppResources.Format(AppResources.UpdateNotificationTitle, version), AdaptiveTextStyle.Title)
+            .AddText(title, AdaptiveTextStyle.Title)
             .AddText(AppResources.UpdateNotificationMessage)
             .AddArgument(SourceArgument)
-            .AddArgument("version", version)
             .AddButton(new ToastButton()
                 .SetContent(AppResources.UpdateInstallButton)
                 .AddArgument(ActionArgument, InstallAction))
@@ -163,6 +236,9 @@ public class UpdateChecker : BackgroundService
                 .SetContent(AppResources.CheckUpdateNotes)
                 .AddArgument(ActionArgument, OpenReleaseNotesAction)
                 .SetBackgroundActivation());
+
+        if (version is not null)
+            builder.AddArgument("version", version);
 
         var skipArguments = ToastArguments.Parse(builder.Content.Launch);
         skipArguments.Add(ActionArgument, SkipAction);
@@ -194,12 +270,14 @@ public class UpdateChecker : BackgroundService
             switch (action)
             {
                 case InstallAction:
-                    InstallUpdate();
+                    // Store版は WindowInteropHelper でウィンドウハンドルを取得するため、UIスレッドから呼び出す
+                    System.Windows.Application.Current?.Dispatcher.Invoke(InstallUpdate);
                     break;
                 case OpenReleaseNotesAction:
                     OpenReleaseNotes();
-                    if (args.TryGetValue("version", out string? version) && version is not null)
-                        ShowUpdateNotification(version, suppressPopup: true);
+                    // Store 経由の更新通知には version 引数が付与されないため、その場合は null のままでよい
+                    args.TryGetValue("version", out string? version);
+                    ShowUpdateNotification(version, suppressPopup: true);
                     break;
                 case SkipAction:
                     await SkipVersionAsync().ConfigureAwait(false);
@@ -212,7 +290,7 @@ public class UpdateChecker : BackgroundService
         }
     }
 
-    private async Task CheckCoreAsync(bool forceRefresh, CancellationToken ct)
+    private async Task CheckCoreGitHubAsync(bool forceRefresh, CancellationToken ct)
     {
         using (await _checking.LockAsync(ct).ConfigureAwait(false))
         {
@@ -249,6 +327,28 @@ public class UpdateChecker : BackgroundService
             var latestUpdateInfo = new UpdateInfo(releaseVersion.ToString(), release.HtmlUrl, installerPath, DateTime.UtcNow, false);
             SaveUpdateInfo(latestUpdateInfo);
             SetUpdateState(latestUpdateInfo.Version, hasUpdate: true);
+        }
+    }
+
+    private async Task CheckCoreStoreAsync(CancellationToken ct)
+    {
+        using (await _checking.LockAsync(ct).ConfigureAwait(false))
+        {
+            var storeContext = StoreContext.GetDefault();
+            var updates = await storeContext.GetAppAndOptionalStorePackageUpdatesAsync();
+            ct.ThrowIfCancellationRequested();
+
+            if (updates.Count == 0)
+            {
+                _logger.LogDebug("更新は見つかりませんでした");
+                SetUpdateState(null, hasUpdate: false);
+            }
+            else
+            {
+                _logger.LogInformation("Microsoft Storeに更新がありました");
+                // ストア経由では最新バージョン番号を取得する手段がないため、バージョンを表示せずに更新ありとして扱う
+                SetUpdateState(null, hasUpdate: true);
+            }
         }
     }
 
@@ -331,19 +431,16 @@ public class UpdateChecker : BackgroundService
         HasUpdate = hasUpdate;
         LatestVersion = latestVersion;
 
-        if (changed)
+        if (changed && hasUpdate)
         {
-            UpdateAvailable?.Invoke(this, EventArgs.Empty);
-            if (hasUpdate && latestVersion is not null)
+            try
             {
-                try
-                {
-                    ShowUpdateNotification(latestVersion, suppressPopup: false);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "更新通知の表示に失敗しました");
-                }
+                // Store 経由の更新は latestVersion が null になり得るが、その場合もバージョンなしの通知を表示する
+                ShowUpdateNotification(latestVersion, suppressPopup: false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "更新通知の表示に失敗しました");
             }
         }
     }
@@ -385,21 +482,7 @@ public class UpdateChecker : BackgroundService
         return true;
     }
 
-    private static bool CheckInstalled()
-    {
-        var processPath = Environment.ProcessPath;
-        if (string.IsNullOrWhiteSpace(processPath))
-            return false;
+    private static string ToVersionString(AppPackageVersion version)
+        => $"{version.Major}.{version.Minor}.{version.Build}.{version.Revision}";
 
-        var processDirectory = Path.GetDirectoryName(processPath);
-        if (string.IsNullOrWhiteSpace(processDirectory))
-            return false;
-
-        var installDirectory = PathUtility.AppDataDirectory;
-
-        return string.Equals(
-            Path.GetFullPath(processDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
-            Path.GetFullPath(installDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
-            StringComparison.OrdinalIgnoreCase);
-    }
 }
