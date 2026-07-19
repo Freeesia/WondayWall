@@ -10,7 +10,6 @@ on:
       - "WondayWall.Wix/**"
       - "WondayWall.sln"
       - "GitVersion.yml"
-      - ".github/GitVersion.Msix.yml"
       - ".config/**"
       - "eng/**"
       - ".github/workflows/dotnet-desktop.yml"
@@ -22,7 +21,6 @@ on:
       - "WondayWall.Wix/**"
       - "WondayWall.sln"
       - "GitVersion.yml"
-      - ".github/GitVersion.Msix.yml"
       - ".config/**"
       - "eng/**"
       - ".github/workflows/dotnet-desktop.yml"
@@ -94,7 +92,7 @@ jobs:
       contents: read
     outputs:
       version: ${{ steps.gitversion.outputs.assemblySemFileVer }}
-      msix_version: ${{ steps.msix_gitversion.outputs.assemblySemFileVer }}
+      msix_version: ${{ steps.gitversion.outputs.assemblySemFileVer }}
     steps:
       - uses: actions/checkout@v7.0.0
         with:
@@ -111,10 +109,6 @@ jobs:
       - uses: gittools/actions/gitversion/setup@v4.5.0
         with:
           versionSpec: "6.x"
-      - id: msix_gitversion
-        uses: gittools/actions/gitversion/execute@v4.5.0
-        with:
-          configFilePath: .github/GitVersion.Msix.yml
       - id: gitversion
         uses: gittools/actions/gitversion/execute@v4.5.0
       - uses: actions/download-artifact@v8
