@@ -104,6 +104,7 @@ public class CliCommands(
         return Task.CompletedTask;
     }
 
+#if DEBUG
     [Command("set-dummy-ai")]
     public Task SetDummyAiAsync(
         bool enabled,
@@ -134,6 +135,7 @@ public class CliCommands(
             config.DebugConfig.DummyImageDelaySeconds);
         return Task.CompletedTask;
     }
+#endif
 
     private void LogRunResult(HistoryItem result)
     {

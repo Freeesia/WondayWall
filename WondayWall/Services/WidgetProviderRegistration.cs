@@ -1,5 +1,7 @@
 using System.Runtime.InteropServices;
 using Microsoft.Windows.Widgets.Providers;
+using Windows.Win32;
+using Windows.Win32.System.Com;
 using WinRT;
 
 namespace WondayWall.Services;
@@ -17,13 +19,12 @@ internal sealed class WidgetProviderRegistration : IDisposable
     public static WidgetProviderRegistration Register(WondayWallWidgetProvider provider)
     {
         var classId = Guid.Parse(WondayWallWidgetProvider.ClassId);
-        var result = CoRegisterClassObject(
+        PInvoke.CoRegisterClassObject(
             classId,
             new WidgetProviderClassFactory(provider),
-            ClassContext.LocalServer,
-            RegistrationClass.MultipleUse,
-            out var cookie);
-        Marshal.ThrowExceptionForHR(result);
+            CLSCTX.CLSCTX_LOCAL_SERVER,
+            REGCLS.REGCLS_MULTIPLEUSE,
+            out var cookie).ThrowOnFailure();
         return new WidgetProviderRegistration(cookie);
     }
 
@@ -32,20 +33,9 @@ internal sealed class WidgetProviderRegistration : IDisposable
         if (disposed)
             return;
 
-        _ = CoRevokeClassObject(registrationCookie);
+        _ = PInvoke.CoRevokeClassObject(registrationCookie);
         disposed = true;
     }
-
-    [DllImport("ole32.dll")]
-    private static extern int CoRegisterClassObject(
-        [MarshalAs(UnmanagedType.LPStruct)] Guid classId,
-        [MarshalAs(UnmanagedType.IUnknown)] object classFactory,
-        ClassContext context,
-        RegistrationClass flags,
-        out uint registrationCookie);
-
-    [DllImport("ole32.dll")]
-    private static extern int CoRevokeClassObject(uint registrationCookie);
 
     [ComImport]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
@@ -77,16 +67,6 @@ internal sealed class WidgetProviderRegistration : IDisposable
         }
 
         public int LockServer(bool lockServer) => 0;
-    }
-
-    private enum ClassContext : uint
-    {
-        LocalServer = 0x4,
-    }
-
-    private enum RegistrationClass : uint
-    {
-        MultipleUse = 0x1,
     }
 
     private static readonly Guid IUnknownId = Guid.Parse("00000000-0000-0000-C000-000000000046");

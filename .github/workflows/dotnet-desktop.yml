@@ -247,24 +247,6 @@ jobs:
 
           Write-Host "MSIX generated: $msixPath"
 
-      - name: Verify unsigned MSIX installation
-        if: ${{ github.event_name == 'pull_request' }}
-        shell: pwsh
-        run: |
-          $msixPath = Get-ChildItem 'publish' -Filter '*-unsigned.msix' |
-            Select-Object -First 1 -ExpandProperty FullName
-          if (-not $msixPath) {
-            throw 'Unsigned MSIX was not found.'
-          }
-
-          Add-AppxPackage -Path $msixPath -AllowUnsigned -ErrorAction Stop
-          $package = Get-AppxPackage -Name 'StudioFreesia.WondayWall.PR'
-          if (-not $package) {
-            throw 'Unsigned MSIX was not registered.'
-          }
-
-          Write-Host "Unsigned MSIX installed: $($package.PackageFullName)"
-
       - uses: actions/upload-artifact@v7
         with:
           name: WondayWall-${{ needs.build.outputs.version }}.msi

@@ -72,14 +72,19 @@ static void ConfigureCommonServices(IServiceCollection services)
         .AddResilienceHandler("GoogleAiRetry", static builder => builder.AddRetry(new HttpRetryStrategyOptions()));
     services.AddSingleton<WallpaperService>();
     services.AddSingleton<AppConfigService>();
-    services.AddSingleton<DummyAiService>();
     services.AddSingleton<HistoryService>();
     services.AddSingleton<ContextService>();
     services.AddSingleton<GoogleAiService>();
+#if DEBUG
+    services.AddSingleton<DummyNewsGenerator>();
+    services.AddSingleton<DummyAiService>();
     services.AddSingleton<IAiService>(sp =>
         sp.GetRequiredService<AppConfigService>().Current.DebugConfig.UseDummyAiService
             ? sp.GetRequiredService<DummyAiService>()
             : sp.GetRequiredService<GoogleAiService>());
+#else
+    services.AddSingleton<IAiService>(sp => sp.GetRequiredService<GoogleAiService>());
+#endif
     services.AddSingleton<GenerationCoordinator>();
     services.AddSingleton<TaskSchedulerService>();
     services.AddSingleton<WidgetHistoryService>();

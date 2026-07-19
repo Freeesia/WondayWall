@@ -22,7 +22,9 @@ namespace WondayWall.Services;
 public class ContextService(
     AppConfigService configService,
     HistoryService historyService,
-    DummyAiService dummyAiService,
+#if DEBUG
+    DummyNewsGenerator dummyNewsGenerator,
+#endif
     IHttpClientFactory httpClientFactory,
     ILogger<ContextService> logger)
 {
@@ -189,9 +191,10 @@ public class ContextService(
     /// </summary>
     public async IAsyncEnumerable<NewsTopicItem> FetchNewsAsync([EnumeratorCancellation] CancellationToken ct = default)
     {
+#if DEBUG
         if (configService.Current.DebugConfig.UseDummyAiService)
         {
-            var dummyNews = dummyAiService.BuildNewsTopics();
+            var dummyNews = dummyNewsGenerator.BuildNewsTopics();
             foreach (var news in dummyNews)
             {
                 ct.ThrowIfCancellationRequested();
@@ -200,6 +203,7 @@ public class ContextService(
 
             yield break;
         }
+#endif
 
         var recentNews = await FetchRecentRssItemsAsync(configService.Current.RssSources, ct);
         foreach (var item in recentNews)
@@ -314,8 +318,10 @@ public class ContextService(
 
     private async Task<List<NewsTopicItem>> BuildPromptNewsAsync(CancellationToken ct)
     {
+#if DEBUG
         if (configService.Current.DebugConfig.UseDummyAiService)
-            return dummyAiService.BuildNewsTopics();
+            return dummyNewsGenerator.BuildNewsTopics();
+#endif
 
         var recentNews = await FetchRecentRssItemsAsync(configService.Current.RssSources, ct);
         var lastGeneratedAt = historyService.GetLastSuccessfulGenerated()?.ExecutedAt;

@@ -1,5 +1,7 @@
 namespace WondayWall.Models;
 
+#if DEBUG
+/// <summary>繝・ヰ繝・げ繝薙Ν繝牙ｰら畑縺ｮ讀懆ｨｼ逕ｨ險ｭ螳壹ゅΜ繝ｪ繝ｼ繧ｹ繝薙Ν繝峨↓縺ｯ蜷ｫ繧√↑縺・・/summary>
 public class DebugConfig
 {
     private const int MinDelaySeconds = 1;
@@ -19,3 +21,4 @@ public class DebugConfig
         DummyNewsCount = Math.Clamp(DummyNewsCount, MinNewsCount, MaxNewsCount);
     }
 }
+#endif
