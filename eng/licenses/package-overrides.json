@@ -42,12 +42,6 @@
     "LicenseUrl": "https://www.nuget.org/packages/Microsoft.WindowsAppSDK.AI/2.2.3/License"
   },
   {
-    "Id": "Microsoft.WindowsAppSDK.Base",
-    "Version": "2.0.4",
-    "License": "Microsoft-Windows-App-SDK",
-    "LicenseUrl": "https://www.nuget.org/packages/Microsoft.WindowsAppSDK.Base/2.0.4/License"
-  },
-  {
     "Id": "Microsoft.WindowsAppSDK.DWrite",
     "Version": "2.1.0",
     "License": "Microsoft-Windows-App-SDK",
@@ -72,12 +66,6 @@
     "LicenseUrl": "https://www.nuget.org/packages/Microsoft.WindowsAppSDK.ML/2.1.70/License"
   },
   {
-    "Id": "Microsoft.WindowsAppSDK.Runtime",
-    "Version": "2.2.0",
-    "License": "Microsoft-Windows-App-SDK",
-    "LicenseUrl": "https://www.nuget.org/packages/Microsoft.WindowsAppSDK.Runtime/2.2.0/License"
-  },
-  {
     "Id": "Microsoft.WindowsAppSDK.Widgets",
     "Version": "2.0.5",
     "License": "Microsoft-Windows-App-SDK",
@@ -94,18 +82,6 @@
     "Version": "2.1.70",
     "License": "Microsoft-Windows-ML-Runtime",
     "LicenseUrl": "https://www.nuget.org/packages/Microsoft.Windows.AI.MachineLearning/2.1.70/License"
-  },
-  {
-    "Id": "Microsoft.Windows.SDK.BuildTools.MSIX",
-    "Version": "1.7.251221100",
-    "License": "Microsoft-Windows-SDK",
-    "LicenseUrl": "https://aka.ms/WinSDKLicenseURL"
-  },
-  {
-    "Id": "Microsoft.Windows.SDK.BuildTools",
-    "Version": "10.0.26100.4654",
-    "License": "Microsoft-Windows-SDK",
-    "LicenseUrl": "https://aka.ms/WinSDKLicenseURL"
   },
   {
     "Id": "SixLabors.ImageSharp",
