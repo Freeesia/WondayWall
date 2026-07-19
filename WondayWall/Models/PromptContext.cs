@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace WondayWall.Models;
 
 public record PromptContext(
@@ -22,4 +24,6 @@ public record PromptNewsTopic(
     string? Summary = null,
     string? Url = null,
     DateTime? PublishedAt = null,
-    string? OgpImageUrl = null);
+    string? OgpImageUrl = null,
+    [property: JsonIgnore] byte[]? OgpImageData = null,
+    [property: JsonIgnore] string? OgpImageMimeType = null);

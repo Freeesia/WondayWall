@@ -162,6 +162,20 @@ jobs:
           pattern: WondayWall-full-*
           merge-multiple: true
 
+      # Windows App SDK を使う packaged app は単一ファイル publish 非対応のため、
+      # MSIX には自己完結の複数ファイル成果物を格納する。
+      - name: Publish app for MSIX
+        run: |
+          dotnet publish WondayWall -c Release -o msix-app `
+            -p:DebugType=None `
+            -p:RuntimeIdentifier=win-x64 `
+            -p:PublishSingleFile=false `
+            -p:PublishSelfContained=true `
+            -p:Version=${{ needs.build.outputs.version }} `
+            -p:AssemblyVersion=${{ needs.build.outputs.version }} `
+            -p:FileVersion=${{ needs.build.outputs.version }}
+          Copy-Item 'artifacts\licenses' 'msix-app\licenses' -Recurse -Force
+
       - name: Verify THIRD-PARTY-NOTICES.md in artifacts
         run: |
           if (!(Test-Path "artifacts\licenses\THIRD-PARTY-NOTICES.md")) {
@@ -199,8 +213,8 @@ jobs:
           magick $iconSrc -resize 310x150 -background transparent -gravity center -extent 310x150 "$imagesDir\Wide310x150Logo.png"
           magick $iconSrc -resize 50x50 "$imagesDir\StoreLogo.png"
 
-          # アプリバイナリをステージングへコピー
-          Copy-Item 'artifacts\*' 'msix-staging\' -Recurse -Force
+          # Windows App SDK を含む MSIX 用の複数ファイル成果物をステージングへコピー
+          Copy-Item 'msix-app\*' 'msix-staging\' -Recurse -Force
 
           # マニフェストのバージョン文字列を差し替えてステージングへ配置
           $manifest = Get-Content 'WondayWall.Package\AppxManifest.xml' -Raw -Encoding UTF8

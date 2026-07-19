@@ -1,126 +1,254 @@
-using System.IO;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using Microsoft.Windows.Widgets;
+using Microsoft.Windows.Widgets.Providers;
 using WondayWall.Models;
-using WondayWall.Utils;
 
 namespace WondayWall.Services;
 
-public class WondayWallWidgetProvider(
+[ComVisible(true)]
+[ComDefaultInterface(typeof(IWidgetProvider))]
+[Guid(ClassId)]
+public sealed class WondayWallWidgetProvider(
     WidgetHistoryService widgetHistoryService,
     WidgetActionService widgetActionService,
     WidgetCardBuilder widgetCardBuilder,
-    ILogger<WondayWallWidgetProvider> logger)
+    ILogger<WondayWallWidgetProvider> logger) : IWidgetProvider
 {
-    private static readonly string WidgetStatePath = Path.Combine(PathUtility.AppDataDirectory, "widgets", "state.json");
+    public const string ClassId = "E2C0C47E-6B2A-49D0-AE88-01EA06D5C856";
+    public const string DefinitionId = "WondayWall.History";
 
-    public async Task<int> RunAsync(string[] args, CancellationToken cancellationToken = default)
+    private static readonly JsonSerializerOptions JsonOptions = new()
     {
-        var size = ParseSize(GetOption(args, "--size"));
-        var action = GetOption(args, "--action");
-        var historyId = GetOption(args, "--history-id");
-        var newsIndex = ParseInt(GetOption(args, "--news-index"));
+        PropertyNameCaseInsensitive = true,
+    };
 
-        var state = LoadState();
-        var entries = widgetHistoryService.GetDisplayItems(size);
+    private readonly Lock stateLock = new();
+    private readonly Dictionary<string, WidgetProviderState> states = [];
+    private readonly ManualResetEvent shutdownEvent = new(false);
+    private bool recovered;
 
-        var currentIndex = ResolveCurrentIndex(state, entries.Count);
+    public WaitHandle ShutdownWaitHandle => shutdownEvent;
 
-        if (!string.IsNullOrWhiteSpace(action))
+    public void RecoverRunningWidgets()
+    {
+        lock (stateLock)
         {
-            currentIndex = await HandleActionAsync(action, historyId, newsIndex, entries, currentIndex, cancellationToken);
+            if (recovered)
+                return;
+
+            try
+            {
+                foreach (var widgetInfo in WidgetManager.GetDefault().GetWidgetInfos())
+                {
+                    var context = widgetInfo.WidgetContext;
+                    if (!string.Equals(context.DefinitionId, DefinitionId, StringComparison.Ordinal))
+                        continue;
+
+                    states[context.Id] = ParseState(widgetInfo.CustomState);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "既存ウィジェットの状態復元に失敗しました");
+            }
+            finally
+            {
+                recovered = true;
+            }
         }
+    }
+
+    public void CreateWidget(WidgetContext widgetContext)
+    {
+        ValidateDefinition(widgetContext);
+        lock (stateLock)
+            states[widgetContext.Id] = new WidgetProviderState(0);
+
+        UpdateWidget(widgetContext);
+    }
+
+    public void DeleteWidget(string widgetId, string customState)
+    {
+        lock (stateLock)
+            states.Remove(widgetId);
+
+        try
+        {
+            if (WidgetManager.GetDefault().GetWidgetIds() is not { Length: > 0 })
+                shutdownEvent.Set();
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "ウィジェット削除後の状態確認に失敗しました: {WidgetId}", widgetId);
+        }
+    }
+
+    public void OnActionInvoked(WidgetActionInvokedArgs actionInvokedArgs)
+    {
+        var context = actionInvokedArgs.WidgetContext;
+        ValidateDefinition(context);
+
+        var size = MapSize(context.Size);
+        var entries = widgetHistoryService.GetDisplayItems(size);
+        var state = GetState(context.Id, actionInvokedArgs.CustomState);
+        var currentIndex = ClampIndex(state.CurrentIndex, entries.Count);
+
+        try
+        {
+            switch (actionInvokedArgs.Verb)
+            {
+                case "prev":
+                    currentIndex = entries.Count == 0
+                        ? 0
+                        : (currentIndex - 1 + entries.Count) % entries.Count;
+                    break;
+                case "next":
+                    currentIndex = entries.Count == 0
+                        ? 0
+                        : (currentIndex + 1) % entries.Count;
+                    break;
+                case "apply":
+                    if (TryReadActionData(actionInvokedArgs.Data, out var applyData)
+                        && !string.IsNullOrWhiteSpace(applyData.HistoryId))
+                    {
+                        widgetActionService.ApplyHistoryAsync(applyData.HistoryId).GetAwaiter().GetResult();
+                    }
+                    break;
+                case "openNews":
+                    if (TryReadActionData(actionInvokedArgs.Data, out var newsData)
+                        && !string.IsNullOrWhiteSpace(newsData.HistoryId)
+                        && newsData.NewsIndex is not null)
+                    {
+                        widgetActionService.OpenNews(newsData.HistoryId, newsData.NewsIndex.Value);
+                    }
+                    break;
+                default:
+                    logger.LogWarning("未対応のウィジェット操作です: {Action}", actionInvokedArgs.Verb);
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "ウィジェット操作に失敗しました: {Action}", actionInvokedArgs.Verb);
+        }
+
+        SetState(context.Id, new WidgetProviderState(currentIndex));
+        UpdateWidget(context);
+    }
+
+    public void OnWidgetContextChanged(WidgetContextChangedArgs contextChangedArgs)
+    {
+        ValidateDefinition(contextChangedArgs.WidgetContext);
+        UpdateWidget(contextChangedArgs.WidgetContext);
+    }
+
+    public void Activate(WidgetContext widgetContext)
+    {
+        ValidateDefinition(widgetContext);
+        _ = GetState(widgetContext.Id, null);
+        UpdateWidget(widgetContext);
+    }
+
+    public void Deactivate(string widgetId)
+    {
+        // 非表示中は定期更新を行わないため、停止対象の処理はない。
+    }
+
+    private void UpdateWidget(WidgetContext context)
+    {
+        var size = MapSize(context.Size);
+        var entries = widgetHistoryService.GetDisplayItems(size);
+        var state = GetState(context.Id, null);
+        var currentIndex = ClampIndex(state.CurrentIndex, entries.Count);
+        var normalizedState = new WidgetProviderState(currentIndex);
+        SetState(context.Id, normalizedState);
 
         var entry = entries.Count == 0 ? null : entries[currentIndex];
-        var payload = new
+        var options = new WidgetUpdateRequestOptions(context.Id)
         {
-            size = size.ToString().ToLowerInvariant(),
-            index = currentIndex,
-            total = entries.Count,
-            cardJson = widgetCardBuilder.Build(size, entry, currentIndex, entries.Count),
+            Template = widgetCardBuilder.Build(size, entry, currentIndex, entries.Count),
+            Data = "{}",
+            CustomState = JsonSerializer.Serialize(normalizedState, JsonOptions),
         };
 
-        SaveState(new WidgetProviderState(currentIndex));
-        Console.WriteLine(JsonSerializer.Serialize(payload));
-        return 0;
+        WidgetManager.GetDefault().UpdateWidget(options);
     }
 
-    private async Task<int> HandleActionAsync(
-        string action,
-        string? historyId,
-        int? newsIndex,
-        IReadOnlyList<WidgetHistoryEntry> entries,
-        int currentIndex,
-        CancellationToken cancellationToken)
+    private WidgetProviderState GetState(string widgetId, string? customState)
     {
-        switch (action)
+        lock (stateLock)
         {
-            case "prev":
-                if (entries.Count == 0)
-                    return 0;
-                return (currentIndex - 1 + entries.Count) % entries.Count;
-            case "next":
-                if (entries.Count == 0)
-                    return 0;
-                return (currentIndex + 1) % entries.Count;
-            case "apply":
-                if (!string.IsNullOrWhiteSpace(historyId))
-                    await widgetActionService.ApplyHistoryAsync(historyId, cancellationToken);
-                return currentIndex;
-            case "openNews":
-                if (!string.IsNullOrWhiteSpace(historyId) && newsIndex is not null)
-                    widgetActionService.OpenNews(historyId, newsIndex.Value);
-                return currentIndex;
-            default:
-                logger.LogWarning("未対応のウィジェット操作です: {Action}", action);
-                return currentIndex;
+            if (states.TryGetValue(widgetId, out var state))
+                return state;
+
+            state = ParseState(customState);
+            states[widgetId] = state;
+            return state;
         }
     }
 
-    private static WidgetDisplaySize ParseSize(string? value)
-        => value?.ToLowerInvariant() switch
-        {
-            "small" => WidgetDisplaySize.Small,
-            "medium" => WidgetDisplaySize.Medium,
-            "large" => WidgetDisplaySize.Large,
-            _ => WidgetDisplaySize.Large,
-        };
+    private void SetState(string widgetId, WidgetProviderState state)
+    {
+        lock (stateLock)
+            states[widgetId] = state;
+    }
 
-    private static int ResolveCurrentIndex(WidgetProviderState state, int totalCount)
+    private static WidgetProviderState ParseState(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return new WidgetProviderState(0);
+
+        try
+        {
+            return JsonSerializer.Deserialize<WidgetProviderState>(value, JsonOptions)
+                ?? new WidgetProviderState(0);
+        }
+        catch (JsonException)
+        {
+            return new WidgetProviderState(0);
+        }
+    }
+
+    private static bool TryReadActionData(string? value, out WidgetActionData data)
+    {
+        try
+        {
+            data = JsonSerializer.Deserialize<WidgetActionData>(value ?? "{}", JsonOptions)
+                ?? new WidgetActionData();
+            return true;
+        }
+        catch (JsonException)
+        {
+            data = new WidgetActionData();
+            return false;
+        }
+    }
+
+    private static int ClampIndex(int index, int totalCount)
     {
         if (totalCount <= 0)
             return 0;
 
-        if (state.CurrentIndex < 0)
-            return 0;
-
-        if (state.CurrentIndex >= totalCount)
-            return totalCount - 1;
-
-        return state.CurrentIndex;
+        return Math.Clamp(index, 0, totalCount - 1);
     }
 
-    private static WidgetProviderState LoadState()
-        => JsonFileHelper.Load<WidgetProviderState>(WidgetStatePath) ?? new WidgetProviderState(0);
-
-    private static void SaveState(WidgetProviderState state)
-        => JsonFileHelper.Save(WidgetStatePath, state);
-
-    private static string? GetOption(string[] args, string optionName)
-    {
-        for (var i = 0; i < args.Length - 1; i++)
+    private static WidgetDisplaySize MapSize(WidgetSize size)
+        => size switch
         {
-            if (!string.Equals(args[i], optionName, StringComparison.OrdinalIgnoreCase))
-                continue;
+            WidgetSize.Small => WidgetDisplaySize.Small,
+            WidgetSize.Medium => WidgetDisplaySize.Medium,
+            _ => WidgetDisplaySize.Large,
+        };
 
-            return args[i + 1];
-        }
-
-        return null;
+    private static void ValidateDefinition(WidgetContext context)
+    {
+        if (!string.Equals(context.DefinitionId, DefinitionId, StringComparison.Ordinal))
+            throw new InvalidOperationException($"未対応のウィジェット定義です: {context.DefinitionId}");
     }
 
-    private static int? ParseInt(string? value)
-        => int.TryParse(value, out var intValue) ? intValue : null;
+    private sealed record WidgetProviderState(int CurrentIndex);
 
-    private record WidgetProviderState(int CurrentIndex);
+    private sealed record WidgetActionData(string? HistoryId = null, int? NewsIndex = null);
 }

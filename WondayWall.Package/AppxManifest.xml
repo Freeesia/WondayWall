@@ -3,6 +3,7 @@
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
   xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
+  xmlns:com="http://schemas.microsoft.com/appx/manifest/com/windows10"
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
   IgnorableNamespaces="rescap uap3">
 
@@ -41,12 +42,59 @@
         <uap:DefaultTile Wide310x150Logo="Images\Wide310x150Logo.png" />
       </uap:VisualElements>
       <Extensions>
+        <com:Extension Category="windows.comServer">
+          <com:ComServer>
+            <com:ExeServer
+              Executable="WondayWall.exe"
+              Arguments="widget-provider"
+              DisplayName="WondayWall Widget Provider">
+              <com:Class
+                Id="E2C0C47E-6B2A-49D0-AE88-01EA06D5C856"
+                DisplayName="WondayWall Widget Provider" />
+            </com:ExeServer>
+          </com:ComServer>
+        </com:Extension>
         <uap3:Extension Category="windows.appExtension">
           <uap3:AppExtension
             Name="com.microsoft.windows.widgets"
             Id="WondayWall.WidgetProvider"
             DisplayName="WondayWall Widget Provider"
-            PublicFolder="Widgets" />
+            PublicFolder="Widgets">
+            <uap3:Properties>
+              <WidgetProvider>
+                <ProviderIcons>
+                  <Icon Path="Images\StoreLogo.png" />
+                </ProviderIcons>
+                <Activation>
+                  <CreateInstance ClassId="E2C0C47E-6B2A-49D0-AE88-01EA06D5C856" />
+                </Activation>
+                <Definitions>
+                  <Definition
+                    Id="WondayWall.History"
+                    DisplayName="WondayWall"
+                    Description="生成した壁紙とニュースを表示します">
+                    <Capabilities>
+                      <Capability><Size Name="small" /></Capability>
+                      <Capability><Size Name="medium" /></Capability>
+                      <Capability><Size Name="large" /></Capability>
+                    </Capabilities>
+                    <ThemeResources>
+                      <Icons>
+                        <Icon Path="Images\StoreLogo.png" />
+                      </Icons>
+                      <Screenshots>
+                        <Screenshot
+                          Path="Images\Wide310x150Logo.png"
+                          DisplayAltText="WondayWall の壁紙履歴ウィジェット" />
+                      </Screenshots>
+                      <DarkMode />
+                      <LightMode />
+                    </ThemeResources>
+                  </Definition>
+                </Definitions>
+              </WidgetProvider>
+            </uap3:Properties>
+          </uap3:AppExtension>
         </uap3:Extension>
       </Extensions>
     </Application>

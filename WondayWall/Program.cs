@@ -14,15 +14,21 @@ using WondayWall.Services;
 using WondayWall.ViewModels;
 using WondayWall.Views;
 
-// Set STAThread 
-Thread.CurrentThread.SetApartmentState(ApartmentState.Unknown);
-Thread.CurrentThread.SetApartmentState(ApartmentState.STA);
+// 単一ファイル配布でも Windows App SDK の埋め込みリソースを解決できるようにする。
+Environment.SetEnvironmentVariable("MICROSOFT_WINDOWSAPPRUNTIME_BASE_DIRECTORY", AppContext.BaseDirectory);
 
 if (args.Length > 0 && string.Equals(args[0], "widget-provider", StringComparison.OrdinalIgnoreCase))
 {
-    await RunWidgetProviderAsync(args.Skip(1).ToArray()).ConfigureAwait(false);
+    // Widget Provider は COM ローカルサーバーとして MTA で起動する。
+    Thread.CurrentThread.SetApartmentState(ApartmentState.Unknown);
+    Thread.CurrentThread.SetApartmentState(ApartmentState.MTA);
+    RunWidgetProvider();
     return;
 }
+
+// WPF は STA スレッドで起動する。
+Thread.CurrentThread.SetApartmentState(ApartmentState.Unknown);
+Thread.CurrentThread.SetApartmentState(ApartmentState.STA);
 
 var cafApp = ConsoleApp.Create()
     .ConfigureServices((context, _, services) =>
@@ -70,6 +76,10 @@ static void ConfigureCommonServices(IServiceCollection services)
     services.AddSingleton<HistoryService>();
     services.AddSingleton<ContextService>();
     services.AddSingleton<GoogleAiService>();
+    services.AddSingleton<IAiService>(sp =>
+        sp.GetRequiredService<AppConfigService>().Current.DebugConfig.UseDummyAiService
+            ? sp.GetRequiredService<DummyAiService>()
+            : sp.GetRequiredService<GoogleAiService>());
     services.AddSingleton<GenerationCoordinator>();
     services.AddSingleton<TaskSchedulerService>();
     services.AddSingleton<WidgetHistoryService>();
@@ -107,11 +117,15 @@ static void AttachConsole()
     Console.SetError(errorWriter);
 }
 
-static async Task RunWidgetProviderAsync(string[] providerArgs)
+static void RunWidgetProvider()
 {
+    WinRT.ComWrappersSupport.InitializeComWrappers();
     var hostBuilder = Host.CreateApplicationBuilder();
     ConfigureCommonServices(hostBuilder.Services);
     using var host = hostBuilder.Build();
     var provider = host.Services.GetRequiredService<WondayWallWidgetProvider>();
-    Environment.ExitCode = await provider.RunAsync(providerArgs).ConfigureAwait(false);
+    provider.RecoverRunningWidgets();
+
+    using var registration = WidgetProviderRegistration.Register(provider);
+    provider.ShutdownWaitHandle.WaitOne();
 }

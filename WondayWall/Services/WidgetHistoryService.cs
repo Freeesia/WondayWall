@@ -54,7 +54,7 @@ public class WidgetHistoryService(
                 HistoryId: item.Id,
                 ExecutedAt: item.ExecutedAt,
                 OriginalImagePath: item.AppliedImagePath,
-                BackgroundImagePath: backgroundImagePath,
+                BackgroundImageUri: CreateDataUri(backgroundImagePath),
                 NewsItems: newsItems);
         }
         catch (Exception ex)
@@ -87,6 +87,9 @@ public class WidgetHistoryService(
 
         return thumbnailPath;
     }
+
+    private static string CreateDataUri(string imagePath)
+        => $"data:image/jpeg;base64,{Convert.ToBase64String(File.ReadAllBytes(imagePath))}";
 
     private static (int Width, int Height) GetThumbnailSize(WidgetDisplaySize size)
         => size switch

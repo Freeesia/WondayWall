@@ -191,7 +191,7 @@ public class ContextService(
     {
         if (configService.Current.DebugConfig.UseDummyAiService)
         {
-            var dummyNews = await dummyAiService.BuildNewsTopicsAsync(ct);
+            var dummyNews = dummyAiService.BuildNewsTopics();
             foreach (var news in dummyNews)
             {
                 ct.ThrowIfCancellationRequested();
@@ -315,7 +315,7 @@ public class ContextService(
     private async Task<List<NewsTopicItem>> BuildPromptNewsAsync(CancellationToken ct)
     {
         if (configService.Current.DebugConfig.UseDummyAiService)
-            return await dummyAiService.BuildNewsTopicsAsync(ct);
+            return dummyAiService.BuildNewsTopics();
 
         var recentNews = await FetchRecentRssItemsAsync(configService.Current.RssSources, ct);
         var lastGeneratedAt = historyService.GetLastSuccessfulGenerated()?.ExecutedAt;

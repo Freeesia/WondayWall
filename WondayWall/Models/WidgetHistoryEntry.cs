@@ -4,5 +4,5 @@ public record WidgetHistoryEntry(
     string HistoryId,
     DateTime ExecutedAt,
     string OriginalImagePath,
-    string BackgroundImagePath,
+    string BackgroundImageUri,
     IReadOnlyList<WidgetNewsEntry> NewsItems);

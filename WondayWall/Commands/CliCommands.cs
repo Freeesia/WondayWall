@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using ConsoleAppFramework;
 using Microsoft.Extensions.Logging;
 using WondayWall.Models;
@@ -11,8 +10,7 @@ public class CliCommands(
     ContextService contextService,
     GoogleAiService googleAiService,
     AppConfigService configService,
-    HistoryService historyService,
-    WallpaperService wallpaperService,
+    WidgetActionService widgetActionService,
     ILogger<CliCommands> logger)
 {
     /// <summary>Run once for the current scheduled slot if it has not already been handled.</summary>
@@ -92,21 +90,7 @@ public class CliCommands(
         if (string.IsNullOrWhiteSpace(id))
             throw new ArgumentException("History id must not be empty.", nameof(id));
 
-        var history = historyService.GetById(id);
-        if (history is null)
-        {
-            logger.LogWarning("History not found: {HistoryId}", id);
-            return;
-        }
-
-        if (!history.IsSuccess || history.IsSkipped || string.IsNullOrWhiteSpace(history.AppliedImagePath))
-        {
-            logger.LogWarning("History cannot be applied as wallpaper: {HistoryId}", id);
-            return;
-        }
-
-        await wallpaperService.SetWallpaperAsync(history.AppliedImagePath, configService.Current.UpdateLockScreen, cancellationToken);
-        logger.LogInformation("Wallpaper applied from history: {HistoryId} ({Path})", id, history.AppliedImagePath);
+        _ = await widgetActionService.ApplyHistoryAsync(id, cancellationToken);
     }
 
     [Command("open-news")]
@@ -116,35 +100,7 @@ public class CliCommands(
         if (string.IsNullOrWhiteSpace(historyId))
             throw new ArgumentException("History id must not be empty.", nameof(historyId));
 
-        var history = historyService.GetById(historyId);
-        if (history?.UsedNewsTopics is null || history.UsedNewsTopics.Count == 0)
-        {
-            logger.LogWarning("News topics not found for history: {HistoryId}", historyId);
-            return Task.CompletedTask;
-        }
-
-        if (newsIndex < 0 || newsIndex >= history.UsedNewsTopics.Count)
-        {
-            logger.LogWarning("News index out of range: {HistoryId} index={NewsIndex}", historyId, newsIndex);
-            return Task.CompletedTask;
-        }
-
-        var news = history.UsedNewsTopics[newsIndex];
-        if (string.IsNullOrWhiteSpace(news.Url))
-        {
-            logger.LogWarning("News URL is empty: {HistoryId} index={NewsIndex}", historyId, newsIndex);
-            return Task.CompletedTask;
-        }
-
-        if (!Uri.TryCreate(news.Url, UriKind.Absolute, out var uri)
-            || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
-        {
-            logger.LogWarning("News URL is invalid: {HistoryId} index={NewsIndex}", historyId, newsIndex);
-            return Task.CompletedTask;
-        }
-
-        Process.Start(new ProcessStartInfo(uri.ToString()) { UseShellExecute = true });
-        logger.LogInformation("Opened news URL: {HistoryId} index={NewsIndex}", historyId, newsIndex);
+        _ = widgetActionService.OpenNews(historyId, newsIndex);
         return Task.CompletedTask;
     }
 

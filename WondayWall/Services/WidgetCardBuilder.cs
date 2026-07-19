@@ -44,14 +44,24 @@ public class WidgetCardBuilder
         {
             type = "AdaptiveCard",
             version = "1.5",
+            verticalContentAlignment = "Bottom",
             backgroundImage = new
             {
-                url = entry.BackgroundImagePath,
+                url = entry.BackgroundImageUri,
                 fillMode = "Cover",
                 horizontalAlignment = "Center",
                 verticalAlignment = "Center",
             },
-            body = BuildBody(size, entry, currentIndex, totalCount),
+            body = new object[]
+            {
+                new
+                {
+                    type = "Container",
+                    style = "emphasis",
+                    bleed = true,
+                    items = BuildBody(size, entry, currentIndex, totalCount),
+                },
+            },
             actions,
         };
     }

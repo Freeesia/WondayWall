@@ -6,14 +6,11 @@ using WondayWall.Utils;
 
 namespace WondayWall.Services;
 
-public class DummyAiService(AppConfigService configService)
+public class DummyAiService(AppConfigService configService) : IAiService
 {
-    public async Task<List<NewsTopicItem>> BuildNewsTopicsAsync(CancellationToken ct = default)
+    public List<NewsTopicItem> BuildNewsTopics()
     {
         var debugConfig = configService.Current.DebugConfig;
-        if (debugConfig.DummyPromptDelaySeconds > 0)
-            await Task.Delay(TimeSpan.FromSeconds(debugConfig.DummyPromptDelaySeconds), ct);
-
         var templates = new (string Title, string Summary)[]
         {
             ("ダミーニュース{n}: 週末の空模様と街イベントの見どころ", "週末に楽しめる屋外イベントと天気の変化をまとめたダミーニュースです。"),
@@ -39,14 +36,46 @@ public class DummyAiService(AppConfigService configService)
             .ToList();
     }
 
-    public async Task<GeneratedImageInfo> GenerateWallpaperAsync(
+    public async Task<PromptGenerationResult> GeneratePromptAsync(
         PromptContext context,
         GoogleAiServiceTier serviceTier,
-        CancellationToken ct = default)
+        CancellationToken cancellationToken = default)
+    {
+        var debugConfig = configService.Current.DebugConfig;
+        if (debugConfig.DummyPromptDelaySeconds > 0)
+            await Task.Delay(TimeSpan.FromSeconds(debugConfig.DummyPromptDelaySeconds), cancellationToken);
+
+        var news = BuildNewsTopics();
+        var selectedIds = (context.NewsTopics ?? [])
+            .Take(news.Count)
+            .Select(topic => topic.Id)
+            .ToList();
+
+        return new PromptGenerationResult(
+            ImagePrompt: "[Dummy] Simulated Windows wallpaper prompt",
+            SelectedNewsTopics: news,
+            SelectedNewsIds: selectedIds,
+            ServiceTier: serviceTier);
+    }
+
+    public Task<PromptContext> FetchOgpImagesAsync(
+        PromptContext context,
+        IReadOnlyList<string> selectedNewsIds,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(context);
+    }
+
+    public async Task<GeneratedImageInfo> GenerateImageFromPromptAsync(
+        string imagePrompt,
+        PromptContext context,
+        GoogleAiServiceTier serviceTier,
+        CancellationToken cancellationToken = default)
     {
         var debugConfig = configService.Current.DebugConfig;
         if (debugConfig.DummyImageDelaySeconds > 0)
-            await Task.Delay(TimeSpan.FromSeconds(debugConfig.DummyImageDelaySeconds), ct);
+            await Task.Delay(TimeSpan.FromSeconds(debugConfig.DummyImageDelaySeconds), cancellationToken);
 
         var (width, height) = ParseCanvasSize(context.ImageSize, context.AspectRatio);
         var path = FileNameHelper.GetImageFilePath(PathUtility.WallpaperDirectory, extension: "png");
@@ -59,7 +88,7 @@ public class DummyAiService(AppConfigService configService)
 
         for (var y = 0; y < height; y++)
         {
-            ct.ThrowIfCancellationRequested();
+            cancellationToken.ThrowIfCancellationRequested();
             var t = (float)y / Math.Max(height - 1, 1f);
             var blend = t < 0.55f ? t / 0.55f : (t - 0.55f) / 0.45f;
             var from = t < 0.55f ? gradientA : gradientB;
@@ -89,7 +118,7 @@ public class DummyAiService(AppConfigService configService)
         return new GeneratedImageInfo(
             FilePath: path,
             GeneratedAt: DateTime.Now,
-            UsedPrompt: "[Dummy] Simulated wallpaper prompt",
+            UsedPrompt: imagePrompt,
             ServiceTier: serviceTier,
             SourceContext: context);
     }
