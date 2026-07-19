@@ -1,0 +1,13 @@
+assembly-versioning-scheme: MajorMinorPatchTag
+assembly-file-versioning-format: '{Major}.{Minor}.{Patch}.0'
+next-version: 'msix/v0.3.673'
+tag-prefix: '(?:msix/)?[vV]'
+strategies:
+  - ConfiguredNextVersion
+  - Mainline
+branches:
+  main:
+    mode: ContinuousDeployment
+ignore:
+  sha: []
+merge-message-formats: {}

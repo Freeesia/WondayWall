@@ -1,12 +1,5 @@
 assembly-versioning-scheme: MajorMinorPatchTag
-next-version: 'v0.3.673'
 tag-prefix: '[vV]'
-strategies:
-  - ConfiguredNextVersion
-  - Mainline
-branches:
-  main:
-    mode: ContinuousDeployment
 ignore:
   sha: []
 merge-message-formats: {}
