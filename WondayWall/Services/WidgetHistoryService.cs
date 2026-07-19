@@ -53,7 +53,6 @@ public class WidgetHistoryService(
             return new WidgetHistoryEntry(
                 HistoryId: item.Id,
                 ExecutedAt: item.ExecutedAt,
-                OriginalImagePath: item.AppliedImagePath,
                 BackgroundImageUri: CreateDataUri(backgroundImagePath),
                 NewsItems: newsItems);
         }
