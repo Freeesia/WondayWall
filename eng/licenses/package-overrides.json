@@ -28,5 +28,89 @@
     "Version": "0.13.25-experimental",
     "License": "Microsoft-Windows-SDK",
     "LicenseUrl": "https://aka.ms/WinSDKLicenseURL"
+  },
+  {
+    "Id": "Microsoft.WindowsAppSDK",
+    "Version": "2.2.0",
+    "License": "Microsoft-Windows-App-SDK",
+    "LicenseUrl": "https://www.nuget.org/packages/Microsoft.WindowsAppSDK/2.2.0/License"
+  },
+  {
+    "Id": "Microsoft.WindowsAppSDK.AI",
+    "Version": "2.2.3",
+    "License": "Microsoft-Windows-App-SDK",
+    "LicenseUrl": "https://www.nuget.org/packages/Microsoft.WindowsAppSDK.AI/2.2.3/License"
+  },
+  {
+    "Id": "Microsoft.WindowsAppSDK.Base",
+    "Version": "2.0.4",
+    "License": "Microsoft-Windows-App-SDK",
+    "LicenseUrl": "https://www.nuget.org/packages/Microsoft.WindowsAppSDK.Base/2.0.4/License"
+  },
+  {
+    "Id": "Microsoft.WindowsAppSDK.DWrite",
+    "Version": "2.1.0",
+    "License": "Microsoft-Windows-App-SDK",
+    "LicenseUrl": "https://www.nuget.org/packages/Microsoft.WindowsAppSDK.DWrite/2.1.0/License"
+  },
+  {
+    "Id": "Microsoft.WindowsAppSDK.Foundation",
+    "Version": "2.1.0",
+    "License": "Microsoft-Windows-App-SDK",
+    "LicenseUrl": "https://www.nuget.org/packages/Microsoft.WindowsAppSDK.Foundation/2.1.0/License"
+  },
+  {
+    "Id": "Microsoft.WindowsAppSDK.InteractiveExperiences",
+    "Version": "2.0.15",
+    "License": "Microsoft-Windows-App-SDK",
+    "LicenseUrl": "https://www.nuget.org/packages/Microsoft.WindowsAppSDK.InteractiveExperiences/2.0.15/License"
+  },
+  {
+    "Id": "Microsoft.WindowsAppSDK.ML",
+    "Version": "2.1.70",
+    "License": "Microsoft-Windows-App-SDK",
+    "LicenseUrl": "https://www.nuget.org/packages/Microsoft.WindowsAppSDK.ML/2.1.70/License"
+  },
+  {
+    "Id": "Microsoft.WindowsAppSDK.Runtime",
+    "Version": "2.2.0",
+    "License": "Microsoft-Windows-App-SDK",
+    "LicenseUrl": "https://www.nuget.org/packages/Microsoft.WindowsAppSDK.Runtime/2.2.0/License"
+  },
+  {
+    "Id": "Microsoft.WindowsAppSDK.Widgets",
+    "Version": "2.0.5",
+    "License": "Microsoft-Windows-App-SDK",
+    "LicenseUrl": "https://www.nuget.org/packages/Microsoft.WindowsAppSDK.Widgets/2.0.5/License"
+  },
+  {
+    "Id": "Microsoft.WindowsAppSDK.WinUI",
+    "Version": "2.2.1",
+    "License": "Microsoft-Windows-App-SDK",
+    "LicenseUrl": "https://www.nuget.org/packages/Microsoft.WindowsAppSDK.WinUI/2.2.1/License"
+  },
+  {
+    "Id": "Microsoft.Windows.AI.MachineLearning",
+    "Version": "2.1.70",
+    "License": "Microsoft-Windows-ML-Runtime",
+    "LicenseUrl": "https://www.nuget.org/packages/Microsoft.Windows.AI.MachineLearning/2.1.70/License"
+  },
+  {
+    "Id": "Microsoft.Windows.SDK.BuildTools.MSIX",
+    "Version": "1.7.251221100",
+    "License": "Microsoft-Windows-SDK",
+    "LicenseUrl": "https://aka.ms/WinSDKLicenseURL"
+  },
+  {
+    "Id": "Microsoft.Windows.SDK.BuildTools",
+    "Version": "10.0.26100.4654",
+    "License": "Microsoft-Windows-SDK",
+    "LicenseUrl": "https://aka.ms/WinSDKLicenseURL"
+  },
+  {
+    "Id": "SixLabors.ImageSharp",
+    "Version": "3.1.12",
+    "License": "Six-Labors-Split-License-1.0",
+    "LicenseUrl": "https://www.nuget.org/packages/SixLabors.ImageSharp/3.1.12/License"
   }
 ]

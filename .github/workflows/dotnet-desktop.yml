@@ -62,10 +62,10 @@ jobs:
             -a eng\licenses\allowed-licenses.json `
             -override eng\licenses\package-overrides.json `
             -ignore eng\licenses\license-download-ignored-packages.json `
+            -include-ignored `
             -d licenses `
             -fo licenses\THIRD-PARTY-NOTICES.md `
-            -o Markdown `
-            -err
+            -o Markdown
 
       - name: Verify THIRD-PARTY-NOTICES.md is not empty
         run: |
