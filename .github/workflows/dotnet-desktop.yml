@@ -92,7 +92,7 @@ jobs:
       contents: read
     outputs:
       version: ${{ steps.gitversion.outputs.assemblySemFileVer }}
-      msix_version: ${{ steps.build_number.outputs.version }}
+      msix_version: ${{ steps.gitversion.outputs.assemblySemFileVer }}
     steps:
       - uses: actions/checkout@v7.0.0
         with:
@@ -111,20 +111,6 @@ jobs:
           versionSpec: "6.x"
       - id: gitversion
         uses: gittools/actions/gitversion/execute@v4.5.0
-      - id: build_number
-        name: Determine MSIX build number
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $version = [Version]'${{ steps.gitversion.outputs.assemblySemFileVer }}'
-          $buildNumber = [int](git rev-list --count HEAD)
-          if ($buildNumber -gt [uint16]::MaxValue) {
-            throw "The MSIX build number $buildNumber exceeds the maximum value 65535."
-          }
-
-          $msixVersion = [Version]::new($version.Major, $version.Minor, $buildNumber, 0)
-          "version=$msixVersion" >> $env:GITHUB_OUTPUT
-          Write-Host "MSIX version: $msixVersion"
       - uses: actions/download-artifact@v8
         with:
           name: licenses
