@@ -189,8 +189,11 @@ jobs:
 
       - name: Generate MSIX
         shell: pwsh
+        env:
+          IS_PULL_REQUEST: ${{ github.event_name == 'pull_request' }}
         run: |
           $version = '${{ needs.build.outputs.msix_version }}'
+          $isPullRequest = $env:IS_PULL_REQUEST -eq 'true'
 
           # Windows SDK に同梱の makeappx.exe を検索
           $makeappx = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin' -Filter 'makeappx.exe' -Recurse -ErrorAction SilentlyContinue |
@@ -219,16 +222,30 @@ jobs:
           # マニフェストのバージョン文字列を差し替えてステージングへ配置
           $manifest = Get-Content 'WondayWall.Package\AppxManifest.xml' -Raw -Encoding UTF8
           $manifest = $manifest.Replace('Version="0.0.0.0"', "Version=`"$version`"")
+          # PR では別 Identity と未署名パッケージ専用 OID を使い、-AllowUnsigned でインストール可能にする。
+          # main / tag では Store の Publisher を維持し、従来どおり package flight へ送る。
+          $packageSuffix = ''
+          if ($isPullRequest) {
+            $manifest = $manifest.Replace(
+              'Name="StudioFreesia.WondayWall"',
+              'Name="StudioFreesia.WondayWall.PR"')
+            $manifest = $manifest.Replace(
+              'Publisher="CN=C2D29EED-29D7-4F36-AEC7-317709A7150C"',
+              'Publisher="CN=C2D29EED-29D7-4F36-AEC7-317709A7150C, OID.2.25.311729368913984317654407730594956997722=1"')
+            $packageSuffix = '-unsigned'
+          }
+
           Set-Content 'msix-staging\AppxManifest.xml' $manifest -Encoding UTF8
 
           # MSIX をパック（/nv = 署名検証スキップ）
           New-Item -ItemType Directory -Force -Path publish | Out-Null
-          & $makeappx pack /d msix-staging /p "publish\WondayWall-$version.msix" /nv
+          $msixPath = "publish\WondayWall-$version$packageSuffix.msix"
+          & $makeappx pack /d msix-staging /p $msixPath /nv
           if ($LASTEXITCODE -ne 0) {
             throw "makeappx failed with exit code $LASTEXITCODE"
           }
 
-          Write-Host "MSIX generated: publish\WondayWall-$version.msix"
+          Write-Host "MSIX generated: $msixPath"
 
       - uses: actions/upload-artifact@v7
         with:
@@ -237,7 +254,7 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: WondayWall-${{ needs.build.outputs.msix_version }}.msix
+          name: WondayWall-${{ needs.build.outputs.msix_version }}${{ github.event_name == 'pull_request' && '-unsigned' || '' }}.msix
           path: publish\*.msix
 
   store-upload:
