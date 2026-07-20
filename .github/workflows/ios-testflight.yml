@@ -56,7 +56,7 @@ jobs:
         run: xcodebuild -version
 
       - name: Set up Ruby
-        uses: ruby/setup-ruby@v1.314.0
+        uses: ruby/setup-ruby@v1.316.0
         with:
           ruby-version: "3.3"
           bundler-cache: true
