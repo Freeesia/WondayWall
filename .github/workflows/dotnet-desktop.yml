@@ -216,6 +216,28 @@ jobs:
           magick $iconSrc -resize 310x150 -background transparent -gravity center -extent 310x150 "$imagesDir\Wide310x150Logo.png"
           magick $iconSrc -resize 50x50 "$imagesDir\StoreLogo.png"
 
+          # ウィジェットホストが参照する公開フォルダーとピッカー用アセットを生成
+          $widgetsDir = 'msix-staging\Widgets'
+          New-Item -ItemType Directory -Force -Path $widgetsDir | Out-Null
+          magick $iconSrc -resize 50x50 "$widgetsDir\ProviderIcon.png"
+          Copy-Item "$widgetsDir\ProviderIcon.png" "$widgetsDir\HistoryIcon.png" -Force
+          magick -size 300x304 xc:none `
+            -fill '#202020' -draw 'roundrectangle 0,0 299,303 18,18' `
+            $iconSrc -resize 112x112 -gravity center -composite `
+            "$widgetsDir\HistoryScreenshot.png"
+
+          Add-Type -AssemblyName System.Drawing
+          $widgetScreenshotPath = (Resolve-Path "$widgetsDir\HistoryScreenshot.png").Path
+          $widgetScreenshot = [System.Drawing.Image]::FromFile($widgetScreenshotPath)
+          try {
+            if ($widgetScreenshot.Width -ne 300 -or $widgetScreenshot.Height -ne 304) {
+              throw "Widget screenshot must be 300x304, but was $($widgetScreenshot.Width)x$($widgetScreenshot.Height)."
+            }
+          }
+          finally {
+            $widgetScreenshot.Dispose()
+          }
+
           # Windows App SDK を含む MSIX 用の複数ファイル成果物をステージングへコピー
           Copy-Item 'msix-app\*' 'msix-staging\' -Recurse -Force
 

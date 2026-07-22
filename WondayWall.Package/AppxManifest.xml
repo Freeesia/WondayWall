@@ -63,7 +63,7 @@
             <uap3:Properties>
               <WidgetProvider>
                 <ProviderIcons>
-                  <Icon Path="Images\StoreLogo.png" />
+                  <Icon Path="Widgets\ProviderIcon.png" />
                 </ProviderIcons>
                 <Activation>
                   <CreateInstance ClassId="E2C0C47E-6B2A-49D0-AE88-01EA06D5C856" />
@@ -80,11 +80,11 @@
                     </Capabilities>
                     <ThemeResources>
                       <Icons>
-                        <Icon Path="Images\StoreLogo.png" />
+                        <Icon Path="Widgets\HistoryIcon.png" />
                       </Icons>
                       <Screenshots>
                         <Screenshot
-                          Path="Images\Wide310x150Logo.png"
+                          Path="Widgets\HistoryScreenshot.png"
                           DisplayAltText="WondayWall の壁紙履歴ウィジェット" />
                       </Screenshots>
                       <DarkMode />
