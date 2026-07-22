@@ -221,10 +221,13 @@ jobs:
           New-Item -ItemType Directory -Force -Path $widgetsDir | Out-Null
           magick $iconSrc -resize 50x50 "$widgetsDir\ProviderIcon.png"
           Copy-Item "$widgetsDir\ProviderIcon.png" "$widgetsDir\HistoryIcon.png" -Force
+          $widgetPreviewIcon = "$widgetsDir\HistoryPreviewIcon.png"
+          magick $iconSrc -resize 112x112 $widgetPreviewIcon
           magick -size 300x304 xc:none `
             -fill '#202020' -draw 'roundrectangle 0,0 299,303 18,18' `
-            $iconSrc -resize 112x112 -gravity center -composite `
+            $widgetPreviewIcon -gravity center -composite `
             "$widgetsDir\HistoryScreenshot.png"
+          Remove-Item -LiteralPath $widgetPreviewIcon
 
           Add-Type -AssemblyName System.Drawing
           $widgetScreenshotPath = (Resolve-Path "$widgetsDir\HistoryScreenshot.png").Path
