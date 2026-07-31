@@ -17,28 +17,21 @@ using WondayWall.Views;
 // 単一ファイル配布でも Windows App SDK の埋め込みリソースを解決できるようにする。
 Environment.SetEnvironmentVariable("MICROSOFT_WINDOWSAPPRUNTIME_BASE_DIRECTORY", AppContext.BaseDirectory);
 
-if (args.Length > 0 && string.Equals(args[0], "widget-provider", StringComparison.OrdinalIgnoreCase))
-{
-    // Widget Provider は COM ローカルサーバーとして MTA で起動する。
-    Thread.CurrentThread.SetApartmentState(ApartmentState.Unknown);
-    Thread.CurrentThread.SetApartmentState(ApartmentState.MTA);
-    RunWidgetProvider();
-    return;
-}
-
-// WPF は STA スレッドで起動する。
+// GUI と Widget Provider の依存サービスは STA を必要とする。
 Thread.CurrentThread.SetApartmentState(ApartmentState.Unknown);
 Thread.CurrentThread.SetApartmentState(ApartmentState.STA);
 
 var cafApp = ConsoleApp.Create()
     .ConfigureServices((context, _, services) =>
     {
-        if (!string.IsNullOrEmpty(context.CommandName))
+        if (!string.IsNullOrEmpty(context.CommandName)
+            && !string.Equals(context.CommandName, "widget-provider", StringComparison.OrdinalIgnoreCase))
             AttachConsole();
 
         ConfigureCommonServices(services);
     });
 cafApp.Add("", RunGuiAsync);
+cafApp.Add("widget-provider", RunWidgetProvider);
 cafApp.Add<CliCommands>();
 
 await cafApp.RunAsync(args).ConfigureAwait(false);
@@ -122,13 +115,9 @@ static void AttachConsole()
     Console.SetError(errorWriter);
 }
 
-static void RunWidgetProvider()
+static void RunWidgetProvider([FromServices] WondayWallWidgetProvider provider)
 {
     WinRT.ComWrappersSupport.InitializeComWrappers();
-    var hostBuilder = Host.CreateApplicationBuilder();
-    ConfigureCommonServices(hostBuilder.Services);
-    using var host = hostBuilder.Build();
-    var provider = host.Services.GetRequiredService<WondayWallWidgetProvider>();
     provider.RecoverRunningWidgets();
 
     using var registration = WidgetProviderRegistration.Register(provider);
