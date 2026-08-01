@@ -57,8 +57,6 @@ public class WidgetCardBuilder
                 new
                 {
                     type = "Container",
-                    style = "emphasis",
-                    bleed = true,
                     items = BuildBody(size, entry, currentIndex, totalCount),
                 },
             },
@@ -85,18 +83,7 @@ public class WidgetCardBuilder
         if (size != WidgetDisplaySize.Small)
         {
             foreach (var news in entry.NewsItems.Take(3))
-            {
-                body.Add(new
-                {
-                    type = "TextBlock",
-                    text = BuildNewsText(news, size),
-                    wrap = true,
-                    color = "Light",
-                    selectAction = string.IsNullOrWhiteSpace(news.Url)
-                        ? null
-                        : CreateOpenNewsAction(entry.HistoryId, news.Index),
-                });
-            }
+                body.Add(CreateNewsItem(news, size));
         }
 
         if (size == WidgetDisplaySize.Large)
@@ -112,6 +99,25 @@ public class WidgetCardBuilder
 
         return body.ToArray();
     }
+
+    private static object CreateNewsItem(WidgetNewsEntry news, WidgetDisplaySize size)
+        => new
+        {
+            type = "Container",
+            style = "emphasis",
+            spacing = "small",
+            items = new object[]
+            {
+                new
+                {
+                    type = "TextBlock",
+                    text = BuildNewsText(news, size),
+                    wrap = true,
+                    color = "Light",
+                },
+            },
+            selectAction = CreateOpenNewsAction(news.Url),
+        };
 
     private static string BuildNewsText(WidgetNewsEntry news, WidgetDisplaySize size)
     {
@@ -143,15 +149,17 @@ public class WidgetCardBuilder
             verb,
         };
 
-    private static object CreateOpenNewsAction(string historyId, int newsIndex)
-        => new
+    private static object? CreateOpenNewsAction(string? url)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)
+            || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+            return null;
+
+        return new
         {
-            type = "Action.Execute",
-            verb = "openNews",
-            data = new
-            {
-                historyId,
-                newsIndex,
-            },
+            type = "Action.OpenUrl",
+            url = uri.ToString(),
+            tooltip = "ニュースを開く",
         };
+    }
 }
