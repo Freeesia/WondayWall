@@ -53,7 +53,7 @@ jobs:
           cp release-artifacts/WondayWall-*.msi/*.msi release-files/
           cp release-artifacts/WondayWall-Android-release-*/* release-files/
 
-      - uses: softprops/action-gh-release@v3.0.1
+      - uses: softprops/action-gh-release@v3.0.2
         with:
           generate_release_notes: true
           draft: true
