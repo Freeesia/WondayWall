@@ -41,7 +41,7 @@ jobs:
       WIDGET_APP_IDENTIFIER: com.studiofreesia.wondaywall.preview.widget
 
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
 
