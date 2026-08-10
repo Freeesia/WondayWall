@@ -34,7 +34,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.1
 
       - uses: actions/setup-dotnet@v6.0.0
         with:
@@ -94,7 +94,7 @@ jobs:
       version: ${{ steps.gitversion.outputs.assemblySemFileVer }}
       msix_version: ${{ steps.gitversion.outputs.assemblySemFileVer }}
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
       - uses: actions/cache@v6
@@ -142,7 +142,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.1
 
       - uses: actions/cache@v6
         with:

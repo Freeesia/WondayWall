@@ -37,7 +37,7 @@ jobs:
       release-artifact-name: ${{ steps.prepare-artifacts.outputs.release-artifact-name }}
       debug-artifact-name: ${{ steps.prepare-artifacts.outputs.debug-artifact-name }}
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
 
