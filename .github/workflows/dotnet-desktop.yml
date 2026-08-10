@@ -241,7 +241,7 @@ jobs:
           path: msix-artifacts
           merge-multiple: true
 
-      - uses: microsoft/microsoft-store-apppublisher@v1.3
+      - uses: microsoft/microsoft-store-apppublisher@v1.4
 
       - name: Configure Partner Center authentication
         run: |
