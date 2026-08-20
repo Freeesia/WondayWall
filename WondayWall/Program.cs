@@ -14,20 +14,24 @@ using WondayWall.Services;
 using WondayWall.ViewModels;
 using WondayWall.Views;
 
-// Set STAThread 
+// 単一ファイル配布でも Windows App SDK の埋め込みリソースを解決できるようにする。
+Environment.SetEnvironmentVariable("MICROSOFT_WINDOWSAPPRUNTIME_BASE_DIRECTORY", AppContext.BaseDirectory);
+
+// GUI と Widget Provider の依存サービスは STA を必要とする。
 Thread.CurrentThread.SetApartmentState(ApartmentState.Unknown);
 Thread.CurrentThread.SetApartmentState(ApartmentState.STA);
-
 
 var cafApp = ConsoleApp.Create()
     .ConfigureServices((context, _, services) =>
     {
-        if (!string.IsNullOrEmpty(context.CommandName))
+        if (!string.IsNullOrEmpty(context.CommandName)
+            && !string.Equals(context.CommandName, "widget-provider", StringComparison.OrdinalIgnoreCase))
             AttachConsole();
 
         ConfigureCommonServices(services);
     });
 cafApp.Add("", RunGuiAsync);
+cafApp.Add("widget-provider", RunWidgetProvider);
 cafApp.Add<CliCommands>();
 
 await cafApp.RunAsync(args).ConfigureAwait(false);
@@ -64,8 +68,22 @@ static void ConfigureCommonServices(IServiceCollection services)
     services.AddSingleton<HistoryService>();
     services.AddSingleton<ContextService>();
     services.AddSingleton<GoogleAiService>();
+#if DEBUG
+    services.AddSingleton<DummyNewsGenerator>();
+    services.AddSingleton<DummyAiService>();
+    services.AddSingleton<IAiService>(sp =>
+        sp.GetRequiredService<AppConfigService>().Current.DebugConfig.UseDummyAiService
+            ? sp.GetRequiredService<DummyAiService>()
+            : sp.GetRequiredService<GoogleAiService>());
+#else
+    services.AddSingleton<IAiService>(sp => sp.GetRequiredService<GoogleAiService>());
+#endif
     services.AddSingleton<GenerationCoordinator>();
     services.AddSingleton<TaskSchedulerService>();
+    services.AddSingleton<WidgetHistoryService>();
+    services.AddSingleton<WidgetActionService>();
+    services.AddSingleton<WidgetCardBuilder>();
+    services.AddSingleton<WondayWallWidgetProvider>();
 }
 
 static void ConfigureGuiServices(IServiceCollection services)
@@ -95,4 +113,13 @@ static void AttachConsole()
     var errorWriter = new StreamWriter(Console.OpenStandardError()) { AutoFlush = true };
     Console.SetOut(outputWriter);
     Console.SetError(errorWriter);
+}
+
+static void RunWidgetProvider([FromServices] WondayWallWidgetProvider provider)
+{
+    WinRT.ComWrappersSupport.InitializeComWrappers();
+    provider.RecoverRunningWidgets();
+
+    using var registration = WidgetProviderRegistration.Register(provider);
+    provider.ShutdownWaitHandle.WaitOne();
 }

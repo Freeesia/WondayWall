@@ -35,18 +35,23 @@
 
 ## サービス構成
 
-サービスはすべて **Singleton**。**interface を設けず具体クラス直接参照**。
+サービスはすべて **Singleton**。原則は具体クラスを直接参照し、実装を切り替える AI サービスだけ `IAiService` を使用する。
 
 | サービス | 責務 |
 |---------|------|
 | `AppConfigService` | JSON 設定の読み書き（`%LocalAppData%/StudioFreesia/WondayWall/config.json`） |
 | `ContextService` | Google Calendar + RSS フィードから `ContextBuildResult` を構築 |
-| `GoogleAiService` | Gemini で壁紙画像を生成・保存（2 ステップ生成） |
+| `IAiService` | プロンプト生成・採用ニュースの OGP 取得・画像生成の共通契約 |
+| `GoogleAiService` | Gemini でプロンプトと壁紙画像を生成・保存 |
+| `DummyAiService` | ダミーニュース生成とダミー壁紙生成（`DebugConfig.UseDummyAiService=true` 時） |
 | `WallpaperService` | 仮想デスクトップ API / Win32 で壁紙を適用 |
 | `GenerationCoordinator` | 上記サービスを順次呼び出すオーケストレーター |
 | `HistoryService` | 生成履歴を `history.json` に保存（最大 100 件） |
 | `TaskSchedulerService` | Windows Task Scheduler へのタスク登録・削除 |
 | `UpdateChecker` | GitHub Releases API で新バージョン確認（BackgroundService） |
+| `WidgetHistoryService` | ウィジェット表示対象の履歴抽出とサムネイル生成 |
+| `WidgetActionService` | 履歴画像の再適用とニュース URL の起動 |
+| `WondayWallWidgetProvider` | Windows Widget Host からの要求・操作を処理 |
 
 ---
 
@@ -59,16 +64,19 @@ GenerationCoordinator（OS 全体共有 Mutex で多重実行防止: Local\Wonda
   ├─ ContextService.BuildContextAsync()
   │   ├─ Google Calendar API → カレンダーイベント
   │   └─ RSS フィード + OGP 解析 → ニューストピック
-  ├─ GoogleAiService.GenerateWallpaperAsync()（2 ステップ生成）
-  │   ├─ Step 1: Gemini Flash でテキストプロンプト詳細化（Google Search グラウンディング）
-  │   │   └─ Flex ティア失敗時は Standard にフォールバック
-  │   └─ Step 2: Gemini Flash Image で画像生成
-  │       └─ Flex ティア失敗時は Standard にフォールバック
+  ├─ IAiService.GeneratePromptAsync()
+  │   └─ Step 1: 採用ニュース選択と画像プロンプト生成
+  ├─ IAiService.FetchOgpImagesAsync()
+  │   └─ Step 1.5: 採用ニュース最大3件の OGP 画像取得
+  ├─ IAiService.GenerateImageFromPromptAsync()
+  │   └─ Step 2: 画像生成（Google AI は Flex 失敗時に Standard へフォールバック）
   ├─ WallpaperService.SetWallpaperAsync()
   └─ HistoryService.Append()
 ```
 
 `run-once` 専用の `RunScheduledAsync()` はスキップ判定（`SkipGenerationWhenNoChanges`）を行ってから上記を呼ぶ。
+
+`config.json` の `debugConfig.useDummyAiService` を `true` にすると、ニュース取得と画像生成はダミー実装に切り替わる。CLI では `set-dummy-ai` コマンドで切り替え可能。
 
 ---
 

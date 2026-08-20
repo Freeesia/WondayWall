@@ -10,6 +10,7 @@ public class CliCommands(
     ContextService contextService,
     GoogleAiService googleAiService,
     AppConfigService configService,
+    WidgetActionService widgetActionService,
     ILogger<CliCommands> logger)
 {
     /// <summary>Run once for the current scheduled slot if it has not already been handled.</summary>
@@ -82,6 +83,59 @@ public class CliCommands(
             cancellationToken);
         logger.LogInformation("Success! Image saved to: {Path} ({ServiceTier})", info.FilePath, info.ServiceTier);
     }
+
+    [Command("apply-history")]
+    public async Task ApplyHistoryAsync(string id, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(id))
+            throw new ArgumentException("History id must not be empty.", nameof(id));
+
+        _ = await widgetActionService.ApplyHistoryAsync(id, cancellationToken);
+    }
+
+    [Command("open-news")]
+    public Task OpenNewsAsync(string historyId, int newsIndex, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (string.IsNullOrWhiteSpace(historyId))
+            throw new ArgumentException("History id must not be empty.", nameof(historyId));
+
+        _ = widgetActionService.OpenNews(historyId, newsIndex);
+        return Task.CompletedTask;
+    }
+
+#if DEBUG
+    [Command("set-dummy-ai")]
+    public Task SetDummyAiAsync(
+        bool enabled,
+        int? dummyNewsCount = null,
+        int? dummyPromptDelaySeconds = null,
+        int? dummyImageDelaySeconds = null,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var config = configService.Current;
+        config.DebugConfig.UseDummyAiService = enabled;
+        if (dummyNewsCount is not null)
+            config.DebugConfig.DummyNewsCount = dummyNewsCount.Value;
+        if (dummyPromptDelaySeconds is not null)
+            config.DebugConfig.DummyPromptDelaySeconds = dummyPromptDelaySeconds.Value;
+        if (dummyImageDelaySeconds is not null)
+            config.DebugConfig.DummyImageDelaySeconds = dummyImageDelaySeconds.Value;
+
+        config.DebugConfig.Normalize();
+        configService.Save(config);
+
+        logger.LogInformation(
+            "Dummy AI service: {Enabled}, NewsCount={NewsCount}, PromptDelay={PromptDelay}s, ImageDelay={ImageDelay}s",
+            config.DebugConfig.UseDummyAiService,
+            config.DebugConfig.DummyNewsCount,
+            config.DebugConfig.DummyPromptDelaySeconds,
+            config.DebugConfig.DummyImageDelaySeconds);
+        return Task.CompletedTask;
+    }
+#endif
 
     private void LogRunResult(HistoryItem result)
     {

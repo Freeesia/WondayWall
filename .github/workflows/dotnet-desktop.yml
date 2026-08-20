@@ -62,10 +62,10 @@ jobs:
             -a eng\licenses\allowed-licenses.json `
             -override eng\licenses\package-overrides.json `
             -ignore eng\licenses\license-download-ignored-packages.json `
+            -include-ignored `
             -d licenses `
             -fo licenses\THIRD-PARTY-NOTICES.md `
-            -o Markdown `
-            -err
+            -o Markdown
 
       - name: Verify THIRD-PARTY-NOTICES.md is not empty
         run: |
@@ -162,6 +162,20 @@ jobs:
           pattern: WondayWall-full-*
           merge-multiple: true
 
+      # Windows App SDK を使う packaged app は単一ファイル publish 非対応のため、
+      # MSIX には自己完結の複数ファイル成果物を格納する。
+      - name: Publish app for MSIX
+        run: |
+          dotnet publish WondayWall -c Release -o msix-app `
+            -p:DebugType=None `
+            -p:RuntimeIdentifier=win-x64 `
+            -p:PublishSingleFile=false `
+            -p:PublishSelfContained=true `
+            -p:Version=${{ needs.build.outputs.version }} `
+            -p:AssemblyVersion=${{ needs.build.outputs.version }} `
+            -p:FileVersion=${{ needs.build.outputs.version }}
+          Copy-Item 'artifacts\licenses' 'msix-app\licenses' -Recurse -Force
+
       - name: Verify THIRD-PARTY-NOTICES.md in artifacts
         run: |
           if (!(Test-Path "artifacts\licenses\THIRD-PARTY-NOTICES.md")) {
@@ -175,8 +189,11 @@ jobs:
 
       - name: Generate MSIX
         shell: pwsh
+        env:
+          IS_PULL_REQUEST: ${{ github.event_name == 'pull_request' }}
         run: |
           $version = '${{ needs.build.outputs.msix_version }}'
+          $isPullRequest = $env:IS_PULL_REQUEST -eq 'true'
 
           # Windows SDK に同梱の makeappx.exe を検索
           $makeappx = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin' -Filter 'makeappx.exe' -Recurse -ErrorAction SilentlyContinue |
@@ -199,22 +216,61 @@ jobs:
           magick $iconSrc -resize 310x150 -background transparent -gravity center -extent 310x150 "$imagesDir\Wide310x150Logo.png"
           magick $iconSrc -resize 50x50 "$imagesDir\StoreLogo.png"
 
-          # アプリバイナリをステージングへコピー
-          Copy-Item 'artifacts\*' 'msix-staging\' -Recurse -Force
+          # ウィジェットホストが参照する公開フォルダーとピッカー用アセットを生成
+          $widgetsDir = 'msix-staging\Widgets'
+          New-Item -ItemType Directory -Force -Path $widgetsDir | Out-Null
+          magick $iconSrc -resize 50x50 "$widgetsDir\ProviderIcon.png"
+          Copy-Item "$widgetsDir\ProviderIcon.png" "$widgetsDir\HistoryIcon.png" -Force
+          $widgetPreviewIcon = "$widgetsDir\HistoryPreviewIcon.png"
+          magick $iconSrc -resize 112x112 $widgetPreviewIcon
+          magick -size 300x304 xc:none `
+            -fill '#202020' -draw 'roundrectangle 0,0 299,303 18,18' `
+            $widgetPreviewIcon -gravity center -composite `
+            "$widgetsDir\HistoryScreenshot.png"
+          Remove-Item -LiteralPath $widgetPreviewIcon
+
+          Add-Type -AssemblyName System.Drawing
+          $widgetScreenshotPath = (Resolve-Path "$widgetsDir\HistoryScreenshot.png").Path
+          $widgetScreenshot = [System.Drawing.Image]::FromFile($widgetScreenshotPath)
+          try {
+            if ($widgetScreenshot.Width -ne 300 -or $widgetScreenshot.Height -ne 304) {
+              throw "Widget screenshot must be 300x304, but was $($widgetScreenshot.Width)x$($widgetScreenshot.Height)."
+            }
+          }
+          finally {
+            $widgetScreenshot.Dispose()
+          }
+
+          # Windows App SDK を含む MSIX 用の複数ファイル成果物をステージングへコピー
+          Copy-Item 'msix-app\*' 'msix-staging\' -Recurse -Force
 
           # マニフェストのバージョン文字列を差し替えてステージングへ配置
           $manifest = Get-Content 'WondayWall.Package\AppxManifest.xml' -Raw -Encoding UTF8
           $manifest = $manifest.Replace('Version="0.0.0.0"', "Version=`"$version`"")
+          # PR では別 Identity と未署名パッケージ専用 OID を使い、-AllowUnsigned でインストール可能にする。
+          # main / tag では Store の Publisher を維持し、従来どおり package flight へ送る。
+          $packageSuffix = ''
+          if ($isPullRequest) {
+            $manifest = $manifest.Replace(
+              'Name="StudioFreesia.WondayWall"',
+              'Name="StudioFreesia.WondayWall.PR"')
+            $manifest = $manifest.Replace(
+              'Publisher="CN=C2D29EED-29D7-4F36-AEC7-317709A7150C"',
+              'Publisher="CN=C2D29EED-29D7-4F36-AEC7-317709A7150C, OID.2.25.311729368913984317654407730594956997722=1"')
+            $packageSuffix = '-unsigned'
+          }
+
           Set-Content 'msix-staging\AppxManifest.xml' $manifest -Encoding UTF8
 
           # MSIX をパック（/nv = 署名検証スキップ）
           New-Item -ItemType Directory -Force -Path publish | Out-Null
-          & $makeappx pack /d msix-staging /p "publish\WondayWall-$version.msix" /nv
+          $msixPath = "publish\WondayWall-$version$packageSuffix.msix"
+          & $makeappx pack /d msix-staging /p $msixPath /nv
           if ($LASTEXITCODE -ne 0) {
             throw "makeappx failed with exit code $LASTEXITCODE"
           }
 
-          Write-Host "MSIX generated: publish\WondayWall-$version.msix"
+          Write-Host "MSIX generated: $msixPath"
 
       - uses: actions/upload-artifact@v7
         with:
@@ -223,7 +279,7 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: WondayWall-${{ needs.build.outputs.msix_version }}.msix
+          name: WondayWall-${{ needs.build.outputs.msix_version }}${{ github.event_name == 'pull_request' && '-unsigned' || '' }}.msix
           path: publish\*.msix
 
   store-upload:
