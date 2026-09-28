@@ -15,7 +15,7 @@ namespace WondayWall.Services;
 public class GoogleAiService(
     AppConfigService configService,
     IHttpClientFactory httpClientFactory,
-    ILogger<GoogleAiService> logger)
+    ILogger<GoogleAiService> logger) : IAiService
 {
     private const string GoogleAiApiKeyPageUrl = "https://aistudio.google.com/app/api-keys";
     private static string PaidTierRequiredMessage => AppResources.GoogleAiBillingError + GoogleAiApiKeyPageUrl;
@@ -37,14 +37,102 @@ public class GoogleAiService(
         GoogleAiServiceTier serviceTier,
         CancellationToken ct = default)
     {
+        var promptResult = await GeneratePromptAsync(context, serviceTier, ct).ConfigureAwait(false);
+        var contextWithOgp = await FetchOgpImagesAsync(context, promptResult.SelectedNewsIds, ct).ConfigureAwait(false);
+        return await GenerateImageFromPromptAsync(
+            promptResult.ImagePrompt,
+            contextWithOgp,
+            promptResult.ServiceTier,
+            ct).ConfigureAwait(false);
+    }
+
+    public async Task<PromptGenerationResult> GeneratePromptAsync(
+        PromptContext context,
+        GoogleAiServiceTier serviceTier,
+        CancellationToken cancellationToken = default)
+    {
         var config = configService.Current;
 
         if (string.IsNullOrWhiteSpace(config.GoogleAiApiKey))
             throw new InvalidOperationException("Google AI API key is not configured.");
 
-        var promptResult = await GeneratePromptSelectionWithFallbackAsync(context, serviceTier, config.GoogleAiApiKey, ct).ConfigureAwait(false);
-        var imageRequest = await BuildImageRequestAsync(context, promptResult.PromptSelection, ct).ConfigureAwait(false);
-        return await GenerateImageWithFallbackAsync(context, promptResult.PromptSelection.ImagePrompt, imageRequest, promptResult.ServiceTier, config.GoogleAiApiKey, ct).ConfigureAwait(false);
+        var result = await GeneratePromptSelectionWithFallbackAsync(
+            context,
+            serviceTier,
+            config.GoogleAiApiKey,
+            cancellationToken).ConfigureAwait(false);
+        var selectedNews = ResolveSelectedNewsTopics(context, result.PromptSelection.SelectedNewsIds);
+
+        return new PromptGenerationResult(
+            ImagePrompt: result.PromptSelection.ImagePrompt,
+            SelectedNewsTopics: selectedNews,
+            SelectedNewsIds: result.PromptSelection.SelectedNewsIds,
+            ServiceTier: result.ServiceTier);
+    }
+
+    public async Task<PromptContext> FetchOgpImagesAsync(
+        PromptContext context,
+        IReadOnlyList<string> selectedNewsIds,
+        CancellationToken cancellationToken = default)
+    {
+        var selectedIds = selectedNewsIds.ToHashSet(StringComparer.Ordinal);
+        var newsTopics = (context.NewsTopics ?? []).ToList();
+        var targets = newsTopics
+            .Select((topic, index) => (Topic: topic, Index: index))
+            .Where(item => selectedIds.Contains(item.Topic.Id)
+                && !string.IsNullOrWhiteSpace(item.Topic.OgpImageUrl))
+            .Take(3)
+            .ToList();
+
+        var downloads = await Task.WhenAll(targets.Select(async item =>
+        {
+            try
+            {
+                using var response = await ogpHttpClient.GetAsync(
+                    item.Topic.OgpImageUrl,
+                    cancellationToken).ConfigureAwait(false);
+                response.EnsureSuccessStatusCode();
+                var mimeType = response.Content.Headers.ContentType?.MediaType ?? "image/jpeg";
+                var data = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
+                return (Success: true, item.Index, Data: data, MimeType: mimeType);
+            }
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+            {
+                logger.LogWarning(ex, "OGP画像のダウンロードに失敗しました [{ImgUrl}]", item.Topic.OgpImageUrl);
+                return (Success: false, item.Index, Data: Array.Empty<byte>(), MimeType: "image/jpeg");
+            }
+        })).ConfigureAwait(false);
+
+        foreach (var download in downloads.Where(item => item.Success))
+        {
+            newsTopics[download.Index] = newsTopics[download.Index] with
+            {
+                OgpImageData = download.Data,
+                OgpImageMimeType = download.MimeType,
+            };
+        }
+
+        return context with { NewsTopics = newsTopics };
+    }
+
+    public async Task<GeneratedImageInfo> GenerateImageFromPromptAsync(
+        string imagePrompt,
+        PromptContext context,
+        GoogleAiServiceTier serviceTier,
+        CancellationToken cancellationToken = default)
+    {
+        var config = configService.Current;
+        if (string.IsNullOrWhiteSpace(config.GoogleAiApiKey))
+            throw new InvalidOperationException("Google AI API key is not configured.");
+
+        var imageRequest = BuildImageRequest(context, imagePrompt);
+        return await GenerateImageWithFallbackAsync(
+            context,
+            imagePrompt,
+            imageRequest,
+            serviceTier,
+            config.GoogleAiApiKey,
+            cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<PromptSelectionResult> GeneratePromptSelectionWithFallbackAsync(
@@ -161,41 +249,28 @@ public class GoogleAiService(
         return new(filePath, DateTime.Now, imagePrompt, serviceTier, context);
     }
 
-    private async Task<GenerateContentRequest> BuildImageRequestAsync(PromptContext context, PromptSelectionResponse promptSelection, CancellationToken ct)
+    private static GenerateContentRequest BuildImageRequest(PromptContext context, string imagePrompt)
     {
-        // テキストモデルが採用したニュースだけ、そのOGP画像を参照画像として添付する
-        var selectedNewsIds = promptSelection.SelectedNewsIds.ToHashSet(StringComparer.Ordinal);
-        var ogpUrls = (context.NewsTopics ?? [])
-            .Where(newsTopic => selectedNewsIds.Contains(newsTopic.Id) && !string.IsNullOrWhiteSpace(newsTopic.OgpImageUrl))
-            .Select(newsTopic => newsTopic.OgpImageUrl!)
+        var referenceImages = (context.NewsTopics ?? [])
+            .Where(topic => topic.OgpImageData is { Length: > 0 })
             .Take(3)
             .ToList();
-        var finalPrompt = ogpUrls.Count > 0
+        var finalPrompt = referenceImages.Count > 0
             ? $$"""
-              {{promptSelection.ImagePrompt}}
+              {{imagePrompt}}
 
               Reference images from the selected news topics are attached. Incorporate their visual themes, color palette, and subject matter into the wallpaper design.
               """
-            : promptSelection.ImagePrompt;
+            : imagePrompt;
 
         var imageRequest = new GenerateContentRequest();
 
         imageRequest.AddText(finalPrompt);
-        foreach (var imgUrl in ogpUrls)
+        foreach (var referenceImage in referenceImages)
         {
-            try
-            {
-                // HTTPレスポンスからMIMEタイプを取得してインラインデータとして添付
-                using var imgResponse = await ogpHttpClient.GetAsync(imgUrl, ct).ConfigureAwait(false);
-                imgResponse.EnsureSuccessStatusCode();
-                var mimeType = imgResponse.Content.Headers.ContentType?.MediaType ?? "image/jpeg";
-                var imgBytes = await imgResponse.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
-                imageRequest.AddInlineData(Convert.ToBase64String(imgBytes), mimeType);
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "OGP画像のダウンロードに失敗しました [{ImgUrl}]", imgUrl);
-            }
+            imageRequest.AddInlineData(
+                Convert.ToBase64String(referenceImage.OgpImageData!),
+                referenceImage.OgpImageMimeType ?? "image/jpeg");
         }
 
         var displayInfo = DisplayHelper.GetDisplayInfo();
@@ -211,6 +286,26 @@ public class GoogleAiService(
         AddGoogleSearchTool(imageRequest);
 
         return imageRequest;
+    }
+
+    private static List<NewsTopicItem> ResolveSelectedNewsTopics(
+        PromptContext context,
+        IReadOnlyList<string> selectedNewsIds)
+    {
+        var topicsById = (context.NewsTopics ?? [])
+            .GroupBy(topic => topic.Id, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+
+        return selectedNewsIds
+            .Where(topicsById.ContainsKey)
+            .Select(id => topicsById[id])
+            .Select(topic => new NewsTopicItem(
+                Title: topic.Title,
+                Summary: topic.Summary,
+                Url: topic.Url,
+                PublishedAt: topic.PublishedAt,
+                OgpImageUrl: topic.OgpImageUrl))
+            .ToList();
     }
 
     private static void AddGoogleSearchTool(GenerateContentRequest request)

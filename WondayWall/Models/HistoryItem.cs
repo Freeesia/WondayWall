@@ -1,8 +1,9 @@
 namespace WondayWall.Models;
 
 public record HistoryItem(
-    DateTime ExecutedAt,
-    bool IsSuccess,
+    string Id = "",
+    DateTime ExecutedAt = default,
+    bool IsSuccess = false,
     string? ErrorSummary = null,
     string? AppliedImagePath = null,
     List<CalendarEventItem>? UsedCalendarEvents = null,

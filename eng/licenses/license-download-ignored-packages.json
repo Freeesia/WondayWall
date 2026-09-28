@@ -3,5 +3,19 @@
   "Microsoft-WindowsAPICodePack-Shell",
   "Microsoft.Windows.SDK.Win32Docs",
   "Microsoft.Windows.SDK.Win32Metadata",
-  "Microsoft.Windows.WDK.Win32Metadata"
+  "Microsoft.Windows.WDK.Win32Metadata",
+  "Microsoft.WindowsAppSDK",
+  "Microsoft.WindowsAppSDK.AI",
+  "Microsoft.WindowsAppSDK.Base",
+  "Microsoft.WindowsAppSDK.DWrite",
+  "Microsoft.WindowsAppSDK.Foundation",
+  "Microsoft.WindowsAppSDK.InteractiveExperiences",
+  "Microsoft.WindowsAppSDK.ML",
+  "Microsoft.WindowsAppSDK.Runtime",
+  "Microsoft.WindowsAppSDK.Widgets",
+  "Microsoft.WindowsAppSDK.WinUI",
+  "Microsoft.Windows.AI.MachineLearning",
+  "Microsoft.Windows.SDK.BuildTools",
+  "Microsoft.Windows.SDK.BuildTools.MSIX",
+  "SixLabors.ImageSharp"
 ]

@@ -7,7 +7,7 @@ namespace WondayWall.Services;
 public class GenerationCoordinator(
     AppConfigService configService,
     ContextService contextService,
-    GoogleAiService googleAiService,
+    IAiService aiService,
     WallpaperService wallpaperService,
     HistoryService historyService,
     ILogger<GenerationCoordinator> logger)
@@ -68,7 +68,16 @@ public class GenerationCoordinator(
             }
             else
             {
-                var imageInfo = await googleAiService.GenerateWallpaperAsync(promptContext, serviceTier, ct);
+                var promptResult = await aiService.GeneratePromptAsync(promptContext, serviceTier, ct);
+                var contextWithOgp = await aiService.FetchOgpImagesAsync(
+                    promptContext,
+                    promptResult.SelectedNewsIds,
+                    ct);
+                var imageInfo = await aiService.GenerateImageFromPromptAsync(
+                    promptResult.ImagePrompt,
+                    contextWithOgp,
+                    promptResult.ServiceTier,
+                    ct);
                 usedServiceTier = imageInfo.ServiceTier;
                 await wallpaperService.SetWallpaperAsync(
                     imageInfo.FilePath,
@@ -78,7 +87,7 @@ public class GenerationCoordinator(
                 isSuccess = true;
                 appliedImagePath = imageInfo.FilePath;
                 usedEvents = contextResult.CalendarEvents;
-                usedTopics = contextResult.NewsTopics;
+                usedTopics = promptResult.SelectedNewsTopics.ToList();
             }
         }
         catch (Exception ex)
@@ -87,6 +96,7 @@ public class GenerationCoordinator(
         }
 
         var historyItem = new HistoryItem(
+            Id: $"{DateTime.Now:yyyyMMddHHmmssfff}-{Guid.NewGuid():N}",
             ExecutedAt: DateTime.Now,
             IsSuccess: isSuccess,
             ErrorSummary: errorSummary,

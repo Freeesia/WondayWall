@@ -18,6 +18,10 @@ public class AppConfig : IJsonOnDeserialized
     public bool SkipGenerationWhenNoChanges { get; set; } = false;
     /// <summary>デスクトップ壁紙に加えてロック画面も更新する</summary>
     public bool UpdateLockScreen { get; set; } = false;
+#if DEBUG
+    /// <summary>デバッグビルド専用の検証用設定。リリースビルドには含めない。</summary>
+    public DebugConfig DebugConfig { get; set; } = new();
+#endif
 
     /// <summary>旧バージョンの未知フィールドを捕捉する（マイグレーション後は null にクリアする）</summary>
     [JsonExtensionData]
@@ -32,6 +36,11 @@ public class AppConfig : IJsonOnDeserialized
         {
             Schedule = ScheduleHelper.MigrateFromRunsPerDay(runsPerDay);
         }
+
+#if DEBUG
+        DebugConfig ??= new();
+        DebugConfig.Normalize();
+#endif
         ExtensionData = null;
     }
 }

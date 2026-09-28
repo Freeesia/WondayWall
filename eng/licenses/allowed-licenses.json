@@ -5,7 +5,10 @@
   "BSD-3-Clause",
   "ISC",
   "Microsoft-Windows-API-Code-Pack",
+  "Microsoft-Windows-App-SDK",
+  "Microsoft-Windows-ML-Runtime",
   "Microsoft-Windows-SDK",
   "MS-RL",
-  "MS-PL"
+  "MS-PL",
+  "Six-Labors-Split-License-1.0"
 ]

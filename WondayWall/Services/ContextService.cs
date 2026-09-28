@@ -19,7 +19,11 @@ using AppResources = WondayWall.Properties.Resources;
 
 namespace WondayWall.Services;
 
-public class ContextService(AppConfigService configService, HistoryService historyService, IHttpClientFactory httpClientFactory, ILogger<ContextService> logger)
+public class ContextService(
+    AppConfigService configService,
+    HistoryService historyService,
+    IHttpClientFactory httpClientFactory,
+    ILogger<ContextService> logger)
 {
     private const int MaxPromptNewsCount = 10;
     private const int MaxRecentNewsCountSinceLastGeneration = 3;
