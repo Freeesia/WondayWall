@@ -34,7 +34,7 @@ struct PromptNewsTopic: Encodable {
 struct PromptContext {
     var calendarEvents: [PromptCalendarEvent] = []
     var newsTopics: [PromptNewsTopic] = []
-    // Gemini API で利用可能な縦長比率（imageSize は "512" / "1K" / "2K" / "4K" 形式）
+    // Nano Banana 2.1 の画像サイズ（"1K" / "2K" / "4K"）と縦長比率
     var imageSize: String = "2K"
     var aspectRatio: String = "9:16"
     var additionalConstraints: String = ""

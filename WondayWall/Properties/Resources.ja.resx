@@ -325,7 +325,7 @@
     <value>変化なし時のスキップ</value>
   </data>
   <data name="TaskSchedulerDescription" xml:space="preserve">
-    <value>WondayWall の定期壁紙更新タスクです ({0} + ログオン時補完)。バックグラウンド実行用のため Google AI の画像生成を Flex モードで実行し、Flex が失敗した場合は Standard にフォールバックします。実行時点の予定・ニュースを取得してから画像生成し、完了後に壁紙へ適用します。</value>
+    <value>WondayWall の定期壁紙更新タスクです ({0} + ログオン時補完)。Google AI のプロンプト生成を Flex モードで実行し、Flex が失敗した場合は Standard にフォールバックします。画像生成は Standard モードで実行します。実行時点の予定・ニュースを取得してから画像生成し、完了後に壁紙へ適用します。</value>
   </data>
   <data name="TaskSchedulerError" xml:space="preserve">
     <value>タスクスケジューラエラー: {0}</value>

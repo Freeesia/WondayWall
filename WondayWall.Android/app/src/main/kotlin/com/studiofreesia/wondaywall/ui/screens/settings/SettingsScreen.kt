@@ -244,7 +244,7 @@ fun SettingsScreen(
                         },
                     )
                     SwitchRow(
-                        label = "Flex ティアを強制使用する",
+                        label = "文章生成で Flex ティアを強制使用する",
                         checked = uiState.config.forceFlexTier,
                         onCheckedChange = viewModel::toggleForceFlexTier,
                     )

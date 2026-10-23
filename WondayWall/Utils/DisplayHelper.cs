@@ -12,7 +12,7 @@ public record DisplaySizeInfo(string Size, string AspectRatio, string ImageSize)
 
 internal static class DisplayHelper
 {
-    // gemini-3.1-flash-image-preview がサポートするサイズ一覧 (各解像度ティア)
+    // Nano Banana 2.1 がサポートするサイズ一覧 (各解像度ティア)
     // (アスペクト比率, ラベル, 1K, 2K, 4K) の形式
     private static readonly (double Ratio, string Label, string S1K, string S2K, string S4K)[] SupportedSizes =
     [

@@ -19,8 +19,8 @@ public class GoogleAiService(
 {
     private const string GoogleAiApiKeyPageUrl = "https://aistudio.google.com/app/api-keys";
     private static string PaidTierRequiredMessage => AppResources.GoogleAiBillingError + GoogleAiApiKeyPageUrl;
-    private const string TextModelName = "gemini-3-flash-preview";
-    private const string ImageModelName = "gemini-3.1-flash-image-preview";
+    private const string TextModelName = "gemini-3.5-flash-lite";
+    private const string ImageModelName = "gemini-nano-banana-2.1";
 
     private readonly HttpClient ogpHttpClient = httpClientFactory.CreateClient("WondayWall");
     private readonly HttpClient geminiHttpClient = httpClientFactory.CreateClient("Gemini");
@@ -42,12 +42,12 @@ public class GoogleAiService(
         if (string.IsNullOrWhiteSpace(config.GoogleAiApiKey))
             throw new InvalidOperationException("Google AI API key is not configured.");
 
-        var promptResult = await GeneratePromptSelectionWithFallbackAsync(context, serviceTier, config.GoogleAiApiKey, ct).ConfigureAwait(false);
-        var imageRequest = await BuildImageRequestAsync(context, promptResult.PromptSelection, ct).ConfigureAwait(false);
-        return await GenerateImageWithFallbackAsync(context, promptResult.PromptSelection.ImagePrompt, imageRequest, promptResult.ServiceTier, config.GoogleAiApiKey, ct).ConfigureAwait(false);
+        var promptSelection = await GeneratePromptSelectionWithFallbackAsync(context, serviceTier, config.GoogleAiApiKey, ct).ConfigureAwait(false);
+        var imageRequest = await BuildImageRequestAsync(context, promptSelection, ct).ConfigureAwait(false);
+        return await GenerateImageAsync(context, promptSelection.ImagePrompt, imageRequest, config.GoogleAiApiKey, ct).ConfigureAwait(false);
     }
 
-    private async Task<PromptSelectionResult> GeneratePromptSelectionWithFallbackAsync(
+    private async Task<PromptSelectionResponse> GeneratePromptSelectionWithFallbackAsync(
         PromptContext context,
         GoogleAiServiceTier serviceTier,
         string apiKey,
@@ -67,7 +67,7 @@ public class GoogleAiService(
         }
     }
 
-    private async Task<PromptSelectionResult> GeneratePromptSelectionAsync(
+    private async Task<PromptSelectionResponse> GeneratePromptSelectionAsync(
         PromptContext context,
         GoogleAiServiceTier serviceTier,
         string apiKey,
@@ -78,6 +78,9 @@ public class GoogleAiService(
         var contextPrompt = BuildTextModelPrompt(context);
         var promptRequest = new GenerateContentRequest();
         promptRequest.UseJsonMode<PromptSelectionResponse>(JsonSerializerOptions);
+        // 複数回の検索と条件判断を行うため、旧モデルと同じ high を明示する
+        promptRequest.GenerationConfig ??= new GenerationConfig();
+        promptRequest.GenerationConfig.ThinkingConfig = new ThinkingConfig { ThinkingLevel = ThinkingLevel.HIGH };
         promptRequest.AddText(contextPrompt);
         AddGoogleSearchTool(promptRequest);
 
@@ -102,43 +105,19 @@ public class GoogleAiService(
             .ToList();
         promptSelection.ImagePrompt = promptSelection.ImagePrompt.Trim();
 
-        return new PromptSelectionResult(promptSelection, serviceTier);
-    }
-
-    private async Task<GeneratedImageInfo> GenerateImageWithFallbackAsync(
-        PromptContext context,
-        string imagePrompt,
-        GenerateContentRequest imageRequest,
-        GoogleAiServiceTier serviceTier,
-        string apiKey,
-        CancellationToken ct)
-    {
-        if (serviceTier != GoogleAiServiceTier.Flex)
-        {
-            return await GenerateImageAsync(context, imagePrompt, imageRequest, GoogleAiServiceTier.Standard, apiKey, ct).ConfigureAwait(false);
-        }
-
-        try
-        {
-            return await GenerateImageAsync(context, imagePrompt, imageRequest, GoogleAiServiceTier.Flex, apiKey, ct).ConfigureAwait(false);
-        }
-        catch (Exception ex) when (!ct.IsCancellationRequested)
-        {
-            logger.LogWarning(ex, "画像生成の Flex 呼び出しが規定回数失敗したため、生成済みプロンプトを使って Standard モードで再試行します。");
-            return await GenerateImageAsync(context, imagePrompt, imageRequest, GoogleAiServiceTier.Standard, apiKey, ct).ConfigureAwait(false);
-        }
+        return promptSelection;
     }
 
     private async Task<GeneratedImageInfo> GenerateImageAsync(
         PromptContext context,
         string imagePrompt,
         GenerateContentRequest imageRequest,
-        GoogleAiServiceTier serviceTier,
         string apiKey,
         CancellationToken ct)
     {
         // ステップ2: 画像モデルでアスペクト比・サイズを指定して壁紙を生成
-        var imageModel = new GenerativeModelEx(apiKey, ImageModelName, httpClient: geminiHttpClient, serviceTier: serviceTier);
+        // 画像モデルは Flex 非対応のため、常に Standard を使用する
+        var imageModel = new GenerativeModelEx(apiKey, ImageModelName, httpClient: geminiHttpClient);
 
         GenerateContentResponse response;
         try
@@ -158,7 +137,7 @@ public class GoogleAiService(
         var filePath = FileNameHelper.GetImageFilePath(PathUtility.WallpaperDirectory, extension: imageData.Value.Extension);
         await File.WriteAllBytesAsync(filePath, imageData.Value.Bytes, ct).ConfigureAwait(false);
 
-        return new(filePath, DateTime.Now, imagePrompt, serviceTier, context);
+        return new(filePath, DateTime.Now, imagePrompt, GoogleAiServiceTier.Standard, context);
     }
 
     private async Task<GenerateContentRequest> BuildImageRequestAsync(PromptContext context, PromptSelectionResponse promptSelection, CancellationToken ct)
@@ -323,10 +302,6 @@ public class GoogleAiService(
 
         public required List<string> SelectedNewsIds { get; set; }
     }
-
-    private sealed record PromptSelectionResult(
-        PromptSelectionResponse PromptSelection,
-        GoogleAiServiceTier ServiceTier);
 
     private static bool IsPaidTierRequiredError(ApiException ex)
         => ex is { ErrorCode: 400, ErrorStatus: "FAILED_PRECONDITION" }
