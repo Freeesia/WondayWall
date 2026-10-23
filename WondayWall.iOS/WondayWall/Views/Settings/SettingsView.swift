@@ -199,7 +199,7 @@ private struct SettingsContentView: View {
 
                     Toggle("変化がなければスキップ", isOn: $vm.config.skipIfNoChanges)
                     Toggle("Wi-Fi 接続時のみ生成", isOn: $vm.config.wifiOnlyGeneration)
-                    Toggle("Flex ティアを強制使用", isOn: $vm.config.forceFlexTier)
+                    Toggle("文章生成で Flex ティアを強制使用", isOn: $vm.config.forceFlexTier)
                 }
             } header: {
                 Text("自動生成")

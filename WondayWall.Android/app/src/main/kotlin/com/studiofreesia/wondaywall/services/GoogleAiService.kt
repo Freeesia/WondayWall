@@ -1,12 +1,15 @@
 package com.studiofreesia.wondaywall.services
 
 import com.google.genai.Client
+import com.google.genai.errors.ApiException
 import com.google.genai.types.Blob
 import com.google.genai.types.Content
 import com.google.genai.types.GenerateContentConfig
 import com.google.genai.types.GoogleSearch
+import com.google.genai.types.ImageConfig
 import com.google.genai.types.Part
 import com.google.genai.types.Schema
+import com.google.genai.types.ThinkingConfig
 import com.google.genai.types.Tool
 import com.studiofreesia.wondaywall.models.GeneratedImageResult
 import com.studiofreesia.wondaywall.models.GoogleAiServiceTier
@@ -38,8 +41,8 @@ class GoogleAiService(
     private val cacheDir: File,
 ) : AiService {
     companion object {
-        private const val TEXT_MODEL_NAME = "gemini-3-flash-preview"
-        private const val IMAGE_MODEL_NAME = "gemini-3.1-flash-image-preview"
+        private const val TEXT_MODEL_NAME = "gemini-3.5-flash-lite"
+        private const val IMAGE_MODEL_NAME = "gemini-nano-banana-2.1"
         private const val SYNTHETIC_PROGRESS_INTERVAL_MS = 1_500L
         private const val SYNTHETIC_PROGRESS_STEP = 0.02
     }
@@ -150,11 +153,11 @@ class GoogleAiService(
             message = "壁紙画像の生成中",
             onProgress = onProgress,
         ) {
-            generateImageWithFallback(
+            // 画像モデルは Flex 非対応のため、常に Standard を使用する
+            generateImage(
                 client = client,
                 prompt = imagePrompt,
                 context = context,
-                serviceTier = serviceTier,
             )
         }
         onProgress?.invoke(0.95, "生成画像を保存中")
@@ -213,9 +216,9 @@ class GoogleAiService(
         }
         return try {
             generatePromptSelection(client, context, GoogleAiServiceTier.Flex)
-        } catch (e: IOException) {
+        } catch (e: ApiException) {
             // Flex 容量不足（503/429）→ Standard で再試行
-            if (isFlexUnavailableError(e)) {
+            if (e.code() == 503 || e.code() == 429) {
                 generatePromptSelection(client, context, GoogleAiServiceTier.Standard)
             } else throw e
         }
@@ -247,6 +250,8 @@ class GoogleAiService(
         val configBuilder = GenerateContentConfig.builder()
             .responseMimeType("application/json")
             .responseSchema(schema)
+            // 複数回の検索と条件判断を行うため、旧モデルと同じ high を明示する
+            .thinkingConfig(ThinkingConfig.builder().thinkingLevel("high").build())
             .tools(listOf(Tool.builder().googleSearch(GoogleSearch.builder().build()).build()))
         if (serviceTier == GoogleAiServiceTier.Flex) {
             // Flex ティアは SDK の serviceTier フィールドで設定する
@@ -270,31 +275,11 @@ class GoogleAiService(
         selection
     }
 
-    // Flex → Standard フォールバック付きで画像を生成する
-    private suspend fun generateImageWithFallback(
-        client: Client,
-        prompt: String,
-        context: PromptContext,
-        serviceTier: GoogleAiServiceTier,
-    ): ImageData {
-        if (serviceTier != GoogleAiServiceTier.Flex) {
-            return generateImage(client, prompt, context, GoogleAiServiceTier.Standard)
-        }
-        return try {
-            generateImage(client, prompt, context, GoogleAiServiceTier.Flex)
-        } catch (e: IOException) {
-            if (isFlexUnavailableError(e)) {
-                generateImage(client, prompt, context, GoogleAiServiceTier.Standard)
-            } else throw e
-        }
-    }
-
     // 画像モデルで壁紙画像を生成する
     private suspend fun generateImage(
         client: Client,
         prompt: String,
         context: PromptContext,
-        serviceTier: GoogleAiServiceTier,
     ): ImageData = withContext(Dispatchers.IO) {
         // 取得済み OGP 画像を収集する（最大3件）
         val ogpTopics = context.newsTopics
@@ -318,12 +303,15 @@ class GoogleAiService(
             parts += Part.builder().inlineData(blob).build()
         }
 
-        val configBuilder = GenerateContentConfig.builder()
+        val config = GenerateContentConfig.builder()
             .responseModalities(listOf("IMAGE"))
-        if (serviceTier == GoogleAiServiceTier.Flex) {
-            configBuilder.serviceTier("flex")
-        }
-        val config = configBuilder.build()
+            .imageConfig(
+                ImageConfig.builder()
+                    .aspectRatio(context.aspectRatio)
+                    .imageSize(context.imageSize)
+                    .build()
+            )
+            .build()
 
         val content = Content.builder()
             .role("user")
@@ -424,12 +412,6 @@ class GoogleAiService(
         }
 
         return parts.joinToString("\n\n")
-    }
-
-    // Flex 容量不足を示すエラーか判定する（503 / 429）
-    private fun isFlexUnavailableError(e: IOException): Boolean {
-        val msg = e.message ?: return false
-        return msg.contains("503") || msg.contains("429")
     }
 
     // 画像データの一時保持用

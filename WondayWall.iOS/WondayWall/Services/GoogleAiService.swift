@@ -30,8 +30,8 @@ protocol AiService: AnyObject {
 
 // Google AI Gemini API を使った画像生成サービス
 final class GoogleAiService: AiService {
-    private static let textModelName = "gemini-3-flash-preview"
-    private static let imageModelName = "gemini-3.1-flash-image-preview"
+    private static let textModelName = "gemini-3.5-flash-lite"
+    private static let imageModelName = "gemini-nano-banana-2.1"
     private static let apiBaseURL =
         "https://generativelanguage.googleapis.com/v1beta/models"
 
@@ -210,7 +210,7 @@ final class GoogleAiService: AiService {
 
     // 画像プロンプトから壁紙を生成してローカルに保存する（ステップ 2）
     // context.newsTopics の ogpImageData が非 nil のものをリファレンス画像として使用する
-    // Flex 失敗時は Standard にフォールバック
+    // 画像モデルは Flex 非対応のため、常に Standard を使用する
     func generateImageFromPrompt(
         imagePrompt: String,
         context: PromptContext,
@@ -223,11 +223,10 @@ final class GoogleAiService: AiService {
             end: 1.0,
             onProgress: { onProgress?($0, "壁紙画像の生成中") }
         ) {
-            try await self.generateImageWithFallback(
+            try await self.generateImage(
                 prompt: imagePrompt,
                 context: context,
-                apiKey: apiKey,
-                serviceTier: serviceTier
+                apiKey: apiKey
             )
         }
         let filePath = FileHelper.getImageFilePath(extension: imageData.extension)
@@ -276,7 +275,9 @@ final class GoogleAiService: AiService {
             ],
             generationConfig: GeminiGenerationConfig(
                 responseMimeType: "application/json",
-                responseSchema: PromptSelectionSchema.schema
+                responseSchema: PromptSelectionSchema.schema,
+                // 複数回の検索と条件判断を行うため、旧モデルと同じ high を明示する
+                thinkingConfig: GeminiThinkingConfig(thinkingLevel: "high")
             ),
             tools: [GeminiTool(googleSearch: GeminiGoogleSearch())],
             serviceTier: serviceTier == .flex ? "flex" : nil
@@ -308,36 +309,11 @@ final class GoogleAiService: AiService {
         return selection
     }
 
-    // Flex → Standard フォールバック付きで画像を生成する
-    private func generateImageWithFallback(
-        prompt: String,
-        context: PromptContext,
-        apiKey: String,
-        serviceTier: GoogleAiServiceTier
-    ) async throws -> (bytes: Data, `extension`: String) {
-        if serviceTier != .flex {
-            return try await generateImage(
-                prompt: prompt, context: context,
-                apiKey: apiKey, serviceTier: .standard)
-        }
-        do {
-            return try await generateImage(
-                prompt: prompt, context: context,
-                apiKey: apiKey, serviceTier: .flex)
-        } catch let error as NSError where isFlexUnavailableError(error) {
-            // Flex 容量不足（503/429）→ Standard で再試行
-            return try await generateImage(
-                prompt: prompt, context: context,
-                apiKey: apiKey, serviceTier: .standard)
-        }
-    }
-
     // 画像モデルで壁紙画像を生成する
     private func generateImage(
         prompt: String,
         context: PromptContext,
-        apiKey: String,
-        serviceTier: GoogleAiServiceTier = .standard
+        apiKey: String
     ) async throws -> (bytes: Data, `extension`: String) {
         let endpoint = "\(Self.apiBaseURL)/\(Self.imageModelName):generateContent?key=\(apiKey)"
         guard let url = URL(string: endpoint) else {
@@ -406,8 +382,7 @@ final class GoogleAiService: AiService {
                     imageSize: context.imageSize
                 )
             ),
-            tools: [GeminiTool(googleSearch: GeminiGoogleSearch())],
-            serviceTier: serviceTier == .flex ? "flex" : nil
+            tools: [GeminiTool(googleSearch: GeminiGoogleSearch())]
         )
 
         let responseData = try await postJSON(url: url, body: requestBody)
@@ -644,8 +619,13 @@ final class GoogleAiService: AiService {
     private struct GeminiGenerationConfig: Encodable {
         var responseMimeType: String?
         var responseSchema: [String: JSONValue]?
+        var thinkingConfig: GeminiThinkingConfig?
         var responseModalities: [String]?
         var imageConfig: GeminiImageConfig?
+    }
+
+    private struct GeminiThinkingConfig: Encodable {
+        let thinkingLevel: String
     }
 
     private struct GeminiImageConfig: Encodable {

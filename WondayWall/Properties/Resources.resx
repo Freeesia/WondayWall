@@ -325,7 +325,7 @@
     <value>Skip when there are no changes</value>
   </data>
   <data name="TaskSchedulerDescription" xml:space="preserve">
-    <value>WondayWall's scheduled wallpaper update task ({0} + logon catch-up). For background execution, Google AI image generation uses Flex mode and falls back to Standard mode if Flex fails. It fetches the current calendar events and news, generates an image, and applies it as the wallpaper.</value>
+    <value>WondayWall's scheduled wallpaper update task ({0} + logon catch-up). Google AI prompt generation uses Flex mode and falls back to Standard mode if Flex fails. Image generation uses Standard mode. It fetches the current calendar events and news, generates an image, and applies it as the wallpaper.</value>
   </data>
   <data name="TaskSchedulerError" xml:space="preserve">
     <value>Task Scheduler error: {0}</value>

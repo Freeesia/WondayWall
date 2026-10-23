@@ -2,8 +2,8 @@ import CoreGraphics
 
 // デバイス画面情報から Gemini API パラメータを決定するヘルパー
 enum DisplayHelper {
-    // gemini-3.1-flash-image-preview がサポートする縦長比率と 2K 時のピクセルサイズ
-    // 参考: https://ai.google.dev/gemini-api/docs/image-generation#3.1-flash-image-preview
+    // Nano Banana 2.1 がサポートする縦長比率と 2K 時のピクセルサイズ
+    // 参考: https://ai.google.dev/gemini-api/docs/image-generation
     // ratio label → (w/h 比率, 2K サイズ px)
     private static let supportedPortraitRatios: [(label: String, whRatio: Double)] = [
         ("9:16", 9.0 / 16.0),   // 1536×2752

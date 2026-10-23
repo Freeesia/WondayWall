@@ -353,7 +353,7 @@ private struct InitialSetupContentView: View {
 
                 Toggle("変化がなければスキップ", isOn: $vm.skipIfNoChanges)
                 Toggle("Wi-Fi 接続時のみ生成", isOn: $vm.wifiOnlyGeneration)
-                Toggle("Flex ティアを強制使用", isOn: $vm.forceFlexTier)
+                Toggle("文章生成で Flex ティアを強制使用", isOn: $vm.forceFlexTier)
             }
 
             Text("""

@@ -60,10 +60,9 @@ GenerationCoordinator（OS 全体共有 Mutex で多重実行防止: Local\Wonda
   │   ├─ Google Calendar API → カレンダーイベント
   │   └─ RSS フィード + OGP 解析 → ニューストピック
   ├─ GoogleAiService.GenerateWallpaperAsync()（2 ステップ生成）
-  │   ├─ Step 1: Gemini Flash でテキストプロンプト詳細化（Google Search グラウンディング）
+  │   ├─ Step 1: Gemini 3.5 Flash-Lite でテキストプロンプト詳細化（Google Search グラウンディング、思考レベル high）
   │   │   └─ Flex ティア失敗時は Standard にフォールバック
-  │   └─ Step 2: Gemini Flash Image で画像生成
-  │       └─ Flex ティア失敗時は Standard にフォールバック
+  │   └─ Step 2: Nano Banana 2.1 で画像生成（Flex 非対応のため Standard を使用）
   ├─ WallpaperService.SetWallpaperAsync()
   └─ HistoryService.Append()
 ```
