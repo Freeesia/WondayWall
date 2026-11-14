@@ -404,6 +404,13 @@ class GenerationCoordinator(
             return "現在のスケジュールスロットはすでに処理済みです。"
         }
 
+        val lastGeneratedAtMillis = historyService.getLastSuccessTimeMillis()
+        if (lastGeneratedAtMillis != null &&
+            lastGeneratedAtMillis > Clock.System.now().toEpochMilliseconds() - MINIMUM_SCHEDULED_GENERATION_INTERVAL_MILLIS
+        ) {
+            return "直前の生成から6時間経過していないためスキップしました。"
+        }
+
         // Wi-Fi のみ設定
         if (appConfig.generateOnlyOnWifi && !isWifiConnected()) {
             return "Wi-Fi 接続がないためスキップしました。"
@@ -442,5 +449,6 @@ class GenerationCoordinator(
 
     companion object {
         private const val TAG = "GenerationCoordinator"
+        private const val MINIMUM_SCHEDULED_GENERATION_INTERVAL_MILLIS = 6 * 60 * 60 * 1_000L
     }
 }
