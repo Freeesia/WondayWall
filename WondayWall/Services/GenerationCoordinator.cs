@@ -14,6 +14,7 @@ public class GenerationCoordinator(
 {
     private const string GenerationMutexName = @"Local\WondayWall.Generation";
     private static readonly TimeSpan GenerationMutexWaitInterval = TimeSpan.FromMilliseconds(250);
+    private static readonly TimeSpan MinimumScheduledGenerationInterval = TimeSpan.FromHours(6);
 
     public Task<HistoryItem> RunAsync(bool skipIfNoChanges = false, CancellationToken ct = default)
         => ExecuteWithGenerationMutexAsync(() => RunCoreAsync(GoogleAiServiceTier.Standard, skipIfNoChanges, ct), ct);
@@ -28,9 +29,42 @@ public class GenerationCoordinator(
 
         return ExecuteWithGenerationMutexAsync(async () =>
         {
-            var scheduledSlot = GetPendingScheduledSlot(effectiveNow, historyService.Load(), schedule);
+            var history = historyService.Load();
+            var scheduledSlot = GetPendingScheduledSlot(effectiveNow, history, schedule);
             if (scheduledSlot is null)
                 return null;
+
+            var lastGeneratedAt = history
+                .Where(item => item.IsSuccess && !item.IsSkipped)
+                .Select(item => item.ExecutedAt)
+                .OrderByDescending(executedAt => executedAt)
+                .FirstOrDefault();
+            if (lastGeneratedAt != default
+                && lastGeneratedAt > effectiveNow - MinimumScheduledGenerationInterval)
+            {
+                logger.LogInformation(
+                    "直前の生成 {LastGeneratedAt:yyyy/MM/dd HH:mm} から6時間経過していないため、スケジュール {Schedule} の枠 {ScheduledSlot:yyyy/MM/dd HH:mm} をスキップします。",
+                    lastGeneratedAt,
+                    schedule,
+                    scheduledSlot.Value);
+
+                var skippedItem = new HistoryItem(
+                    ExecutedAt: effectiveNow,
+                    IsSuccess: true,
+                    ServiceTier: GoogleAiServiceTier.Flex,
+                    IsSkipped: true);
+                try
+                {
+                    historyService.Append(skippedItem);
+                }
+                catch (Exception ex)
+                {
+                    // 履歴の保存失敗は生成フロー全体を止めない
+                    logger.LogError(ex, "6時間以内の定期生成スキップ履歴の保存に失敗しました");
+                }
+
+                return skippedItem;
+            }
 
             logger.LogInformation(
                 "スケジュール {Schedule} の枠 {ScheduledSlot:yyyy/MM/dd HH:mm} の壁紙生成を開始します。",

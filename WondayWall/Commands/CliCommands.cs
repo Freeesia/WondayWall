@@ -86,7 +86,7 @@ public class CliCommands(
     private void LogRunResult(HistoryItem result)
     {
         if (result.IsSkipped)
-            logger.LogInformation("Skipped: no changes detected. ({ServiceTier})", result.ServiceTier);
+            logger.LogInformation("Skipped scheduled generation. ({ServiceTier})", result.ServiceTier);
         else if (result.IsSuccess)
             logger.LogInformation("Done. Wallpaper set: {Path} ({ServiceTier})", result.AppliedImagePath, result.ServiceTier);
         else
